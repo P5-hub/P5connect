@@ -11,7 +11,7 @@
     "start": "next start",
     "lint": "eslint",
     "gen-types": "npx supabase gen types typescript --project-id ozqlgctoaktktocqaxai --schema public > ./types/supabase.ts",
-    "prebuild": "npm run gen-types",
+    "prebuild": "echo 'Skip supabase type generation on Vercel'",
     "predev": "npm run gen-types"
 
   },
