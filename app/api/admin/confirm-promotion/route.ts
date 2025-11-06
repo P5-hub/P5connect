@@ -1,0 +1,70 @@
+﻿import { NextResponse } from "next/server";
+import { getSupabaseServer } from "@/lib/supabaseServer"; // ✅ ersetzt await getSupabaseServer()
+import { sendMail } from "@/lib/mailer";
+import { assertAdminOrThrow } from "@/lib/adminGuard";
+
+export async function POST(req: Request) {
+  // ðŸ”’ Admin prüfen
+  try {
+    await assertAdminOrThrow();
+  } catch {
+    return NextResponse.json({ error: "forbidden" }, { status: 403 });
+  }
+
+  const supabase = getSupabaseServer();
+  const { claimId } = await req.json();
+
+  if (!claimId) {
+    return NextResponse.json({ error: "claimId fehlt" }, { status: 400 });
+  }
+
+  // @ts-ignore – Typisierung für Views in Supabase ist fehlerhaft
+  const { data, error } = await supabase
+    .from("promotion_claims_view")
+    .select(`
+      *,
+      dealers ( email, mail_kam, distributor_id ),
+      distributors ( email )
+    `)
+    .eq("id", claimId)
+    .single();
+
+  const row: any = data;
+  if (error || !row) {
+    console.error("❌ Fehler beim Laden der Promotion:", error);
+    return NextResponse.json({ error: "not_found" }, { status: 404 });
+  }
+
+  // ðŸ”¹ Empfänger bestimmen
+  const recipients = [
+    row.dealers?.email,       // Händler
+    row.dealers?.mail_kam,    // KAM
+    row.distributors?.email,  // Distributor
+  ].filter(Boolean);
+
+  if (recipients.length === 0) {
+    return NextResponse.json(
+      { error: "Keine gültigen E-Mail-Empfänger gefunden" },
+      { status: 400 }
+    );
+  }
+
+  // ðŸ”¹ Mailinhalt aufbauen
+  const subject = `✅ Promotion bestätigt – ${row.promotion_name || "Promotion"}`;
+  const html = `
+    <div style="font-family: Arial, sans-serif; color: #333;">
+      <p>Guten Tag ${row.dealer_name},</p>
+      <p>Ihre Promotion wurde bestätigt.</p>
+      <p><b>Promotion:</b> ${row.promotion_name || "-"}</p>
+      <p><b>Betrag:</b> ${row.promotion_amount || 0} CHF</p>
+      <p style="margin-top: 15px;">Freundliche Grüsse,<br/>Ihr P5connect-Team</p>
+    </div>
+  `;
+
+  // ðŸ”¹ Mail senden
+  const result = await sendMail({ to: recipients, subject, html });
+
+  return NextResponse.json(result);
+}
+
+

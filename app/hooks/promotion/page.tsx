@@ -1,0 +1,268 @@
+﻿"use client";
+
+import { useState, useEffect } from "react";
+import { createClient } from "@/utils/supabase/client";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useTheme } from "@/lib/theme/ThemeContext";
+import { motion, AnimatePresence } from "framer-motion";
+import { Upload } from "lucide-react";
+
+type Product = {
+  product_id: number;
+  product_name: string;
+  ean: string;
+  promotion_type?: string;
+  promotion_name?: string;
+  promotion_description?: string;
+  promotion_amount?: number;
+  promotion_start_date?: string;
+  promotion_end_date?: string;
+};
+
+export default function PromotionForm() {
+  const supabase = createClient();
+  const theme = useTheme();
+
+  const [products, setProducts] = useState<Product[]>([]);
+  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
+  const [amount, setAmount] = useState<number | null>(null);
+  const [file, setFile] = useState<File | null>(null);
+  const [comment, setComment] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [success, setSuccess] = useState(false);
+
+  // ðŸ”¹ Promotions laden
+  useEffect(() => {
+    const fetchProducts = async () => {
+      const { data, error } = await supabase
+        .from("products")
+        .select(
+          "product_id, product_name, ean, promotion_type, promotion_name, promotion_description, promotion_amount, promotion_start_date, promotion_end_date"
+        )
+        .eq("active_promotion", true)
+        .order("product_name", { ascending: true });
+
+      if (!error && data) setProducts(data);
+    };
+    fetchProducts();
+  }, [supabase]);
+
+  // ðŸ”¹ Datei-Upload inkl. DB-Update
+  const handleFileUpload = async (promotionClaimId: number) => {
+    if (!file) return null;
+
+    const fileExt = file.name.split(".").pop();
+    const filePath = `${promotionClaimId}/${Date.now()}.${fileExt}`;
+
+    // Upload in Supabase Storage
+    const { error: uploadError } = await supabase.storage
+      .from("promotion-documents")
+      .upload(filePath, file);
+
+    if (uploadError) throw uploadError;
+
+    // Pfad + Datum in DB speichern
+    const { error: updateError } = await supabase
+      .from("promotion_claims")
+      .update({
+        document_path: filePath,
+        document_uploaded_at: new Date().toISOString(),
+      })
+      .eq("id", promotionClaimId);
+
+    if (updateError) throw updateError;
+
+    return filePath;
+  };
+
+  // ðŸ”¹ Formular absenden
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedProduct) return;
+
+    setSubmitting(true);
+    setSuccess(false);
+
+    try {
+      // 1ï¸âƒ£ Claim in DB einfügen
+      const { data, error } = await supabase
+        .from("promotion_claims")
+        .insert({
+          product_id: selectedProduct.product_id,
+          promotion_type: selectedProduct.promotion_type,
+          promotion_name: selectedProduct.promotion_name,
+          promotion_amount: amount ?? selectedProduct.promotion_amount ?? 0,
+          comment,
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      // 2ï¸âƒ£ Datei (optional) hochladen und mit Claim verknüpfen
+      if (file) await handleFileUpload(data.id);
+
+      setSuccess(true);
+      setAmount(null);
+      setFile(null);
+      setComment("");
+      setSelectedProduct(null);
+    } catch (err) {
+      console.error("❌ Fehler beim Absenden:", err);
+    } finally {
+      setSubmitting(false);
+      setTimeout(() => setSuccess(false), 3000);
+    }
+  };
+
+  return (
+    <div className="max-w-2xl mx-auto p-6">
+      <Card
+        className={`border ${theme.border} shadow-sm rounded-2xl bg-white transition-all duration-300`}
+      >
+        <CardHeader className="border-b pb-3">
+          <CardTitle
+            className={`text-lg font-semibold ${theme.color} flex items-center gap-2`}
+          >
+            ðŸŽ¯ Promotion-Formular
+          </CardTitle>
+          <p className="text-sm text-gray-500">
+            Erfassen Sie eine laufende Aktion, Sofortrabatt oder Trade-in.
+          </p>
+        </CardHeader>
+
+        <CardContent className="pt-4">
+          <form onSubmit={handleSubmit} className="space-y-4">
+            {/* Produktwahl */}
+            <div>
+              <label className="block text-sm text-gray-600 mb-1">
+                Produkt / Modell
+              </label>
+              <select
+                value={selectedProduct?.product_id ?? ""}
+                onChange={(e) => {
+                  const id = Number(e.target.value);
+                  const found = products.find((p) => p.product_id === id) || null;
+                  setSelectedProduct(found);
+                  setAmount(found?.promotion_amount ?? null);
+                }}
+                className={`w-full border rounded-md p-2 text-sm ${theme.border} focus:ring-2 ${theme.accent}`}
+              >
+                <option value="">-- Bitte wählen --</option>
+                {products.map((p) => (
+                  <option key={p.product_id} value={p.product_id}>
+                    {p.product_name} ({p.ean})
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Promotion-Infos */}
+            {selectedProduct && (
+              <motion.div
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.3 }}
+                className={`p-3 rounded-lg ${theme.bgLight} border ${theme.border}`}
+              >
+                <p className="text-sm font-medium">
+                  {selectedProduct.promotion_name}
+                </p>
+                {selectedProduct.promotion_description && (
+                  <p className="text-xs text-gray-600">
+                    {selectedProduct.promotion_description}
+                  </p>
+                )}
+                {selectedProduct.promotion_start_date && (
+                  <p className="text-xs text-gray-500 mt-1">
+                    {selectedProduct.promotion_start_date} –{" "}
+                    {selectedProduct.promotion_end_date}
+                  </p>
+                )}
+              </motion.div>
+            )}
+
+            {/* Betrag */}
+            {selectedProduct && (
+              <div>
+                <label className="block text-sm text-gray-600 mb-1">
+                  Promotion-Betrag (CHF)
+                </label>
+                <Input
+                  type="number"
+                  value={amount ?? ""}
+                  onChange={(e) => setAmount(Number(e.target.value) || 0)}
+                  className="text-sm font-medium text-center"
+                />
+              </div>
+            )}
+
+            {/* Datei-Upload */}
+            <div>
+              <label className="block text-sm text-gray-600 mb-1">
+                Beleg / Nachweis (optional)
+              </label>
+              <div
+                className={`border-dashed border-2 ${theme.border} rounded-md p-3 text-sm text-gray-500 flex flex-col items-center justify-center`}
+              >
+                <Upload className="w-5 h-5 mb-1 text-gray-400" />
+                <input
+                  type="file"
+                  accept="image/*,application/pdf"
+                  onChange={(e) =>
+                    setFile(e.target.files ? e.target.files[0] : null)
+                  }
+                />
+                {file && (
+                  <p className="text-xs mt-1 text-gray-600">{file.name}</p>
+                )}
+              </div>
+            </div>
+
+            {/* Kommentar */}
+            <div>
+              <label className="block text-sm text-gray-600 mb-1">
+                Kommentar (optional)
+              </label>
+              <textarea
+                value={comment}
+                onChange={(e) => setComment(e.target.value)}
+                rows={3}
+                className={`w-full rounded-md border p-2 text-sm ${theme.border} focus:ring-2 ${theme.accent}`}
+              />
+            </div>
+
+            {/* Senden */}
+            <div className="pt-2 flex justify-end">
+              <Button
+                type="submit"
+                disabled={!selectedProduct || submitting}
+                className={`px-6 py-2 rounded-lg text-white text-sm font-medium bg-gradient-to-r from-pink-500 to-pink-600 hover:from-pink-600 hover:to-pink-700 shadow-sm transition-all duration-200`}
+              >
+                {submitting ? "Wird gesendet…" : "Promotion einreichen"}
+              </Button>
+            </div>
+
+            {/* Erfolgsmeldung */}
+            <AnimatePresence>
+              {success && (
+                <motion.div
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -10 }}
+                  transition={{ duration: 0.3 }}
+                  className="text-green-600 text-center text-sm font-medium mt-2"
+                >
+                  ✅ Promotion erfolgreich eingereicht!
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </form>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+

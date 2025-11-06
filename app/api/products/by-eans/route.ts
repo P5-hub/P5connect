@@ -1,0 +1,38 @@
+﻿import { NextResponse } from "next/server";
+import { getSupabaseServer } from "@/utils/supabase/server";
+
+export async function POST(req: Request) {
+  const supabase = await getSupabaseServer();
+
+  try {
+    const { eans } = await req.json();
+
+    if (!eans || !Array.isArray(eans) || eans.length === 0) {
+      return NextResponse.json([], { status: 200 });
+    }
+
+    // ðŸ”¹ Produkte aus der View laden
+    const { data, error } = await supabase
+      .from("product_view")
+      .select("ean, product_name")
+      .in("ean", eans);
+
+    if (error) {
+      console.error("❌ Fehler beim Abrufen der Produkte:", error);
+      return NextResponse.json(
+        { error: "Fehler beim Laden der Produktnamen" },
+        { status: 500 }
+      );
+    }
+
+    return NextResponse.json(data || []);
+  } catch (err: any) {
+    console.error("❌ API Fehler:", err);
+    return NextResponse.json(
+      { error: "Serverfehler beim Laden der Produkte" },
+      { status: 500 }
+    );
+  }
+}
+
+

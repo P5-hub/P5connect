@@ -1,0 +1,39 @@
+﻿import { NextResponse } from "next/server";
+import { getSupabaseServer } from "@/lib/supabaseServer"; // ðŸ‘ˆ korrekt!
+import { sendMail } from "@/lib/mailer";
+import { assertAdminOrThrow } from "@/lib/adminGuard";
+
+export async function POST(req: Request) {
+  try {
+    await assertAdminOrThrow();
+  } catch {
+    return NextResponse.json({ error: "forbidden" }, { status: 403 });
+  }
+
+  const supabase = getSupabaseServer();
+  const { claimId } = await req.json();
+
+  // ðŸ”¹ Support-Claim laden
+  const { data, error } = await supabase
+    // @ts-ignore – Supabase Typisierung buggt hier
+    .from("support_claims_view")
+    .select("*")
+    .eq("claim_id", claimId)
+    .single();
+
+  const row: any = data;
+  if (error || !row) return NextResponse.json({ error: "not_found" }, { status: 404 });
+
+  const recipients = [row.mail_haendler, row.mail_kam, row.mail_bg].filter(Boolean);
+  const subject = `âœ… Support bestätigt – ${row.dealer_name}`;
+  const html = `
+    <p>Guten Tag ${row.dealer_name},</p>
+    <p>Ihr Support-Antrag wurde bestätigt.</p>
+    <p><b>Positionen:</b> ${row.product_list || "-"} </p>
+    <p>Freundliche Grüsse<br/>Ihr P5-Team</p>
+  `;
+
+  const result = await sendMail({ to: recipients, subject, html });
+  return NextResponse.json(result);
+}
+

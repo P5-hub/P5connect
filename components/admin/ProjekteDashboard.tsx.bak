@@ -1,0 +1,298 @@
+﻿"use client";
+
+import { useEffect, useState } from "react";
+import { createClient } from "@/utils/supabase/client";
+import { Button } from "@/components/ui/button";
+import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
+import { motion, AnimatePresence } from "framer-motion";
+import { Check, X, Mail, Search, FolderKanban } from "lucide-react";
+import { sendProjectMail } from "@/lib/mailer";
+
+export default function ProjekteDashboard() {
+  const supabase = createClient();
+
+  const [projekte, setProjekte] = useState<any[]>([]);
+  const [statusFilter, setStatusFilter] = useState("pending");
+  const [loading, setLoading] = useState(false);
+  const [search, setSearch] = useState("");
+
+  useEffect(() => {
+    fetchProjekte();
+  }, [statusFilter, search]);
+
+  // ðŸ”¹ Projekte laden
+  const fetchProjekte = async () => {
+    setLoading(true);
+
+    const { data, error } = await supabase
+      .from("view_project_overview")
+      .select("*")
+      .order("project_created", { ascending: false });
+
+    if (error) {
+      console.error("âŒ Fehler beim Laden der Projekte:", error.message);
+      setLoading(false);
+      return;
+    }
+
+    if (!data) {
+      setProjekte([]);
+      setLoading(false);
+      return;
+    }
+
+    // ðŸ§© Doppelte Projekte entfernen (pro project_id nur 1 Eintrag)
+    const uniqueData = Array.from(
+      new Map(data.map((p) => [p.project_id, p])).values()
+    );
+
+    // ðŸ§© Filter anwenden
+    const filtered =
+      statusFilter === "alle"
+        ? uniqueData
+        : uniqueData.filter((p) =>
+            statusFilter === "pending"
+              ? !p.status || p.status === "pending"
+              : p.status === statusFilter
+          );
+
+    // ðŸ§© Suche anwenden
+    const searchFiltered = filtered.filter((p) =>
+      `${p.project_name} ${p.product_name} ${p.dealer_name} ${p.dealer_email}`
+        .toLowerCase()
+        .includes(search.toLowerCase())
+    );
+
+    setProjekte(searchFiltered);
+    setLoading(false);
+  };
+
+  // ðŸ”¹ Status updaten oder neue Submission anlegen, falls keine existiert
+  const updateStatus = async (
+    submissionId: any,
+    status: string,
+    projekt?: any
+  ) => {
+    let numericId =
+      typeof submissionId === "string" ? parseInt(submissionId, 10) : submissionId;
+
+    // Falls keine Submission existiert â†’ neue erstellen
+    if (!numericId && projekt?.project_id) {
+      console.log(
+        `â„¹ï¸ Keine Submission vorhanden â†’ neue für Projekt ${projekt.project_id} anlegen`
+      );
+      const { data, error } = await supabase
+        .from("submissions")
+        .insert([
+          {
+            dealer_id: projekt.dealer_id,
+            project_id: projekt.project_id,
+            typ: "projekt",
+            status,
+            created_at: new Date().toISOString(),
+          },
+        ])
+        .select("submission_id")
+        .single();
+
+      if (error) {
+        console.error("âŒ Fehler beim Erstellen der Submission:", error.message);
+        return;
+      }
+
+      console.log(`âœ… Neue Submission angelegt (ID ${data.submission_id})`);
+      numericId = data.submission_id;
+    }
+
+    if (!numericId || isNaN(numericId)) {
+      console.error("âŒ Ungültige oder fehlende submission_id:", submissionId);
+      return;
+    }
+
+    console.log(`ðŸ”¹ Update submission_id=${numericId}, status=${status}`);
+
+    const { error } = await supabase
+      .from("submissions")
+      .update({ status, updated_at: new Date().toISOString() })
+      .eq("submission_id", numericId)
+      .eq("typ", "projekt");
+
+    if (error) {
+      console.error("âŒ Fehler beim Aktualisieren des Status:", error.message);
+    } else {
+      console.log(`âœ… Projekt ${numericId} wurde auf "${status}" gesetzt.`);
+      await fetchProjekte(); // Ansicht neu laden
+    }
+  };
+
+// ðŸ”¹ Mail + Status kombinieren (robust mit mehreren Empfängern)
+const handleMailConfirm = async (
+  projekt: any,
+  status: "approved" | "rejected" = "approved"
+) => {
+  try {
+    // Empfänger robust sammeln (alles optional in der View)
+    const mailRes = await sendProjectMail({
+      toDealer: projekt.dealer_email,
+      toKAM: projekt.mail_kam,
+      // optional weitere Felder, wenn vorhanden:
+      // toKAM2: projekt.mail_kam2,
+      // toBG: projekt.mail_bg,
+      // toBG2: projekt.mail_bg2,
+      toDistributor: projekt.distributor_email,
+      // toDistributor2: projekt.distributor_email2,
+
+      projectName: projekt.project_name,
+      productName: projekt.product_name,
+      quantity: projekt.quantity,
+      price: projekt.price,
+      customer: projekt.customer,
+      startDate: projekt.start_date,
+      endDate: projekt.end_date,
+      status,
+    });
+
+    if (!(mailRes as any)?.ok) {
+      console.error("âŒ Mailversand fehlgeschlagen:", mailRes);
+      // Optional: UI-Toast einbauen
+      return;
+    }
+
+    // Nach erfolgreichem Mailversand Status setzen
+    await updateStatus(projekt.submission_id, status, projekt);
+  } catch (err) {
+    console.error("âŒ Unerwarteter Fehler beim Mailversand:", err);
+  }
+};
+
+
+  return (
+    <div className="p-6 space-y-6">
+      <Card className="border border-gray-200 rounded-2xl shadow-sm">
+        <CardHeader className="pb-3 border-b">
+          <CardTitle className="flex items-center gap-2">
+            <FolderKanban className="w-5 h-5 text-purple-600" strokeWidth={1.5} />
+            <span className="text-lg font-semibold text-gray-800">
+              Projektanfragen verwalten
+            </span>
+          </CardTitle>
+        </CardHeader>
+
+        <CardContent className="pt-6">
+          {/* ðŸ” Suche + Filter */}
+          <div className="flex justify-between items-center mb-4">
+            <div className="relative w-full max-w-sm">
+              <Search className="absolute left-3 top-2.5 w-4 h-4 text-gray-400" />
+              <input
+                type="text"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Suche Projekt, Händler oder Produkt..."
+                className="pl-9 pr-3 py-2 w-full text-sm border border-gray-300 rounded-full focus:ring-2 focus:ring-purple-400 outline-none"
+              />
+            </div>
+
+            <div className="flex gap-2 text-sm ml-4">
+              {[
+                { key: "pending", label: "Offen" },
+                { key: "approved", label: "Bestätigt" },
+                { key: "rejected", label: "Abgelehnt" },
+                { key: "alle", label: "Alle" },
+              ].map((f) => (
+                <Button
+                  key={f.key}
+                  size="sm"
+                  variant={statusFilter === f.key ? "default" : "outline"}
+                  className={`rounded-full ${
+                    statusFilter === f.key
+                      ? "bg-purple-500 hover:bg-purple-600 text-white"
+                      : "text-gray-600 border-gray-300 hover:bg-gray-50"
+                  }`}
+                  onClick={() => setStatusFilter(f.key)}
+                >
+                  {f.label}
+                </Button>
+              ))}
+            </div>
+          </div>
+
+          {/* ðŸ§© Projekt-Cards */}
+          {loading ? (
+            <p className="text-sm text-gray-500">Lade Projekte…</p>
+          ) : projekte.length === 0 ? (
+            <p className="text-sm text-gray-500">
+              Keine Projekte für diesen Status gefunden.
+            </p>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+              <AnimatePresence>
+                {projekte.map((p) => (
+                  <motion.div
+                    key={`${p.project_id}-${p.submission_id || "neu"}`}
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -10 }}
+                    transition={{ duration: 0.25 }}
+                    className="flex flex-col justify-between p-5 border border-gray-200 rounded-xl bg-white shadow-sm hover:shadow-md transition-all"
+                  >
+                    {/* Header */}
+                    <div>
+                      <h3 className="font-semibold text-sm text-gray-900">
+                        {p.project_name || "Unbenanntes Projekt"}
+                      </h3>
+                      <p className="text-xs text-gray-500">{p.dealer_name}</p>
+                      <p className="text-xs text-gray-400">
+                        {p.start_date} – {p.end_date}
+                      </p>
+                    </div>
+
+                    {/* Body */}
+                    <div className="text-xs text-gray-700 space-y-1 my-3">
+                      <p><strong>Produkt:</strong> {p.product_name}</p>
+                      <p><strong>EAN:</strong> {p.ean}</p>
+                      <p><strong>Kunde:</strong> {p.customer}</p>
+                      <p><strong>Menge:</strong> {p.quantity}</p>
+                      <p><strong>Preis:</strong> {p.price} CHF</p>
+                      <p><strong>Händler:</strong> {p.dealer_email}</p>
+                      <p><strong>Kommentar:</strong> {p.comment || "–"}</p>
+                    </div>
+
+                    {/* Footer */}
+                    <div className="flex justify-end gap-2 border-t pt-3 mt-auto">
+                      <Button
+                        size="sm"
+                        onClick={() => updateStatus(p.submission_id, "approved", p)}
+                        className="bg-green-500 hover:bg-green-600 text-white text-xs rounded-full"
+                      >
+                        <Check className="w-4 h-4" />
+                      </Button>
+
+                      <Button
+                        size="sm"
+                        onClick={() => handleMailConfirm(p)}
+                        className="bg-blue-500 hover:bg-blue-600 text-white text-xs rounded-full"
+                      >
+                        <Mail className="w-4 h-4" />
+                      </Button>
+
+                      <Button
+                        size="sm"
+                        variant="destructive"
+                        onClick={() => updateStatus(p.submission_id, "rejected", p)}
+                        className="text-xs rounded-full"
+                      >
+                        <X className="w-4 h-4" />
+                      </Button>
+                    </div>
+                  </motion.div>
+                ))}
+              </AnimatePresence>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+

@@ -1,0 +1,310 @@
+﻿"use client";
+
+import { useEffect, useState } from "react";
+import { createClient } from "@/utils/supabase/client";
+import { Button } from "@/components/ui/button";
+import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
+import { useTheme } from "@/lib/theme/ThemeContext";
+import { motion, AnimatePresence } from "framer-motion";
+import { Download, CheckCircle, XCircle } from "lucide-react";
+
+export default function PromotionDashboard() {
+  const supabase = createClient();
+  const theme = useTheme();
+
+  const [claims, setClaims] = useState<any[]>([]);
+  const [statusFilter, setStatusFilter] = useState("offen");
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    fetchClaims();
+  }, [statusFilter]);
+
+  // ðŸ”¹ Daten abrufen (Promotion + Cashback)
+  const fetchClaims = async () => {
+    setLoading(true);
+
+    
+    // --- Promotion Claims ---
+    const { data: promotionData, error: promotionError } = await supabase
+      .from("promotion_claims")
+      .select(`
+        claim_id,
+        dealer_id,
+        product_id,
+        promotion_name,
+        promotion_typ,
+        rabatt_betrag,
+        comment,
+        status,
+        created_at,
+        document_path,
+        dealers:dealer_id (
+          dealer_id,
+          name,
+          email
+        ),
+        products:product_id (
+          product_id,
+          product_name,
+          ean
+        )
+      `)
+      .order("created_at", { ascending: false });
+
+    if (promotionError)
+      console.error("❌ Fehler bei Promotionen:", promotionError.message);
+
+    // --- Cashback Claims ---
+    const { data: cashbackData, error: cashbackError } = await supabase
+      .from("cashback_claims")
+      .select(`
+        claim_id,
+        submission_id,
+        cashback_type,
+        cashback_betrag,
+        status,
+        created_at,
+        document_path,
+        submission:submission_id (
+          dealer_id,
+          dealer:dealer_id (
+            dealer_id,
+            name,
+            email
+          )
+        )
+      `)
+      .order("created_at", { ascending: false });
+
+    if (cashbackError)
+      console.error("❌ Fehler bei Cashback:", cashbackError.message);
+
+    // --- Promotion Mapping ---
+    const promo = (promotionData || []).map((p: any) => ({
+      id: p.claim_id,
+      dealer_name: p.dealers?.[0]?.name ?? p.dealers?.name ?? "Unbekannt",
+      dealer_email: p.dealers?.[0]?.email ?? p.dealers?.email ?? "-",
+      product_name:
+        p.products?.[0]?.product_name ?? p.products?.product_name ?? "Unbekanntes Produkt",
+      ean: p.products?.[0]?.ean ?? p.products?.ean ?? "-",
+      type: p.promotion_name ?? p.promotion_typ ?? "Promotion",
+      amount: p.rabatt_betrag ?? 0,
+      comment: p.comment,
+      status: p.status,
+      created_at: p.created_at,
+      document_path: p.document_path,
+      category: "Promotion",
+    }));
+
+    // --- Cashback Mapping ---
+    const cashback = (cashbackData || []).map((c: any) => ({
+      id: c.claim_id,
+      dealer_name:
+        c.submission?.[0]?.dealer?.[0]?.name ??
+        c.submission?.dealer?.name ??
+        "Unbekannt",
+      dealer_email:
+        c.submission?.[0]?.dealer?.[0]?.email ??
+        c.submission?.dealer?.email ??
+        "-",
+      product_name: "-",
+      ean: "-",
+      type: c.cashback_type ?? "Cashback",
+      amount: c.cashback_betrag ?? 0,
+      comment: null,
+      status: c.status,
+      created_at: c.created_at,
+      document_path: c.document_path,
+      category: "Cashback",
+    }));
+
+    // --- Kombinieren + Sortieren ---
+    const all = [...promo, ...cashback].sort(
+      (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+    );
+
+    // --- Filtern ---
+    const filtered =
+      statusFilter === "alle"
+        ? all
+        : all.filter(
+            (p) =>
+              (statusFilter === "offen" &&
+                (!p.status || p.status === "pending")) ||
+              (statusFilter === "bestätigt" &&
+                ["confirmed", "approved"].includes(p.status)) ||
+              (statusFilter === "abgelehnt" &&
+                ["rejected", "declined"].includes(p.status))
+          );
+
+    setClaims(filtered);
+    setLoading(false);
+  };
+
+    // ðŸ”¹ Datei-Link generieren
+    const getFileUrl = (path: string | null) => {
+      if (!path) return null;
+      const { data } = supabase.storage
+        .from("promotion-documents")
+        .getPublicUrl(path);
+      return data?.publicUrl ?? null;
+    };
+
+    // ðŸ”¹ Status aktualisieren
+    const updateStatus = async (claim: any, newStatus: string) => {
+      const table =
+        claim.category === "Cashback" ? "cashback_claims" : "promotion_claims";
+
+      const { error } = await supabase
+        .from(table)
+        .update({ status: newStatus })
+        .eq("claim_id", claim.id);
+
+      if (error) {
+        console.error("Fehler beim Aktualisieren:", error.message);
+      } else {
+        fetchClaims();
+      }
+    };
+
+  return (
+    <div className="p-4">
+      <Card className={`border ${theme.border} shadow-sm rounded-2xl`}>
+        <CardHeader className="border-b pb-3">
+          <CardTitle
+            className={`text-lg font-semibold flex items-center justify-between ${theme.color}`}
+          >
+            ðŸŽ Promotion- & Cashback-Anträge
+            <div className="flex gap-2 text-sm">
+              {["offen", "bestätigt", "abgelehnt", "alle"].map((f) => (
+                <Button
+                  key={f}
+                  size="sm"
+                  variant={statusFilter === f ? "default" : "outline"}
+                  className={`${
+                    statusFilter === f
+                      ? "bg-pink-500 hover:bg-pink-600 text-white"
+                      : "text-gray-600 border-gray-300"
+                  }`}
+                  onClick={() => setStatusFilter(f)}
+                >
+                  {f.charAt(0).toUpperCase() + f.slice(1)}
+                </Button>
+              ))}
+            </div>
+          </CardTitle>
+        </CardHeader>
+
+        <CardContent className="pt-4">
+          {loading ? (
+            <p className="text-sm text-gray-500">Lade Anträge…</p>
+          ) : claims.length === 0 ? (
+            <p className="text-sm text-gray-500">
+              Keine Anträge für diesen Status gefunden.
+            </p>
+          ) : (
+            <div className="space-y-4">
+              <AnimatePresence>
+                {claims.map((p) => {
+                  const fileUrl = getFileUrl(p.document_path);
+                  return (
+                    <motion.div
+                      key={`${p.category}-${p.id}`}
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -10 }}
+                      transition={{ duration: 0.25 }}
+                      className="p-4 border rounded-xl bg-white hover:shadow-sm transition-all"
+                    >
+                      <div className="flex justify-between items-start">
+                        <div>
+                          <p className="font-semibold text-sm text-gray-900">
+                            {p.product_name}
+                          </p>
+                          <p className="text-xs text-gray-500">
+                            EAN: {p.ean ?? "-"}
+                          </p>
+                          <p className="text-xs text-gray-500 mt-1">
+                            Händler: {p.dealer_name}
+                          </p>
+                          <p className="text-xs text-gray-500 mt-1">
+                            {new Date(p.created_at).toLocaleDateString("de-CH")}
+                          </p>
+                          {p.comment && (
+                            <p className="text-xs text-gray-600 mt-2 italic">
+                              {p.comment}
+                            </p>
+                          )}
+                        </div>
+
+                        <div className="text-right">
+                          <p className="text-sm font-medium text-pink-600">
+                            {p.amount?.toFixed(2)} CHF
+                          </p>
+                          <p className="text-xs text-gray-500">
+                            {p.type} ({p.category})
+                          </p>
+                          {fileUrl ? (
+                            <a
+                              href={fileUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-xs text-blue-600 hover:underline flex items-center justify-end gap-1 mt-1"
+                            >
+                              <Download className="w-4 h-4" />
+                              Beleg anzeigen
+                            </a>
+                          ) : (
+                            <p className="text-xs text-gray-400 mt-1">
+                              Kein Beleg
+                            </p>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* ðŸ”¹ Aktionen */}
+                      {!p.status || p.status === "pending" ? (
+                        <div className="flex justify-end gap-2 mt-3">
+                          <Button
+                            size="sm"
+                            onClick={() => updateStatus(p, "approved")}
+                            className="bg-green-500 hover:bg-green-600 text-white flex items-center gap-1"
+                          >
+                            <CheckCircle className="w-4 h-4" />
+                            Bestätigen
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="destructive"
+                            onClick={() => updateStatus(p, "rejected")}
+                            className="flex items-center gap-1"
+                          >
+                            <XCircle className="w-4 h-4" />
+                            Ablehnen
+                          </Button>
+                        </div>
+                      ) : ["approved"].includes(p.status) ? (
+                        <p className="text-green-600 text-xs font-semibold mt-3 flex items-center gap-1">
+                          <CheckCircle className="w-4 h-4" />
+                          Bestätigt
+                        </p>
+                      ) : ["rejected", "declined"].includes(p.status) ? (
+                        <p className="text-red-600 text-xs font-semibold mt-3 flex items-center gap-1">
+                          <XCircle className="w-4 h-4" />
+                          Abgelehnt
+                        </p>
+                      ) : null}
+                    </motion.div>
+                  );
+                })}
+              </AnimatePresence>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+

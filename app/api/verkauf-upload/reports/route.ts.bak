@@ -1,0 +1,75 @@
+﻿import { NextResponse } from "next/server";
+import { getSupabaseServer } from "@/utils/supabase/server";
+import { cookies } from "next/headers";
+import { Parser } from "json2csv";
+
+export async function GET(req: Request) {
+  // ðŸ”§ Wichtig: cookies() asynchron abrufen
+  const cookieStore = cookies();      // nur falls du es anderweitig brauchst
+  const supabase = await getSupabaseServer();
+
+  const { searchParams } = new URL(req.url);
+  const format = searchParams.get("format") || "json";
+
+  // ðŸ”¹ View-Daten abrufen
+  const { data, error } = await supabase
+    .from("verkaufsreport_view")
+    .select("*")
+    .order("gesamtumsatz", { ascending: false });
+
+  if (error) {
+    console.error("âŒ Fehler beim Laden der Verkaufsreports:", error);
+    return NextResponse.json(
+      { error: "Fehler beim Laden der Daten." },
+      { status: 500 }
+    );
+  }
+
+  if (!data || data.length === 0) {
+    return NextResponse.json({ message: "Keine Daten vorhanden." });
+  }
+
+  // âœ… CSV-Export
+  if (format === "csv") {
+    try {
+      const fields = [
+        "dealer_id",
+        "haendlername",
+        "store_name",
+        "city",
+        "plz",
+        "kam_name",
+        "anzahl_meldungen",
+        "total_stueck",
+        "sony_umsatz",
+        "avg_sony_share",
+        "gesamtumsatz",
+        "sony_umsatzanteil_prozent",
+        "letzter_verkauf",
+      ];
+
+      const parser = new Parser({ fields, delimiter: ";" });
+      const csv = parser.parse(data);
+
+      return new NextResponse(csv, {
+        status: 200,
+        headers: {
+          "Content-Type": "text/csv; charset=utf-8",
+          "Content-Disposition":
+            "attachment; filename=verkaufsreport.csv",
+        },
+      });
+    } catch (err) {
+      console.error("âŒ CSV-Fehler:", err);
+      return NextResponse.json(
+        { error: "Fehler beim Erstellen der CSV-Datei." },
+        { status: 500 }
+      );
+    }
+  }
+
+  // âœ… Standard: JSON-Antwort
+  return NextResponse.json(data, { status: 200 });
+}
+
+
