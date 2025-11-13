@@ -16,25 +16,15 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
-/**
- * Erwartet, dass ein Produkt optional ein Feld `distri` (CSV, z. B. "ep,alltron")
- * enthält, wenn es eine Spezialdistribution hat.
- *
- * Beim Hinzufügen:
- * - Hat das Produkt allowedDistis (Spezialdistribution) → es wird `overrideDistributor` gesetzt.
- * - Sonst keine Spezialdistribution → kein override; Cart nimmt den gewählten Haupt-Distributor.
- */
-
 export default function ProductCard({
   product,
   onAddToCart,
 }: {
-  product: Product & { distri?: string | null }; // optional CSV Codes
+  product: Product & { distri?: string | null };
   onAddToCart: (item: any) => void;
 }) {
   const [quantity, setQuantity] = useState(1);
 
-  // ---- Preis-State (Number) + Anzeige-State (String, für 2 Nachkommastellen) ----
   const initialBestPrice =
     typeof product.dealer_invoice_price === "number"
       ? product.dealer_invoice_price
@@ -43,20 +33,17 @@ export default function ProductCard({
   const [bestPrice, setBestPrice] = useState<number>(initialBestPrice);
   const [priceInput, setPriceInput] = useState<string>(to2(initialBestPrice));
 
-  // falls das Produkt wechselt -> States zurücksetzen
   useEffect(() => {
     setBestPrice(initialBestPrice);
     setPriceInput(to2(initialBestPrice));
-  }, [product?.product_id]); // product_id als stabiler Schlüssel
+  }, [product?.product_id]);
 
-  // Anzeige immer syncen, wenn bestPrice programmatisch geändert wurde
   useEffect(() => {
     setPriceInput(to2(bestPrice));
   }, [bestPrice]);
 
   const [added, setAdded] = useState(false);
 
-  // Spezialdistribution (Liste der erlaubten Codes)
   const allowedDistis = useMemo(() => {
     const raw = (product as any).distri as string | undefined;
     if (!raw) return [] as string[];
@@ -66,7 +53,6 @@ export default function ProductCard({
       .filter(Boolean);
   }, [product]);
 
-  // Vorwahl für Spezialdistribution: erster erlaubter, sonst leer
   const [selectedDisti, setSelectedDisti] = useState<string>(
     allowedDistis[0] ?? ""
   );
@@ -75,13 +61,13 @@ export default function ProductCard({
     setSelectedDisti(allowedDistis[0] ?? "");
   }, [allowedDistis]);
 
-  // Marktpreise
-  const digitec = useMarketPrice("digitec", (product as any).digitec_id);
-  const media = useMarketPrice("mediamarkt", (product as any).mediamarkt_id);
-  const inter = useMarketPrice("interdiscount", (product as any).interdiscount_id);
-  const fnac = useMarketPrice("fnac", (product as any).fnac_id);
-  const brack = useMarketPrice("brack" as any, (product as any).brack_id);
-  const fust = useMarketPrice("fust", (product as any).fust_id);
+  // ✅ NEUE Version – MarketPrice immer über EAN abfragen
+  const digitec = useMarketPrice("digitec", product.ean);
+  const media = useMarketPrice("mediamarkt", product.ean);
+  const inter = useMarketPrice("interdiscount", product.ean);
+  const fnac = useMarketPrice("fnac", product.ean);
+  const brack = useMarketPrice("brack", product.ean);
+  const fust = useMarketPrice("fust", product.ean);
 
   const retailPrice =
     typeof product.retail_price === "number" ? product.retail_price : null;
@@ -112,7 +98,7 @@ export default function ProductCard({
     setTimeout(() => setAdded(false), 1800);
   };
 
-  // Letztes Update-Datum der Market-Checks
+  // Letztes Update-Datum
   const lastChecked = useMemo(() => {
     const dates = [
       digitec.lastChecked,
@@ -141,7 +127,6 @@ export default function ProductCard({
       transition={{ type: "spring", stiffness: 300, damping: 18 }}
     >
       <Card className="p-4 border border-gray-200 rounded-2xl bg-white shadow-sm hover:shadow-md transition-all duration-300">
-        {/* Kopf */}
         <CardHeader className="p-0 mb-3 border-b pb-2">
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
@@ -150,19 +135,20 @@ export default function ProductCard({
                   (product as any).sony_article ||
                   "Unbekanntes Modell"}
               </CardTitle>
+
               {(product as any).brand && (
                 <p className="text-xs text-gray-500 font-medium">
                   {(product as any).brand}
                 </p>
               )}
+
               <p className="text-[11px] text-gray-400">EAN: {product.ean || "-"}</p>
             </div>
 
-            {/* Distributor-Badge / -Auswahl */}
             {allowedDistis.length === 0 ? (
               <span
                 className="inline-flex items-center whitespace-nowrap px-2 py-0.5 rounded-full text-[11px] border bg-gray-50"
-                title="Keine Spezialdistribution – Hauptdistributor wird im Warenkorb gewählt"
+                title="Keine Spezialdistribution – EP wird im Warenkorb gewählt"
               >
                 Haupt-Distributor:&nbsp;<strong>EP</strong>
               </span>
@@ -189,7 +175,7 @@ export default function ProductCard({
         </CardHeader>
 
         <CardContent className="space-y-3">
-          {/* Preisübersicht */}
+          {/* Preise */}
           <div className="grid grid-cols-2 gap-2 text-sm bg-gray-50 p-2 rounded-lg border">
             <div>
               <span className="block text-[11px] text-gray-500">UVP (brutto)</span>
@@ -267,7 +253,6 @@ export default function ProductCard({
                 Preis (CHF, exkl. MwSt & VRG)
               </label>
 
-              {/* String-gesteuertes Feld: immer 2 Nachkommastellen nach blur */}
               <Input
                 type="text"
                 inputMode="decimal"
@@ -275,22 +260,20 @@ export default function ProductCard({
                 placeholder="0.00"
                 value={priceInput}
                 onChange={(e) => {
-                  // nur Ziffern und , .
                   const v = e.target.value.replace(/[^0-9.,]/g, "");
                   setPriceInput(v);
                 }}
                 onBlur={(e) => {
                   const n = parseFloat(e.target.value.replace(",", "."));
                   const rounded = Number.isFinite(n) ? Number(n.toFixed(2)) : 0;
-                  setBestPrice(rounded);             // numerischer State
-                  setPriceInput(rounded.toFixed(2)); // Anzeige mit 2 Nachkommastellen
+                  setBestPrice(rounded);
+                  setPriceInput(rounded.toFixed(2));
                 }}
                 className="text-center text-sm font-medium"
               />
             </div>
           </div>
 
-          {/* Ersparnis */}
           {savingPerUnit > 0 && (
             <div className="flex items-center justify-center gap-2 rounded-lg bg-green-50 border border-green-200 p-1.5">
               <Tag className="w-4 h-4 text-green-600" />
@@ -300,7 +283,6 @@ export default function ProductCard({
             </div>
           )}
 
-          {/* Button mit animierter Bestätigung */}
           <div className="relative h-9 mt-2">
             <AnimatePresence mode="wait">
               {added ? (
@@ -330,11 +312,6 @@ export default function ProductCard({
                                transition-all duration-200 flex items-center justify-center gap-1"
                     onClick={handleAddToCart}
                     disabled={allowedDistis.length > 0 && !selectedDisti}
-                    title={
-                      allowedDistis.length > 0 && !selectedDisti
-                        ? "Bitte Distributor wählen"
-                        : "In den Warenkorb"
-                    }
                   >
                     <ShoppingCart className="w-4 h-4" />
                     In den Warenkorb
@@ -349,7 +326,6 @@ export default function ProductCard({
   );
 }
 
-/* ---------- helpers ---------- */
 function to2(v: unknown) {
   const n =
     typeof v === "string" ? parseFloat(v.replace(",", ".")) : Number(v);
