@@ -1,4 +1,5 @@
-name: Fetch Market Prices
+name: Fetch Market Prices v2
+
 
 on:
   schedule:
