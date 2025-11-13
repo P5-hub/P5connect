@@ -172,3 +172,4 @@ async function savePrice(entry) {
   await browser.close();
   console.log("🏁 Done!");
 })();
+
