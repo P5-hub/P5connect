@@ -3,7 +3,7 @@ name: Fetch Market Prices
 on:
   schedule:
     - cron: "0 */4 * * *"  # Alle 4 Stunden
-  workflow_dispatch:       # Manuelles Starten
+  workflow_dispatch:
 
 jobs:
   scrape:
@@ -18,7 +18,30 @@ jobs:
         with:
           node-version: 20
 
-      - name: Install Dependencies
+      # ⭐ Wichtig: Chromium Abhängigkeiten installieren (sonst Puppeteer Error)
+      - name: Install Chromium dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libnss3 \
+            libatk1.0-0 \
+            libatk-bridge2.0-0 \
+            libcups2 \
+            libdrm2 \
+            libxkbcommon0 \
+            libxcomposite1 \
+            libxdamage1 \
+            libxfixes3 \
+            libxrandr2 \
+            libgbm1 \
+            libasound2 \
+            libpangocairo-1.0-0 \
+            libpango-1.0-0 \
+            libcairo2 \
+            libatspi2.0-0 \
+            libgtk-3-0
+
+      - name: Install Puppeteer
         run: npm install puppeteer
 
       - name: Run Scraper
