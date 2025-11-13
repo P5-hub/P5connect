@@ -1,0 +1,16 @@
+name: Fetch Market Prices
+
+on:
+  schedule:
+    - cron: "0 */4 * * *"   # Alle 4 Stunden
+  workflow_dispatch:
+
+jobs:
+  call_supabase_function:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Call Supabase Edge Function
+        run: |
+          curl -X POST "https://ozqlgctoaktktocqaxai.supabase.co/functions/v1/fetch_market_prices" \
+            -H "Content-Type: application/json" \
+            -H "Authorization: Bearer ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}"
