@@ -1,5 +1,4 @@
-name: Fetch Market Prices v2
-
+name: Fetch Market Prices
 
 on:
   schedule:
@@ -14,9 +13,14 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v3
 
+      - name: Clean apt cache (fix old GitHub runners)
+        run: |
+          sudo rm -rf /var/lib/apt/lists/*
+          sudo apt-get clean
+          sudo apt-get update --fix-missing
+
       - name: Install Puppeteer Dependencies (Ubuntu 24.04)
         run: |
-          sudo apt-get update
           sudo apt-get install -y \
             libasound2t64 \
             libatk-bridge2.0-0 \
@@ -33,7 +37,7 @@ jobs:
             libgbm1 \
             libgtk-3-0
 
-      - name: Install Node
+      - name: Setup Node
         uses: actions/setup-node@v3
         with:
           node-version: 20
