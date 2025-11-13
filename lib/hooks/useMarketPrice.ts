@@ -1,80 +1,74 @@
 import { useEffect, useState } from "react";
 
-export type MarketShop =
-  | "digitec"
-  | "mediamarkt"
-  | "interdiscount"
-  | "fnac"
-  | "brack"
-  | "fust";
-
-
-type MarketPriceResult = {
-  price: number | null;
-  currency: string | null;
-  lastChecked?: string;
-  sourceUrl?: string;
-  loading: boolean;
-  error?: string | null;
-};
-
-/**
- * Holt Marktpreise aus /api/marketprice (serverseitig sicher gecacht)
- */
-export function useMarketPrice(shop: MarketShop, id: string | number | null) {
-  const [result, setResult] = useState<MarketPriceResult>({
+export function useMarketPrice(
+  shop: string,
+  id?: string | number | null
+) {
+  const [data, setData] = useState<{
+    loading: boolean;
+    price: number | null;
+    sourceUrl: string | null;
+    lastChecked: string | null;
+    error: string | null;
+  }>({
+    loading: false,
     price: null,
-    currency: null,
-    loading: !!id,
+    sourceUrl: null,
+    lastChecked: null,
     error: null,
   });
 
   useEffect(() => {
-    if (!id) return;
+    if (!id) {
+      setData({
+        loading: false,
+        price: null,
+        sourceUrl: null,
+        lastChecked: null,
+        error: "keine ID",
+      });
+      return;
+    }
 
     let active = true;
+    setData((d) => ({ ...d, loading: true }));
 
     async function load() {
       try {
-        setResult((r) => ({ ...r, loading: true, error: null }));
-        const res = await fetch(`/api/marketprice?shop=${shop}&id=${id}`);
-        const json = await res.json();
+        const resp = await fetch(
+          `/api/marketprice?shop=${shop}&id=${id}`,
+          { cache: "no-store" }
+        );
+
+        const json = await resp.json();
 
         if (!active) return;
 
-        if (res.ok && json.price) {
-          setResult({
-            price: json.price,
-            currency: json.currency ?? "CHF",
-            lastChecked: json.lastChecked,
-            sourceUrl: json.sourceUrl,
-            loading: false,
-          });
-        } else {
-          setResult({
-            price: null,
-            currency: null,
-            error: json.note || "Kein Preis gefunden",
-            loading: false,
-          });
-        }
-      } catch (err: any) {
-        if (active) {
-          setResult({
-            price: null,
-            currency: null,
-            error: err.message ?? "Fehler beim Laden",
-            loading: false,
-          });
-        }
+        setData({
+          loading: false,
+          price: json.price,
+          sourceUrl: json.sourceUrl,
+          lastChecked: json.lastChecked,
+          error: json.error || null,
+        });
+      } catch (err) {
+        if (!active) return;
+        setData({
+          loading: false,
+          price: null,
+          sourceUrl: null,
+          lastChecked: null,
+          error: "Netzwerkfehler",
+        });
       }
     }
 
     load();
+
     return () => {
       active = false;
     };
   }, [shop, id]);
 
-  return result;
+  return data;
 }

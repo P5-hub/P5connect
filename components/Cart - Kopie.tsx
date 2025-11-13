@@ -23,19 +23,20 @@ import {
 import { ShoppingCart, Trash2, Star, Tag, Hash, User, Phone, BadgeInfo } from "lucide-react";
 import { Product } from "@/types/Product";
 import { useDealer } from "@/app/(dealer)/DealerContext";
-import { Database } from "@/types/supabase";
+import { Database } from "@/types/supabase"; // ⬅️ Stelle sicher, dass das oben in der Datei ist
 
 type CartItem = Product & {
   quantity: number;
   price?: number;
-  overrideDistributor?: string;
-  allowedDistis?: string[];
+  overrideDistributor?: string; // code
+  allowedDistis?: string[];     // list of codes
 
-  // Streetprice & Quelle (pro Produkt)
-  lowest_price_brutto?: number | null;       // inkl. MwSt.
-  lowest_price_source?: string | null;       // Auswahl
-  lowest_price_source_custom?: string | null;// Freitext bei "Andere"
+  // 🔹 NEU für günstigster Anbieter
+  lowest_price_brutto?: number | null;
+  lowest_price_source?: string | null;
+  lowest_price_source_custom?: string | null; // <-- hier ergänzt!
 };
+
 
 type Disti = { id: string; code: string; name: string };
 
@@ -48,8 +49,7 @@ type DealerExtra = {
   store_name?: string | null;
   company_name?: string | null;
 };
-
-type SubmissionInsert = Database["public"]["Tables"]["submissions"]["Insert"];
+// Typ für Submission-Items ergänzen (füge das oberhalb deiner Cart-Komponente ein)
 type SubmissionItemInsert = Database["public"]["Tables"]["submission_items"]["Insert"];
 
 export default function Cart({
@@ -80,8 +80,6 @@ export default function Cart({
   const [deliveryZip, setDeliveryZip] = useState("");
   const [deliveryCity, setDeliveryCity] = useState("");
   const [deliveryCountry, setDeliveryCountry] = useState("Schweiz");
-  const [deliveryEmail, setDeliveryEmail] = useState(""); // optional, für deinen Screenshot
-  const [deliveryPhone, setDeliveryPhone] = useState("");
 
 
   // Zusatzfelder
@@ -214,19 +212,20 @@ export default function Cart({
     return allowed[0];
   };
 
-  const updateItem = (
-    index: number,
-    field:
-      | keyof CartItem
-      | "overrideDistributor"
-      | "allowedDistis"
-      | "lowest_price_brutto"
-      | "lowest_price_source"
-      | "lowest_price_source_custom",
-    value: any
-  ) => {
+const updateItem = (
+  index: number,
+  field:
+    | keyof CartItem
+    | "overrideDistributor"
+    | "allowedDistis"
+    | "lowest_price_brutto"
+    | "lowest_price_source"
+    | "lowest_price_source_custom", // <-- hier ergänzt!
+  value: any
+) => {
     setCart((prev) => prev.map((item, i) => (i === index ? { ...item, [field]: value } : item)));
   };
+
 
   const removeFromCart = (index: number) => {
     setCart((prev) => prev.filter((_, i) => i !== index));
@@ -257,6 +256,274 @@ export default function Cart({
     (dealer as any)?.kam_name ?? (dealer as any)?.kam ?? extraDealer?.kam_name ?? extraDealer?.kam ?? ""
   );
 
+  
+  // Robust: Insert mit Fallbacks für requested_delivery-Constraint
+  type SubmissionInsert = Database["public"]["Tables"]["submissions"]["Insert"];
+  
+  // robust: Insert mit sauberer Kopplung von Modus & Datum + besseres Logging
+  const tryInsertSubmission = async (
+    basePayload: Record<string, any>,
+    candidates: Array<"omit" | "upper" | "lower">,
+    requestedDate: string | null
+  ): Promise<number> => {
+    for (const variant of candidates) {
+      // neue Kopie
+      const payload: Record<string, any> = { ...basePayload };
+
+      // 1) requested_delivery setzen/entfernen
+      if (variant === "upper") {
+        payload.requested_delivery = mapUpper(deliveryMode); // "SOFORT" | "TERMIN"
+      } else if (variant === "lower") {
+        payload.requested_delivery = mapLower(deliveryMode); // "sofort" | "termin"
+      } else if (variant === "omit") {
+        delete payload.requested_delivery; // DB-Default nutzen
+      }
+
+      // 2) requested_delivery_date passend setzen
+      const mode = (payload.requested_delivery ?? "").toString().toLowerCase();
+      if (mode === "termin") {
+        // bei Termin MUSS ein Datum mit
+        payload.requested_delivery_date = requestedDate ?? null;
+      } else if (mode === "sofort") {
+        // bei Sofort MUSS das Datum null sein
+        payload.requested_delivery_date = null;
+      } else if (!payload.requested_delivery) {
+        // wenn Feld fehlt (omit) → Datum nur mitgeben, wenn deine DB das erlaubt;
+        // konservativ: Datum weglassen (NULL)
+        payload.requested_delivery_date = null;
+      }
+      // 3) Insert
+      const { data, error } = await supabase
+        .from("submissions")
+        .insert(payload as SubmissionInsert) // ✅ Typ zugewiesen
+        .select("submission_id")
+        .single();
+
+
+
+
+
+
+
+      if (!error && data?.submission_id) return data.submission_id;
+
+      // hilfreiches Debugging
+      console.warn("❗Insert submissions failed", {
+        variant,
+        mode: payload.requested_delivery,
+        date: payload.requested_delivery_date,
+        code: (error as any)?.code,
+        msg: (error as any)?.message,
+      });
+
+      // Nur bei Check-Constraint-Fehler weiterversuchen (23514)
+      const isCheckFail =
+        (error as any)?.code === "23514" ||
+        (typeof (error as any)?.message === "string" &&
+          (error as any).message.includes("violates check constraint") &&
+          (error as any).message.includes("submissions_requested_delivery_check"));
+
+      if (!isCheckFail) {
+        // anderer Fehler → sofort raus
+        throw error ?? new Error("Unknown insert error");
+      }
+      // sonst: nächste Variante probieren
+    }
+
+    throw new Error("Delivery-Constraint konnte mit keiner Variante erfüllt werden.");
+  };
+
+
+  // Bestellung absenden
+  const handleSubmit = async () => {
+    if (!(dealer as any)?.dealer_id) {
+      toast.error("❌ Kein Händler gefunden – bitte neu einloggen.");
+      return;
+    }
+
+    const hasNormal = cart.some((item) => !item.allowedDistis || item.allowedDistis.length === 0);
+    if (hasNormal && !distributor) {
+      toast.error("❌ Bitte Haupt-Distributor auswählen.");
+      return;
+    }
+
+    // Bei Termin-Lieferung Datum prüfen
+    const requestedDate = normalizeRequestedDate(deliveryMode, deliveryDate);
+    if (deliveryMode === "termin" && !requestedDate) {
+      toast.error("Bitte ein gültiges Lieferdatum (YYYY-MM-DD) wählen.");
+      return;
+    }
+    // wenn "sofort": sichtbares Datum zurücksetzen
+    if (deliveryMode === "sofort" && deliveryDate) setDeliveryDate("");
+
+    // Items validieren
+    for (const item of cart) {
+      if (!item.quantity || item.quantity <= 0) {
+        toast.error("Ungültige Eingabe", {
+          description: `Bitte gültige Menge für ${item.product_name ?? (item as any).sony_article ?? "Produkt"} eingeben!`,
+        });
+        return;
+      }
+
+      if (item.allowedDistis?.length && !item.overrideDistributor) {
+        toast.error("❌ Distributor fehlt", {
+          description: `Bitte Distributor für ${item.product_name ?? (item as any).sony_article} auswählen.`,
+        });
+        return;
+      }
+
+      // 🔹 NEU: Validierung für günstigsten Anbieter "Andere"
+      if (item.lowest_price_source === "Andere" && !(item as any).lowest_price_source_custom?.trim()) {
+        toast.error("❌ Anbieter fehlt", {
+          description: `Bitte Händlernamen für "Andere" bei ${item.product_name ?? "Produkt"} angeben.`,
+        });
+        return;
+      }
+    }
+
+
+    // Codes → UUID prüfen
+    const allCodes = new Set<string>();
+    for (const item of cart) {
+      const code = item.allowedDistis?.length ? (item.overrideDistributor as string) : distributor;
+      if (code) allCodes.add(code.toLowerCase());
+    }
+    for (const code of allCodes) {
+      if (!codeToId.get(code)) {
+        toast.error("❌ Unbekannter Distributor-Code", {
+          description: `Distributor "${code}" konnte nicht gefunden werden.`,
+        });
+        return;
+      }
+    }
+
+    setLoading(true);
+    try {
+      // Gruppieren nach Distributor-CODE
+      const itemsByCode: Record<string, CartItem[]> = {};
+      for (const item of cart) {
+        const code = item.allowedDistis?.length ? (item.overrideDistributor as string) : distributor;
+        const key = (code || "").toLowerCase();
+        if (!itemsByCode[key]) itemsByCode[key] = [];
+        itemsByCode[key].push(item);
+      }
+
+      for (const [distiCodeLower, items] of Object.entries(itemsByCode)) {
+        const distiUuid = codeToId.get(distiCodeLower);
+        if (!distiUuid) throw new Error(`Distributor-Code "${distiCodeLower}" ...`);
+
+      const basePayload = {
+        dealer_id: (dealer as any).dealer_id,
+        typ: "bestellung",
+        distributor: distiCodeLower,
+        status: "pending",
+        order_comment: orderComment || null,
+        dealer_reference: dealerReference || null,
+        customer_number: dealerLoginNr || null,
+        customer_contact: dealerContact || null,
+        customer_phone: dealerPhone || null,
+
+        // 🆕 Abweichende Lieferadresse
+        delivery_name: hasAltDelivery ? deliveryName || null : null,
+        delivery_street: hasAltDelivery ? deliveryStreet || null : null,
+        delivery_zip: hasAltDelivery ? deliveryZip || null : null,
+        delivery_city: hasAltDelivery ? deliveryCity || null : null,
+        delivery_country: hasAltDelivery ? deliveryCountry || null : null,
+      };
+
+
+
+        // 1) Submission anlegen
+        const submissionId = await tryInsertSubmission(
+          basePayload,
+          ["upper", "lower", "omit"],
+          requestedDate               // <- NEU: das normalisierte Datum übergeben
+        );
+
+        const safeNum = (v: any) =>
+          isFinite(v) && !isNaN(v) ? parseFloat(v.toFixed(2)) : 0;
+
+
+
+// ...
+
+        await supabase
+          .from("submission_items")
+          .insert(
+            items.map((i): SubmissionItemInsert => {
+              const streetNetto = i.lowest_price_brutto
+                ? safeNum(i.lowest_price_brutto / 1.077)
+                : 0;
+              const dealerPrice = safeNum(i.price ?? 0);
+
+              const marginStreet =
+                streetNetto > 0 && dealerPrice > 0
+                  ? parseFloat(((streetNetto - dealerPrice) / streetNetto * 100).toFixed(2))
+                  : 0;
+
+              return {
+                submission_id: submissionId,
+                product_id: Number(i.product_id), // ✅ Typkonvertierung von string → number
+                menge: toInt(i.quantity),
+                preis: dealerPrice,
+                distributor_id: distiUuid,
+                lowest_price_brutto: safeNum(i.lowest_price_brutto ?? 0),
+                lowest_price_netto: streetNetto,
+                lowest_price_source:
+                  i.lowest_price_source && i.lowest_price_source.trim() !== ""
+                    ? i.lowest_price_source.trim()
+                    : null,
+                lowest_price_source_custom:
+                  i.lowest_price_source === "Andere"
+                    ? (i.lowest_price_source_custom ?? "")?.trim() || null
+                    : null,
+                margin_street: marginStreet,
+              };
+            })
+          )
+          .throwOnError();
+
+
+
+
+
+
+        // 3) ⬅️ Hier benachrichtigen (pro Distributor-Bestellung)
+        try {
+          await fetch("/api/orders/notify", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ submissionId, stage: "placed" }),
+          });
+        } catch (e) {
+          console.warn("notify failed", e);
+        }
+      }
+
+      // danach aufräumen
+      setCart(() => []);
+      onOrderSuccess();
+      setSuccess(true);
+      setDistributor("ep");
+      setDeliveryMode("sofort");
+      setDeliveryDate("");
+      setOrderComment("");
+      setDealerReference("");
+
+
+      toast.success("✅ Bestellung gespeichert", {
+        description: "Die Bestellung wurde erfolgreich übermittelt.",
+      });
+    } catch (err: any) {
+      console.error("Order API Error:", err?.message ?? err);
+      toast.error("❌ Fehler beim Speichern", {
+        description: err?.message ?? "Unbekannter Fehler",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
   // Summen
   const totalQuantity = cart.reduce((s, i) => s + toInt(i.quantity || 0), 0);
   const totalPrice = cart.reduce((s, i) => s + toInt(i.quantity || 0) * toInt(i.price || 0), 0);
@@ -275,213 +542,6 @@ export default function Cart({
     return s;
   }, 0);
   const hasNormalProducts = cart.some((item) => !item.allowedDistis || item.allowedDistis.length === 0);
-
-  // Insert-Helper: requested_delivery (SOFORT/sofort/omit) + Termin
-  const tryInsertSubmission = async (
-    basePayload: Record<string, any>,
-    candidates: Array<"omit" | "upper" | "lower">,
-    requestedDate: string | null
-  ): Promise<number> => {
-    for (const variant of candidates) {
-      const payload: Record<string, any> = { ...basePayload };
-
-      if (variant === "upper") payload.requested_delivery = mapUpper(deliveryMode);
-      else if (variant === "lower") payload.requested_delivery = mapLower(deliveryMode);
-      else delete payload.requested_delivery;
-
-      const mode = (payload.requested_delivery ?? "").toString().toLowerCase();
-      if (mode === "termin") payload.requested_delivery_date = requestedDate ?? null;
-      else payload.requested_delivery_date = null;
-
-      const { data, error } = await supabase
-        .from("submissions")
-        .insert(payload as SubmissionInsert)
-        .select("submission_id")
-        .single();
-
-      if (!error && data?.submission_id) return data.submission_id;
-
-      const isCheckFail =
-        (error as any)?.code === "23514" ||
-        (typeof (error as any)?.message === "string" &&
-          (error as any).message.includes("violates check constraint") &&
-          (error as any).message.includes("submissions_requested_delivery_check"));
-
-      if (!isCheckFail) throw error ?? new Error("Unknown insert error");
-    }
-    throw new Error("Delivery-Constraint konnte mit keiner Variante erfüllt werden.");
-  };
-
-  // Bestellung absenden
-  const handleSubmit = async () => {
-    if (!(dealer as any)?.dealer_id) {
-      toast.error("❌ Kein Händler gefunden – bitte neu einloggen.");
-      return;
-    }
-
-    const hasNormal = cart.some((item) => !item.allowedDistis || item.allowedDistis.length === 0);
-    if (hasNormal && !distributor) {
-      toast.error("❌ Bitte Haupt-Distributor auswählen.");
-      return;
-    }
-
-    const requestedDate = normalizeRequestedDate(deliveryMode, deliveryDate);
-    if (deliveryMode === "termin" && !requestedDate) {
-      toast.error("Bitte ein gültiges Lieferdatum (YYYY-MM-DD) wählen.");
-      return;
-    }
-    if (deliveryMode === "sofort" && deliveryDate) setDeliveryDate("");
-
-    // Produkt-Validierung inkl. Streetprice-Felder
-    for (const item of cart) {
-      if (!item.quantity || item.quantity <= 0) {
-        toast.error("Ungültige Eingabe", {
-          description: `Bitte gültige Menge für ${item.product_name ?? (item as any).sony_article ?? "Produkt"} eingeben!`,
-        });
-        return;
-      }
-      if (item.allowedDistis?.length && !item.overrideDistributor) {
-        toast.error("❌ Distributor fehlt", {
-          description: `Bitte Distributor für ${item.product_name ?? (item as any).sony_article} auswählen.`,
-        });
-        return;
-      }
-      if (item.lowest_price_source === "Andere" && !(item as any).lowest_price_source_custom?.trim()) {
-        toast.error("❌ Anbieter fehlt", {
-          description: `Bitte Händlernamen für "Andere" bei ${item.product_name ?? "Produkt"} angeben.`,
-        });
-        return;
-      }
-    }
-
-    // Distributor-Codes zu UUIDs prüfen
-    const allCodes = new Set<string>();
-    for (const item of cart) {
-      const code = item.allowedDistis?.length ? (item.overrideDistributor as string) : distributor;
-      if (code) allCodes.add(code.toLowerCase());
-    }
-    for (const code of allCodes) {
-      if (!codeToId.get(code)) {
-        toast.error("❌ Unbekannter Distributor-Code", {
-          description: `Distributor "${code}" konnte nicht gefunden werden.`,
-        });
-        return;
-      }
-    }
-
-    setLoading(true);
-    try {
-      // gruppiere pro Distributor-CODE
-      const itemsByCode: Record<string, CartItem[]> = {};
-      for (const item of cart) {
-        const code = item.allowedDistis?.length ? (item.overrideDistributor as string) : distributor;
-        const key = (code || "").toLowerCase();
-        if (!itemsByCode[key]) itemsByCode[key] = [];
-        itemsByCode[key].push(item);
-      }
-
-      const safeNum = (v: any) => (isFinite(v) && !isNaN(v) ? parseFloat(Number(v).toFixed(2)) : 0);
-
-      for (const [distiCodeLower, items] of Object.entries(itemsByCode)) {
-        const distiUuid = codeToId.get(distiCodeLower);
-        if (!distiUuid) throw new Error(`Distributor-Code "${distiCodeLower}" nicht gefunden.`);
-
-        const basePayload: SubmissionInsert = {
-          dealer_id: (dealer as any).dealer_id,
-          typ: "bestellung",
-          distributor: distiCodeLower, // Code in Kleinbuchstaben
-          status: "pending",
-          order_comment: orderComment || null,
-          dealer_reference: dealerReference || null,
-          customer_number: dealerLoginNr || null,
-          customer_contact: dealerContact || null,
-          customer_phone: dealerPhone || null,
-
-          // Abweichende Lieferadresse
-          delivery_name: hasAltDelivery ? deliveryName || null : null,
-          delivery_street: hasAltDelivery ? deliveryStreet || null : null,
-          delivery_zip: hasAltDelivery ? deliveryZip || null : null,
-          delivery_city: hasAltDelivery ? deliveryCity || null : null,
-          delivery_country: hasAltDelivery ? deliveryCountry || null : null,
-        };
-
-        const submissionId = await tryInsertSubmission(basePayload, ["upper", "lower", "omit"], requestedDate);
-
-        await supabase
-          .from("submission_items")
-          .insert(
-            items.map((i): SubmissionItemInsert => {
-              const streetBrutto = i.lowest_price_brutto ?? null;
-              const streetNetto = streetBrutto ? safeNum(streetBrutto / 1.077) : 0;
-              const dealerPrice = safeNum(i.price ?? 0);
-              const marginStreet =
-                streetNetto > 0 && dealerPrice > 0
-                  ? parseFloat((((streetNetto - dealerPrice) / streetNetto) * 100).toFixed(2))
-                  : 0;
-
-              return {
-                submission_id: submissionId,
-                product_id: Number(i.product_id),
-                menge: toInt(i.quantity),
-                preis: dealerPrice,
-                distributor_id: distiUuid,
-                lowest_price_brutto: streetBrutto ? safeNum(streetBrutto) : 0,
-                lowest_price_netto: streetNetto,
-                lowest_price_source:
-                  i.lowest_price_source && i.lowest_price_source.trim() !== ""
-                    ? i.lowest_price_source.trim()
-                    : null,
-                lowest_price_source_custom:
-                  i.lowest_price_source === "Andere"
-                    ? (i.lowest_price_source_custom ?? "")?.trim() || null
-                    : null,
-                margin_street: marginStreet,
-              };
-            })
-          )
-          .throwOnError();
-
-        // Benachrichtigung
-        try {
-          await fetch("/api/orders/notify", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ submissionId, stage: "placed" }),
-          });
-        } catch (e) {
-          console.warn("notify failed", e);
-        }
-      }
-
-      // cleanup
-      setCart(() => []);
-      onOrderSuccess();
-      setSuccess(true);
-      setDistributor("ep");
-      setDeliveryMode("sofort");
-      setDeliveryDate("");
-      setOrderComment("");
-      setDealerReference("");
-      setHasAltDelivery(false);
-      setDeliveryName("");
-      setDeliveryStreet("");
-      setDeliveryZip("");
-      setDeliveryCity("");
-      setDeliveryCountry("Schweiz");
-      setDeliveryEmail("");
-
-      toast.success("✅ Bestellung gespeichert", {
-        description: "Die Bestellung wurde erfolgreich übermittelt.",
-      });
-    } catch (err: any) {
-      console.error("Order API Error:", err?.message ?? err);
-      toast.error("❌ Fehler beim Speichern", {
-        description: err?.message ?? "Unbekannter Fehler",
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
 
   return (
     <Sheet open={open} onOpenChange={setOpen}>
@@ -516,27 +576,19 @@ export default function Cart({
           <div className="mt-1 grid grid-cols-2 gap-x-4 gap-y-1 text-gray-600">
             <div className="flex items-center gap-1">
               <Hash className="w-3.5 h-3.5 text-gray-400" />
-              <span>
-                Kd-Nr.: <span className="font-medium">{dealerLoginNr || "–"}</span>
-              </span>
+              <span>Kd-Nr.: <span className="font-medium">{dealerLoginNr || "–"}</span></span>
             </div>
             <div className="flex items-center gap-1">
               <User className="w-3.5 h-3.5 text-gray-400" />
-              <span>
-                AP: <span className="font-medium">{dealerContact || "–"}</span>
-              </span>
+              <span>AP: <span className="font-medium">{dealerContact || "–"}</span></span>
             </div>
             <div className="flex items-center gap-1">
               <Phone className="w-3.5 h-3.5 text-gray-400" />
-              <span>
-                Tel.: <span className="font-medium">{dealerPhone || "–"}</span>
-              </span>
+              <span>Tel.: <span className="font-medium">{dealerPhone || "–"}</span></span>
             </div>
             <div className="flex items-center gap-1">
               <BadgeInfo className="w-3.5 h-3.5 text-gray-400" />
-              <span>
-                KAM: <span className="font-medium">{dealerKam || "–"}</span>
-              </span>
+              <span>KAM: <span className="font-medium">{dealerKam || "–"}</span></span>
             </div>
           </div>
         </div>
@@ -555,7 +607,7 @@ export default function Cart({
               {/* Linke Spalte */}
               <div className="space-y-4">
                 {hasNormalProducts && (
-                  <div className="border rounded-xl p-3 space-y-2 bg-blue-50/40">
+                  <div className="border rounded-xl p-3 space-y-2 bg-gray-50">
                     <label className="block text-xs font-semibold">Haupt-Distributor</label>
                     <Select onValueChange={(v) => setDistributor(v)} value={distributor}>
                       <SelectTrigger className="h-8 text-xs">
@@ -630,59 +682,69 @@ export default function Cart({
                     </div>
                   </div>
                 </div>
-
-                {/* Abweichende Lieferadresse */}
-                <div className="mt-3 border rounded-xl p-3">
-                  <div className="flex items-center gap-2">
-                    <input
-                      id="altDelivery"
-                      type="checkbox"
-                      checked={hasAltDelivery}
-                      onChange={(e) => setHasAltDelivery(e.target.checked)}
-                      className="w-4 h-4"
-                    />
-                    <label htmlFor="altDelivery" className="text-sm font-medium">
-                      Abweichende Lieferadresse / Direktlieferung
-                    </label>
-                  </div>
-
-                  {hasAltDelivery && (
-                    <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-3">
-                      <div>
-                        <label className="block text-[11px] text-gray-600 mb-1">Name / Firma</label>
-                        <Input value={deliveryName} onChange={(e) => setDeliveryName(e.target.value)} className="h-8 text-xs" />
-                      </div>
-                      <div>
-                        <label className="block text-[11px] text-gray-600 mb-1">Straße / Nr.</label>
-                        <Input value={deliveryStreet} onChange={(e) => setDeliveryStreet(e.target.value)} className="h-8 text-xs" />
-                      </div>
-                      <div>
-                        <label className="block text-[11px] text-gray-600 mb-1">PLZ</label>
-                        <Input value={deliveryZip} onChange={(e) => setDeliveryZip(e.target.value)} className="h-8 text-xs" />
-                      </div>
-                      <div>
-                        <label className="block text-[11px] text-gray-600 mb-1">Ort</label>
-                        <Input value={deliveryCity} onChange={(e) => setDeliveryCity(e.target.value)} className="h-8 text-xs" />
-                      </div>
-                      <div>
-                        <label className="block text-[11px] text-gray-600 mb-1">Land</label>
-                        <Input value={deliveryCountry} onChange={(e) => setDeliveryCountry(e.target.value)} className="h-8 text-xs" />
-                      </div>
-                      <div>
-                        <label className="block text-[11px] text-gray-600 mb-1">Telefon (optional)</label>
-                        <Input value={deliveryPhone} onChange={(e) => setDeliveryPhone(e.target.value)} className="h-8 text-xs" />
-                      </div>
-                      <div>
-                        <label className="block text-[11px] text-gray-600 mb-1">E-Mail (optional)</label>
-                        <Input value={deliveryEmail} onChange={(e) => setDeliveryEmail(e.target.value)} className="h-8 text-xs" />
-                      </div>
-
-                    </div>
-                  )}
+              </div>
+              <div className="mt-3 border-t pt-3">
+                <div className="flex items-center gap-2">
+                  <input
+                    id="altDelivery"
+                    type="checkbox"
+                    checked={hasAltDelivery}
+                    onChange={(e) => setHasAltDelivery(e.target.checked)}
+                    className="w-4 h-4"
+                  />
+                  <label htmlFor="altDelivery" className="text-sm font-medium">
+                    Abweichende Lieferadresse / Direktlieferung
+                  </label>
                 </div>
+
+                {hasAltDelivery && (
+                  <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-[11px] text-gray-600 mb-1">Name / Firma</label>
+                      <Input
+                        value={deliveryName}
+                        onChange={(e) => setDeliveryName(e.target.value)}
+                        className="h-8 text-xs"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[11px] text-gray-600 mb-1">Straße / Nr.</label>
+                      <Input
+                        value={deliveryStreet}
+                        onChange={(e) => setDeliveryStreet(e.target.value)}
+                        className="h-8 text-xs"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[11px] text-gray-600 mb-1">PLZ</label>
+                      <Input
+                        value={deliveryZip}
+                        onChange={(e) => setDeliveryZip(e.target.value)}
+                        className="h-8 text-xs"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[11px] text-gray-600 mb-1">Ort</label>
+                      <Input
+                        value={deliveryCity}
+                        onChange={(e) => setDeliveryCity(e.target.value)}
+                        className="h-8 text-xs"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[11px] text-gray-600 mb-1">Land</label>
+                      <Input
+                        value={deliveryCountry}
+                        onChange={(e) => setDeliveryCountry(e.target.value)}
+                        className="h-8 text-xs"
+                      />
+                    </div>
+                  </div>
+                )}
               </div>
 
-              {/* Rechte Spalte: Produkte */}
+
+              {/* Rechte Spalte */}
               <div className="flex flex-col min-h-0">
                 <div className="flex-1 overflow-y-auto pr-1">
                   {cart.length === 0 ? (
@@ -735,7 +797,9 @@ export default function Cart({
                                 type="number"
                                 min={1}
                                 value={item.quantity}
-                                onChange={(e) => updateItem(index, "quantity", Math.max(1, toInt(e.target.value)))}
+                                onChange={(e) =>
+                                  updateItem(index, "quantity", Math.max(1, toInt(e.target.value)))
+                                }
                                 className="text-center h-8 text-xs"
                               />
                             </div>
@@ -762,16 +826,23 @@ export default function Cart({
                             </div>
                           </div>
 
-                          {/* Günstigster Anbieter / Streetprice pro Produkt */}
+                          
+                          {/* 🔹 Günstigster Anbieter / Preis */}
                           <div className="mt-4 border-t pt-2 text-xs text-gray-700">
                             <label className="block text-gray-500 mb-1">Günstigster Anbieter</label>
-                            <Select
-                              value={item.lowest_price_source ?? ""}
-                              onValueChange={(val) => {
-                                updateItem(index, "lowest_price_source", val);
-                                if (val !== "Andere") updateItem(index, "lowest_price_source_custom", null);
-                              }}
-                            >
+                              <Select
+                                value={item.lowest_price_source ?? ""}
+                                onValueChange={(val) => {
+                                  // Händlerauswahl setzen
+                                  updateItem(index, "lowest_price_source", val);
+
+                                  // Wenn nicht "Andere" gewählt wurde → Custom-Feld löschen
+                                  if (val !== "Andere") {
+                                    updateItem(index, "lowest_price_source_custom", null);
+                                  }
+                                }}
+                              >
+
                               <SelectTrigger className="h-8 text-sm">
                                 <SelectValue placeholder="Bitte auswählen" />
                               </SelectTrigger>
@@ -786,13 +857,18 @@ export default function Cart({
                               </SelectContent>
                             </Select>
 
+                            {/* Wenn "Andere" gewählt → zusätzliches Pflichtfeld anzeigen */}
                             {item.lowest_price_source === "Andere" && (
                               <div className="mt-2">
-                                <label className="block text-gray-500 mb-1">Bitte Namen des Anbieters angeben *</label>
+                                <label className="block text-gray-500 mb-1">
+                                  Bitte Namen des Anbieters angeben *
+                                </label>
                                 <Input
                                   placeholder="Name des Händlers"
-                                  value={item.lowest_price_source_custom ?? ""}
-                                  onChange={(e) => updateItem(index, "lowest_price_source_custom", e.target.value)}
+                                  value={item.lowest_price_source_custom ?? ""}  // ✅ typisiert
+                                  onChange={(e) =>
+                                    updateItem(index, "lowest_price_source_custom", e.target.value)
+                                  }
                                   className="text-sm border-amber-400 focus:border-amber-500"
                                 />
                                 <p className="text-[11px] text-amber-600 mt-1">
@@ -801,27 +877,28 @@ export default function Cart({
                               </div>
                             )}
 
-                            <label className="block text-gray-500 mb-1 mt-3">Günstigster Preis (inkl. MwSt.)</label>
+                            <label className="block text-gray-500 mb-1 mt-3">
+                              Günstigster Preis (inkl. MwSt.)
+                            </label>
                             <Input
                               type="number"
                               step="0.01"
                               placeholder="0.00"
                               value={item.lowest_price_brutto ?? ""}
                               onChange={(e) =>
-                                updateItem(
-                                  index,
-                                  "lowest_price_brutto",
-                                  e.target.value === "" ? null : parseFloat(e.target.value) || null
-                                )
+                                updateItem(index, "lowest_price_brutto", parseFloat(e.target.value) || null)
                               }
                               className="text-sm"
                             />
                           </div>
 
-                          {/* Spezial-Distributor Auswahl (Pflicht bei allowedDistis) */}
+
+                          {/* Spezial-Distributor Auswahl */}
                           {allowed.length > 0 && (
                             <div>
-                              <label className="block text-[11px] text-gray-600 mb-1">Distributor (Pflichtfeld)</label>
+                              <label className="block text-[11px] text-gray-600 mb-1">
+                                Distributor (Pflichtfeld)
+                              </label>
                               <Select
                                 value={item.overrideDistributor || ""}
                                 onValueChange={(val) => updateItem(index, "overrideDistributor", val)}
@@ -831,7 +908,9 @@ export default function Cart({
                                 </SelectTrigger>
                                 <SelectContent>
                                   {distis
-                                    .filter((d) => allowed.some((c) => c.toLowerCase() === d.code.toLowerCase()))
+                                    .filter((d) =>
+                                      allowed.some((c) => c.toLowerCase() === d.code.toLowerCase())
+                                    )
                                     .map((d) => (
                                       <SelectItem key={d.code} value={d.code} className="text-sm">
                                         {d.name}

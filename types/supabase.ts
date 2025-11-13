@@ -1,4 +1,4 @@
-export type Json =
+﻿export type Json =
   | string
   | number
   | boolean
@@ -509,6 +509,39 @@ export type Database = {
         }
         Relationships: []
       }
+      market_prices: {
+        Row: {
+          currency: string | null
+          fetched_at: string | null
+          id: number
+          price: number | null
+          product_ean: string
+          product_id: string
+          shop: string
+          source_url: string | null
+        }
+        Insert: {
+          currency?: string | null
+          fetched_at?: string | null
+          id?: never
+          price?: number | null
+          product_ean: string
+          product_id: string
+          shop: string
+          source_url?: string | null
+        }
+        Update: {
+          currency?: string | null
+          fetched_at?: string | null
+          id?: never
+          price?: number | null
+          product_ean?: string
+          product_id?: string
+          shop?: string
+          source_url?: string | null
+        }
+        Relationships: []
+      }
       monatsaktionen: {
         Row: {
           aktion_id: number
@@ -606,6 +639,56 @@ export type Database = {
           },
           {
             foreignKeyName: "product_distributors_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "v_products_with_images"
+            referencedColumns: ["product_id"]
+          },
+        ]
+      }
+      product_market_ids: {
+        Row: {
+          external_id: string
+          id: number
+          product_id: number
+          shop: string
+        }
+        Insert: {
+          external_id: string
+          id?: never
+          product_id: number
+          shop: string
+        }
+        Update: {
+          external_id?: string
+          id?: never
+          product_id?: number
+          shop?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "product_market_ids_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "product_view"
+            referencedColumns: ["product_id"]
+          },
+          {
+            foreignKeyName: "product_market_ids_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["product_id"]
+          },
+          {
+            foreignKeyName: "product_market_ids_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products_with_sofortrabatt"
+            referencedColumns: ["product_id"]
+          },
+          {
+            foreignKeyName: "product_market_ids_product_id_fkey"
             columns: ["product_id"]
             isOneToOne: false
             referencedRelation: "v_products_with_images"
@@ -1614,6 +1697,13 @@ export type Database = {
           datum: string
           dealer_id: number | null
           dealer_reference: string | null
+          delivery_city: string | null
+          delivery_country: string | null
+          delivery_email: string | null
+          delivery_name: string | null
+          delivery_phone: string | null
+          delivery_street: string | null
+          delivery_zip: string | null
           distributor: string | null
           kommentar: string | null
           kw: number | null
@@ -1642,6 +1732,13 @@ export type Database = {
           datum?: string
           dealer_id?: number | null
           dealer_reference?: string | null
+          delivery_city?: string | null
+          delivery_country?: string | null
+          delivery_email?: string | null
+          delivery_name?: string | null
+          delivery_phone?: string | null
+          delivery_street?: string | null
+          delivery_zip?: string | null
           distributor?: string | null
           kommentar?: string | null
           kw?: number | null
@@ -1670,6 +1767,13 @@ export type Database = {
           datum?: string
           dealer_id?: number | null
           dealer_reference?: string | null
+          delivery_city?: string | null
+          delivery_country?: string | null
+          delivery_email?: string | null
+          delivery_name?: string | null
+          delivery_phone?: string | null
+          delivery_street?: string | null
+          delivery_zip?: string | null
           distributor?: string | null
           kommentar?: string | null
           kw?: number | null
@@ -2180,6 +2284,11 @@ export type Database = {
           dealer_reference: string | null
           dealer_street: string | null
           dealer_zip: string | null
+          delivery_city: string | null
+          delivery_country: string | null
+          delivery_name: string | null
+          delivery_street: string | null
+          delivery_zip: string | null
           distributor_code: string | null
           distributor_email: string | null
           distributor_id: string | null
@@ -2203,6 +2312,7 @@ export type Database = {
           marge_neu: number | null
           menge: number | null
           netto_retail: number | null
+          order_comment: string | null
           order_number: string | null
           poi_alt: number | null
           poi_neu: number | null

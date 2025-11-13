@@ -225,7 +225,7 @@ export default function ProductCard({
                   <span className="text-gray-400">lädt…</span>
                 ) : data.price ? (
                   <a
-                    href={data.sourceUrl}
+                    href={data.sourceUrl ?? "#"}
                     target="_blank"
                     rel="noopener noreferrer"
                     className={`${color} hover:underline font-medium`}

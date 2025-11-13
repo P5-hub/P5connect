@@ -38,6 +38,13 @@ export type Bestellung = {
   kam_name?: string | null;
   kam_email?: string | null;
   kam_email_sony?: string | null;
+
+  delivery_name?: string | null;
+  delivery_street?: string | null;
+  delivery_zip?: string | null;
+  delivery_city?: string | null;
+  delivery_country?: string | null;
+  
   submission_items: SubmissionItem[];
 };
 
@@ -59,8 +66,9 @@ export function useBestellungen(statusFilter: string, searchQuery: string) {
     try {
       const { data, error } = await supabase
         .from("bestellung_dashboard")
-        .select("*")
+        .select("*, delivery_name, delivery_street, delivery_zip, delivery_city, delivery_country")
         .order("created_at", { ascending: false });
+
 
       if (error) throw error;
       if (!data) return setBestellungen([]);

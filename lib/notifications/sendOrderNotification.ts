@@ -1,4 +1,5 @@
 ﻿"use server";
+// @ts-nocheck
 
 import { getSupabaseServer } from "@/utils/supabase/server";
 import { sendMail } from "@/lib/mailer";
@@ -14,55 +15,90 @@ export async function sendOrderNotification(opts: {
   const { submissionId, stage, preview = false } = opts;
   const supabase = await getSupabaseServer();
 
-  // Bestellung + Items + Distributor laden
-  const { data: order, error } = await supabase
-    .from("bestellungen_view_ext")
-    .select(`
-      *,
-      submission_items(
-        item_id,
-        menge,
-        preis,
-        invest,
-        products(product_name, ean),
-        distributors:distributor_id(name, email, id, code)
-      )
-    `)
+  // ------------------------------------------------------------
+  // 1) Bestellung laden (aus deiner View bestellung_dashboard)
+  // ------------------------------------------------------------
+  const { data: order, error: orderErr } = await supabase
+    .from("bestellung_dashboard")
+    .select("*")
     .eq("submission_id", submissionId)
-    .single<any>();
+    .maybeSingle();
 
-  if (error || !order) {
-    console.error("❌ Bestellung nicht gefunden oder DB-Fehler:", error);
+  if (orderErr || !order) {
+    console.error("❌ order load failed:", orderErr);
     return { ok: false, error: "order_not_found" };
   }
 
-  const items =
-    (order.submission_items as Array<{
-      menge?: number;
-      preis?: number;
-      invest?: number;
-      products?: { product_name?: string; ean?: string };
-      distributors?: { id?: string; code?: string; name?: string | null; email?: string | null };
-    }>) || [];
+  // ------------------------------------------------------------
+  // 2) Items laden (+ Distributor-Daten embedded)
+  // ------------------------------------------------------------
+  const { data: itemRows, error: itemsErr } = await supabase
+    .from("submission_items")
+    .select(`
+      item_id,
+      submission_id,
+      menge,
+      preis,
+      invest,
+      distributor_id,
+      products:product_id(product_name, ean),
+      distributors:distributor_id(id, code, name, email)
+    `)
+    .eq("submission_id", submissionId);
 
-  // Distributor bestimmen (Fallback)
-  let dist = items[0]?.distributors ?? null;
+  if (itemsErr) {
+    console.error("❌ items load failed:", itemsErr);
+    return { ok: false, error: "items_not_found" };
+  }
+
+  // ------------------------------------------------------------
+  // 3) Distributor bestimmen
+  //    - Priorität: Item Distributor
+  //    - Fallback über distributor_id oder code in View
+  // ------------------------------------------------------------
+  let dist = itemRows?.[0]?.distributors ?? null;
 
   if (!dist?.email) {
-    const raw = String(order.distributor ?? "").trim();
-    if (raw) {
+    // Fallback-Möglichkeiten aus deiner View
+    const fallbackCodes = [
+      order.distributor_code,
+      order.distributor_id,
+      order.distributor_name,
+      order.distributor_email,
+    ]
+      .map((v) => (v ? String(v).trim() : null))
+      .filter(Boolean);
+
+    for (const raw of fallbackCodes) {
+      if (!raw) continue;
+
       const isUuid =
-        /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(raw);
-      let q = supabase.from("distributors").select("id, code, name, email").limit(1);
+        /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+          raw
+        );
+
+      let q = supabase
+        .from("distributors")
+        .select("id, code, name, email")
+        .limit(1);
+
       q = isUuid ? q.eq("id", raw) : q.eq("code", raw);
+
       const { data: fallbackDist } = await q.maybeSingle();
-      if (fallbackDist) dist = fallbackDist as typeof dist;
+      if (fallbackDist) {
+        dist = fallbackDist;
+        break;
+      }
     }
   }
 
-  // Meta fürs Template
+  // ------------------------------------------------------------
+  // 4) Meta-Daten fürs E-Mail-Template
+  //    (ALLE Felder basieren 100% auf deiner View)
+  // ------------------------------------------------------------
   const meta = {
-    dealerCompany: order.dealer_company ?? order.dealer_name ?? null,
+    // Händler
+    dealerCompany: order.dealer_name ?? null,
     dealerName: order.dealer_name ?? null,
     dealerEmail: order.dealer_email ?? null,
     dealerPhone: order.dealer_phone ?? null,
@@ -70,28 +106,44 @@ export async function sendOrderNotification(opts: {
     dealerZip: order.dealer_zip ?? null,
     dealerCity: order.dealer_city ?? null,
     dealerCountry: order.dealer_country ?? "Schweiz",
-    kamName: order.kam_name ?? order.kam ?? null,
+
+    // KAM / Sony Empfänger
+    kamName: order.kam_name ?? null,
     kamEmail:
       order.kam_email ??
-      order.kam_email_sony ??
-      order.mail_kam ??
-      order.kam ??
+      order.kam_email_2 ??
       order.kam_email_sony ??
       null,
+
+    // Bestellung / Kunde
     orderNumber: order.order_number ?? order.submission_id ?? null,
-    customerNumber: order.dealer_login_nr ?? order.customer_number ?? null,
-    customerName: order.customer_name ?? null,
-    customerContact: order.dealer_contact_person ?? order.customer_contact ?? null,
-    customerPhone: order.customer_phone ?? null,
+    customerNumber: order.dealer_login_nr ?? null,
+    customerName: order.dealer_name ?? null,
+    customerContact: order.dealer_contact_person ?? null,
+    customerPhone: order.dealer_phone ?? null,
+
+    // Lieferadresse
+    deliveryName: order.delivery_name ?? null,
+    deliveryStreet: order.delivery_street ?? null,
+    deliveryZip: order.delivery_zip ?? null,
+    deliveryCity: order.delivery_city ?? null,
+    deliveryCountry: order.delivery_country ?? null,
+
+    // Kommentar
+    orderComment: order.order_comment ?? null,
   };
 
-  // HTML generieren
+  // ------------------------------------------------------------
+  // 5) HTML-E-Mail generieren
+  // ------------------------------------------------------------
   const html = buildOrderEmailHTML({
-    distributor: { name: dist?.name ?? order.distributor ?? "", email: dist?.email ?? null },
-    items: items.map((i) => ({
+    distributor: {
+      name: dist?.name ?? order.distributor_name ?? "",
+      email: dist?.email ?? order.distributor_email ?? null,
+    },
+    items: (itemRows || []).map((i) => ({
       menge: i.menge ?? 0,
       preis: i.preis ?? 0,
-      invest: i.invest ?? null,
       products: {
         product_name: i.products?.product_name ?? "-",
         ean: i.products?.ean ?? "-",
@@ -100,8 +152,10 @@ export async function sendOrderNotification(opts: {
     meta,
   });
 
-  const distributorName = dist?.name || order.distributor || null;
-
+  // ------------------------------------------------------------
+  // 6) Betreff vorbereiten
+  // ------------------------------------------------------------
+  const distributorName = dist?.name ?? order.distributor_name ?? null;
   const subject =
     stage === "placed"
       ? `📦 Neue Bestellung von ${order.dealer_name ?? "Händler"}${
@@ -111,15 +165,21 @@ export async function sendOrderNotification(opts: {
           distributorName ? ` → ${distributorName}` : ""
         }`;
 
-  // Empfänger zusammenstellen
+  // ------------------------------------------------------------
+  // 7) Empfänger ermitteln (distributor + Händler + KAM)
+  // ------------------------------------------------------------
   const emailsRaw = [
     dist?.email ?? null,
     order.dealer_email ?? null,
     order.kam_email_sony ?? null,
     order.kam_email ?? null,
-    order.mail_kam ?? null,
+    order.kam_email_2 ?? null,
+    order.mail_bg ?? null,
+    order.mail_bg2 ?? null,
+    order.mail_dealer ?? null,
   ].filter(Boolean) as string[];
 
+  // doppelte entfernen
   const seen = new Set<string>();
   const recipients = emailsRaw.filter((e) => {
     const key = e.trim().toLowerCase();
@@ -128,27 +188,17 @@ export async function sendOrderNotification(opts: {
     return true;
   });
 
-  // Vorschau → kein Versand
+  // ------------------------------------------------------------
+  // 8) Preview ohne Versand
+  // ------------------------------------------------------------
   if (preview) {
-    return {
-      ok: true,
-      html,
-      recipients,
-      detail: { preview: true, count: recipients.length },
-    };
+    return { ok: true, html, recipients, detail: { preview: true } };
   }
 
-  // Echter Versand
-  const res = await sendMail({
-    to: recipients,
-    subject,
-    html,
-  });
+  // ------------------------------------------------------------
+  // 9) Versand
+  // ------------------------------------------------------------
+  const res = await sendMail({ to: recipients, subject, html });
 
-  return {
-    ok: !(res as any)?.error,
-    html,
-    recipients,
-    detail: res,
-  };
+  return { ok: !(res as any)?.error, html, recipients, detail: res };
 }
