@@ -4,8 +4,10 @@ import { supabase } from "@/lib/supabaseClient";
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
   const shop = searchParams.get("shop");
-  const ean = searchParams.get("ean") || searchParams.get("id");
+  let ean = searchParams.get("ean") || searchParams.get("id");
 
+  // ❗ Immer als String erzwingen (wichtig!)
+  if (ean) ean = String(ean).trim();
 
   if (!shop || !ean) {
     return NextResponse.json({
@@ -20,7 +22,7 @@ export async function GET(req: Request) {
     .from("market_prices")
     .select("*")
     .eq("shop", shop)
-    .eq("product_ean", ean)
+    .eq("product_ean", ean) // EAN ist String → Matching funktioniert jetzt
     .order("fetched_at", { ascending: false })
     .limit(1)
     .maybeSingle();
