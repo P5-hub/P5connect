@@ -4,7 +4,8 @@ import { supabase } from "@/lib/supabaseClient";
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
   const shop = searchParams.get("shop");
-  const ean = searchParams.get("id"); // UI sendet id = ean
+  const ean = searchParams.get("ean") || searchParams.get("id");
+
 
   if (!shop || !ean) {
     return NextResponse.json({
