@@ -13,14 +13,9 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v3
 
-      - name: Clean apt cache (fix old GitHub runners)
-        run: |
-          sudo rm -rf /var/lib/apt/lists/*
-          sudo apt-get clean
-          sudo apt-get update --fix-missing
-
       - name: Install Puppeteer Dependencies (Ubuntu 24.04)
         run: |
+          sudo apt-get update
           sudo apt-get install -y \
             libasound2t64 \
             libatk-bridge2.0-0 \
@@ -37,7 +32,7 @@ jobs:
             libgbm1 \
             libgtk-3-0
 
-      - name: Setup Node
+      - name: Install Node
         uses: actions/setup-node@v3
         with:
           node-version: 20
@@ -50,3 +45,4 @@ jobs:
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+
