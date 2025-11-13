@@ -2,16 +2,27 @@ name: Fetch Market Prices
 
 on:
   schedule:
-    - cron: "0 */4 * * *"  # alle 4 Stunden
-  workflow_dispatch:
+    - cron: "0 */4 * * *"  # Alle 4 Stunden
+  workflow_dispatch:       # Manuelles Starten
 
 jobs:
-  run_function:
+  scrape:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Call Supabase Edge Function
-        run: |
-          curl -X POST \
-            "https://ozqlgctoaktktocqaxai.supabase.co/functions/v1/fetch_market_prices" \
-            -H "Authorization: Bearer ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}"
+      - name: Checkout Repository
+        uses: actions/checkout@v3
+
+      - name: Install Node
+        uses: actions/setup-node@v3
+        with:
+          node-version: 20
+
+      - name: Install Dependencies
+        run: npm install puppeteer
+
+      - name: Run Scraper
+        run: node scraper/scrape.js
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
