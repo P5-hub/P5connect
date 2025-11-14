@@ -7,7 +7,9 @@ import { useEffect, useMemo, useState } from "react";
 import { ShoppingCart, Tag } from "lucide-react";
 import { Product } from "@/types/Product";
 import { motion, AnimatePresence } from "framer-motion";
-import { useMarketPrice } from "@/lib/hooks/useMarketPrice";
+
+import { useMarketPrices } from "@/lib/hooks/useMarketPrices";
+
 import {
   Select,
   SelectContent,
@@ -44,13 +46,11 @@ export default function ProductCard({
 
   const [added, setAdded] = useState(false);
 
+  // Distributor Logik
   const allowedDistis = useMemo(() => {
     const raw = (product as any).distri as string | undefined;
     if (!raw) return [] as string[];
-    return raw
-      .split(",")
-      .map((s) => s.trim())
-      .filter(Boolean);
+    return raw.split(",").map((s) => s.trim()).filter(Boolean);
   }, [product]);
 
   const [selectedDisti, setSelectedDisti] = useState<string>(
@@ -61,23 +61,22 @@ export default function ProductCard({
     setSelectedDisti(allowedDistis[0] ?? "");
   }, [allowedDistis]);
 
-  // ✅ NEUE Version – MarketPrice immer über EAN abfragen
-  const digitec = useMarketPrice("digitec", product.ean);
-  const media = useMarketPrice("mediamarkt", product.ean);
-  const inter = useMarketPrice("interdiscount", product.ean);
-  const fnac = useMarketPrice("fnac", product.ean);
-  const brack = useMarketPrice("brack", product.ean);
-  const fust = useMarketPrice("fust", product.ean);
+  // ⬅️ Bulk Market Prices (1 Request)
+  const { shops, loading, error } = useMarketPrices(product.ean);
 
   const retailPrice =
     typeof product.retail_price === "number" ? product.retail_price : null;
+
   const dealerInvoice =
     typeof product.dealer_invoice_price === "number"
       ? product.dealer_invoice_price
       : null;
 
-  const savingPerUnit = dealerInvoice && bestPrice ? dealerInvoice - bestPrice : 0;
+  const savingPerUnit =
+    dealerInvoice && bestPrice ? dealerInvoice - bestPrice : 0;
+
   const savingTotal = savingPerUnit * quantity;
+
   const savingPercent =
     dealerInvoice && bestPrice ? (savingPerUnit / dealerInvoice) * 100 : 0;
 
@@ -94,24 +93,24 @@ export default function ProductCard({
     }
 
     onAddToCart(payload);
+
     setAdded(true);
     setTimeout(() => setAdded(false), 1800);
   };
 
-  // Letztes Update-Datum
+  // Letztes Marktpreis-Datum
   const lastChecked = useMemo(() => {
-    const dates = [
-      digitec.lastChecked,
-      media.lastChecked,
-      inter.lastChecked,
-      fnac.lastChecked,
-      brack.lastChecked,
-      fust.lastChecked,
-    ]
+    if (!shops) return null;
+
+    const dates = Object.values(shops)
+      .map((s: any) => s?.lastChecked)
       .filter(Boolean)
       .map((d) => new Date(d as string).getTime());
+
     if (dates.length === 0) return null;
+
     const newest = new Date(Math.max(...dates));
+
     return newest.toLocaleString("de-CH", {
       day: "2-digit",
       month: "2-digit",
@@ -119,7 +118,16 @@ export default function ProductCard({
       hour: "2-digit",
       minute: "2-digit",
     });
-  }, [digitec, media, inter, fnac, brack, fust]);
+  }, [shops]);
+
+  const MARKET_SHOPS = [
+    "digitec",
+    "mediamarkt",
+    "interdiscount",
+    "fnac",
+    "brack",
+    "fust",
+  ];
 
   return (
     <motion.div
@@ -142,14 +150,13 @@ export default function ProductCard({
                 </p>
               )}
 
-              <p className="text-[11px] text-gray-400">EAN: {product.ean || "-"}</p>
+              <p className="text-[11px] text-gray-400">
+                EAN: {product.ean || "-"}
+              </p>
             </div>
 
             {allowedDistis.length === 0 ? (
-              <span
-                className="inline-flex items-center whitespace-nowrap px-2 py-0.5 rounded-full text-[11px] border bg-gray-50"
-                title="Keine Spezialdistribution – EP wird im Warenkorb gewählt"
-              >
+              <span className="inline-flex items-center whitespace-nowrap px-2 py-0.5 rounded-full text-[11px] border bg-gray-50">
                 Haupt-Distributor:&nbsp;<strong>EP</strong>
               </span>
             ) : (
@@ -157,7 +164,10 @@ export default function ProductCard({
                 <label className="block text-[11px] text-gray-500 mb-1">
                   Distributor (Pflicht)
                 </label>
-                <Select value={selectedDisti} onValueChange={(v) => setSelectedDisti(v)}>
+                <Select
+                  value={selectedDisti}
+                  onValueChange={(v) => setSelectedDisti(v)}
+                >
                   <SelectTrigger className="h-8 text-xs">
                     <SelectValue placeholder="Bitte wählen" />
                   </SelectTrigger>
@@ -178,15 +188,23 @@ export default function ProductCard({
           {/* Preise */}
           <div className="grid grid-cols-2 gap-2 text-sm bg-gray-50 p-2 rounded-lg border">
             <div>
-              <span className="block text-[11px] text-gray-500">UVP (brutto)</span>
+              <span className="block text-[11px] text-gray-500">
+                UVP (brutto)
+              </span>
               <span className="font-medium">
-                {retailPrice != null ? `${retailPrice.toFixed(2)} CHF` : "-"}
+                {retailPrice != null
+                  ? `${retailPrice.toFixed(2)} CHF`
+                  : "-"}
               </span>
             </div>
             <div className="text-right">
-              <span className="block text-[11px] text-gray-500">EK normal</span>
+              <span className="block text-[11px] text-gray-500">
+                EK normal
+              </span>
               <span className="font-medium text-blue-600">
-                {dealerInvoice != null ? `${dealerInvoice.toFixed(2)} CHF` : "-"}
+                {dealerInvoice != null
+                  ? `${dealerInvoice.toFixed(2)} CHF`
+                  : "-"}
               </span>
             </div>
           </div>
@@ -197,34 +215,32 @@ export default function ProductCard({
               Marktpreise (aktuell):
             </p>
 
-            {[
-              { label: "Digitec", data: digitec, color: "text-blue-600" },
-              { label: "Mediamarkt", data: media, color: "text-red-600" },
-              { label: "Interdiscount", data: inter, color: "text-orange-600" },
-              { label: "Fnac", data: fnac, color: "text-purple-600" },
-              { label: "Brack", data: brack, color: "text-green-600" },
-              { label: "Fust", data: fust, color: "text-pink-600" },
-            ].map(({ label, data, color }) => (
-              <div key={label} className="flex justify-between">
-                <span>{label}:</span>
-                {data.loading ? (
-                  <span className="text-gray-400">lädt…</span>
-                ) : data.price ? (
-                  <a
-                    href={data.sourceUrl ?? "#"}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className={`${color} hover:underline font-medium`}
-                  >
-                    CHF {data.price.toFixed(2)}
-                  </a>
-                ) : (
-                  <span className="text-gray-400">
-                    {data.error || "nicht verfügbar"}
-                  </span>
-                )}
-              </div>
-            ))}
+            {MARKET_SHOPS.map((shop) => {
+              const s = shops?.[shop];
+
+              return (
+                <div key={shop} className="flex justify-between">
+                  <span>{shop}:</span>
+
+                  {loading ? (
+                    <span className="text-gray-400">lädt…</span>
+                  ) : s?.price ? (
+                    <a
+                      href={s.sourceUrl ?? "#"}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-blue-600 hover:underline font-medium"
+                    >
+                      CHF {s.price.toFixed(2)}
+                    </a>
+                  ) : (
+                    <span className="text-gray-400">
+                      {s?.error ?? "nicht verfügbar"}
+                    </span>
+                  )}
+                </div>
+              );
+            })}
 
             {lastChecked && (
               <p className="pt-1 mt-1 text-[10px] text-gray-400 text-right border-t border-gray-100">
@@ -265,7 +281,8 @@ export default function ProductCard({
                 }}
                 onBlur={(e) => {
                   const n = parseFloat(e.target.value.replace(",", "."));
-                  const rounded = Number.isFinite(n) ? Number(n.toFixed(2)) : 0;
+                  const rounded =
+                    Number.isFinite(n) ? Number(n.toFixed(2)) : 0;
                   setBestPrice(rounded);
                   setPriceInput(rounded.toFixed(2));
                 }}
@@ -278,7 +295,8 @@ export default function ProductCard({
             <div className="flex items-center justify-center gap-2 rounded-lg bg-green-50 border border-green-200 p-1.5">
               <Tag className="w-4 h-4 text-green-600" />
               <p className="text-green-700 text-xs font-semibold">
-                {savingTotal.toFixed(2)} CHF gespart ({savingPercent.toFixed(1)}%)
+                {savingTotal.toFixed(2)} CHF gespart (
+                {savingPercent.toFixed(1)}%)
               </p>
             </div>
           )}
@@ -293,7 +311,7 @@ export default function ProductCard({
                   exit={{ opacity: 0, y: -10 }}
                   transition={{ duration: 0.3 }}
                   className="absolute inset-0 flex items-center justify-center 
-                             text-green-600 font-semibold text-sm bg-green-50 rounded-lg"
+                    text-green-600 font-semibold text-sm bg-green-50 rounded-lg"
                 >
                   ✅ Produkt hinzugefügt
                 </motion.div>
@@ -308,8 +326,8 @@ export default function ProductCard({
                 >
                   <Button
                     className="w-full h-9 rounded-lg bg-gradient-to-r from-blue-600 to-indigo-600 
-                               text-white text-sm font-medium hover:from-blue-700 hover:to-indigo-700 
-                               transition-all duration-200 flex items-center justify-center gap-1"
+                      text-white text-sm font-medium hover:from-blue-700 hover:to-indigo-700 
+                      transition-all duration-200 flex items-center justify-center gap-1"
                     onClick={handleAddToCart}
                     disabled={allowedDistis.length > 0 && !selectedDisti}
                   >

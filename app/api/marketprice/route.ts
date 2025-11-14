@@ -1,13 +1,21 @@
 import { NextResponse } from "next/server";
-import { supabase } from "@/lib/supabaseClient";
+import { createClient } from "@supabase/supabase-js";
 
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
-  const shop = searchParams.get("shop");
-  let ean = searchParams.get("ean") || searchParams.get("id");
 
-  // ❗ Immer als String erzwingen (wichtig!)
-  if (ean) ean = String(ean).trim();
+  const shop = searchParams.get("shop");
+
+  // 🔥 Akzeptiert alle möglichen Eingaben
+  let ean =
+    searchParams.get("ean") ||
+    searchParams.get("product_ean") ||
+    searchParams.get("id") ||
+    null;
+
+  if (ean) {
+    ean = String(ean).trim();
+  }
 
   if (!shop || !ean) {
     return NextResponse.json({
@@ -18,11 +26,17 @@ export async function GET(req: Request) {
     });
   }
 
+  const supabase = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  );
+
+  // 🔥 WICHTIG: Immer String vergleichen
   const { data, error } = await supabase
     .from("market_prices")
     .select("*")
     .eq("shop", shop)
-    .eq("product_ean", ean) // EAN ist String → Matching funktioniert jetzt
+    .eq("product_ean", String(ean))
     .order("fetched_at", { ascending: false })
     .limit(1)
     .maybeSingle();
