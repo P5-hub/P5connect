@@ -23,50 +23,48 @@ const SHOPS = {
 };
 
 // -----------------------------------------------------
-// 💰 Shop-spezifische Price-Selectors (mehrere pro Shop)
-// → Das sind Heuristiken, können bei Bedarf angepasst werden
+// 💰 Shop-spezifische Preis-Selectoren (mehrere Varianten)
 // -----------------------------------------------------
 const PRICE_SELECTORS = {
   digitec: [
-    ".dg-product-price strong",          // Produkt-Detailseite
-    ".sc-product-card__price strong",    // Suchresultat-Karten
+    ".dg-product-price strong",
+    ".sc-product-card__price strong",
   ],
   mediamarkt: [
-    ".product-price .price__value",      // Detailseite
-    ".price .price__value",              // Fallback
+    ".product-price .price__value",
+    ".price .price__value",
   ],
   interdiscount: [
-    "[data-test='product-price']",       // Detailseite (React)
-    ".productTile .price",               // Suchkarte
+    "[data-test='product-price']",
+    ".productTile .price",
   ],
   fnac: [
     ".f-priceBox-price",
     ".priceBox-price",
   ],
   brack: [
-    ".product-price__price",             // Detailseite
-    ".price-tag strong",                 // Fallback
+    ".product-price__price",
+    ".price-tag strong",
   ],
   fust: [
-    ".productTile .price strong",        // Karte
+    ".productTile .price strong",
     ".price strong",
   ],
 };
 
 // -----------------------------------------------------
-// 🔍 Extract number from any text (z.B. "CHF 499.00")
+// 🔍 Preis extrahieren
 // -----------------------------------------------------
 function extractPrice(text) {
   if (!text) return null;
   const cleaned = text.replace(/\s/g, "");
-  const regex = /(\d{2,5}[.,]\d{2})/;
-  const match = cleaned.match(regex);
+  const match = cleaned.match(/(\d{2,5}[.,]\d{2})/);
   if (!match) return null;
   return parseFloat(match[1].replace(",", "."));
 }
 
 // -----------------------------------------------------
-// 🧠 Retry wrapper (3 attempts)
+// 🧠 Retry (bis zu 3 Versuche)
 // -----------------------------------------------------
 async function retry(fn, retries = 3) {
   for (let i = 0; i < retries; i++) {
@@ -80,19 +78,10 @@ async function retry(fn, retries = 3) {
 }
 
 // -----------------------------------------------------
-// 🕷 Scrape Shop
-// 1. Seite laden
-// 2. Mehrere Selector probieren
-// 3. Fallback: Body-Scan + Logging
+// 🕷 Shop scrapen
 // -----------------------------------------------------
 async function scrapeShop(browser, shop, ean) {
-  const buildUrl = SHOPS[shop];
-  if (!buildUrl) {
-    console.log(`⚠️ Unknown shop: ${shop}`);
-    return { price: null, url: null };
-  }
-
-  const url = buildUrl(ean);
+  const url = SHOPS[shop](ean);
   const selectors = PRICE_SELECTORS[shop] || [];
   const page = await browser.newPage();
 
@@ -100,7 +89,7 @@ async function scrapeShop(browser, shop, ean) {
     USER_AGENTS[Math.floor(Math.random() * USER_AGENTS.length)]
   );
 
-  // etwas weniger auffällig: keine Bilder
+  // Bilder/Fonts blockieren (viel schneller & weniger Ban)
   await page.setRequestInterception(true);
   page.on("request", (req) => {
     if (["image", "media", "font"].includes(req.resourceType())) {
@@ -116,43 +105,38 @@ async function scrapeShop(browser, shop, ean) {
 
   let price = null;
 
-  // 1) Versuche die Liste der bekannten Selector nacheinander
+  // 1) Selector-Liste testen
   for (const selector of selectors) {
     try {
       await page.waitForSelector(selector, { timeout: 5000 });
-      const raw = await page.$eval(
-        selector,
-        (el) => el.textContent || el.innerText || ""
-      );
-      price = extractPrice(raw);
-      if (price != null) {
-        console.log(`   ✅ ${shop} selector match "${selector}" → ${price} CHF`);
+      const raw = await page.$eval(selector, (el) => el.textContent || "");
+      const extracted = extractPrice(raw);
+
+      if (extracted != null) {
+        console.log(`   ✅ ${shop} → Selector "${selector}" fand: ${extracted} CHF`);
+        price = extracted;
         break;
-      } else {
-        console.log(
-          `   ⚠️ ${shop} selector "${selector}" gefunden, aber kein Preis extrahiert`
-        );
       }
     } catch {
-      // Selector nicht gefunden → nächsten probieren
       continue;
     }
   }
 
-  // 2) Fallback: Body-Scan – aber mit Warnung
+  // 2) Fallback: Body-Scan
   if (!price) {
     const body = await page.content();
     const fallbackPrice = extractPrice(body);
     if (fallbackPrice) {
       console.log(
-        `   ⚠️ ${shop} Fallback-Preis aus Body für EAN ${ean}: ${fallbackPrice} CHF (prüfen!)`
+        `   ⚠️ ${shop} Fallback-Preis für EAN ${ean}: ${fallbackPrice} CHF`
       );
       price = fallbackPrice;
     } else {
-      console.log(
-        `   ❌ ${shop} – kein Preis gefunden für EAN ${ean}, Screenshot wird gespeichert`
-      );
-      await page.screenshot({ path: `error_${shop}_${ean}.png`, fullPage: true });
+      console.log(`   ❌ ${shop} – kein Preis gefunden für ${ean}`);
+      await page.screenshot({
+        path: `error_${shop}_${ean}.png`,
+        fullPage: true,
+      });
     }
   }
 
@@ -161,8 +145,7 @@ async function scrapeShop(browser, shop, ean) {
 }
 
 // -----------------------------------------------------
-// 📦 Laden der Produkte aus Supabase
-// → nur EANs, die gesetzt sind
+// 📦 Produkte laden
 // -----------------------------------------------------
 async function fetchProducts() {
   const res = await fetch(
@@ -175,31 +158,45 @@ async function fetchProducts() {
   );
 
   if (!res.ok) {
-    throw new Error(`Failed to fetch products: ${res.status} ${res.statusText}`);
+    throw new Error(`Failed to fetch products: ${res.status}`);
   }
 
-  const json = await res.json();
-  return json;
+  return res.json();
 }
 
 // -----------------------------------------------------
-// 💾 Preis speichern
+// 💾 Preis speichern (Upsert: Update → Insert)
 // -----------------------------------------------------
 async function savePrice(entry) {
-  const res = await fetch(`${process.env.SUPABASE_URL}/rest/v1/market_prices`, {
-    method: "POST",
-    headers: {
-      apiKey: process.env.SUPABASE_SERVICE_ROLE_KEY,
-      Authorization: `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`,
-      "Content-Type": "application/json",
-      Prefer: "resolution=merge-duplicates",
-    },
-    body: JSON.stringify(entry),
-  });
+  // 1) UPDATE versuchen
+  const updateRes = await fetch(
+    `${process.env.SUPABASE_URL}/rest/v1/market_prices?shop=eq.${entry.shop}&product_ean=eq.${entry.product_ean}`,
+    {
+      method: "PATCH",
+      headers: {
+        apiKey: process.env.SUPABASE_SERVICE_ROLE_KEY,
+        Authorization: `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(entry),
+    }
+  );
 
-  if (!res.ok) {
-    const text = await res.text();
-    console.log("❌ Save error:", res.status, text);
+  const updateJson = await updateRes.json().catch(() => []);
+
+  // 2) Wenn keine existierende Zeile → INSERT
+  if (!Array.isArray(updateJson) || updateJson.length === 0) {
+    console.log(`   ↳ No row found → inserting new entry`);
+
+    await fetch(`${process.env.SUPABASE_URL}/rest/v1/market_prices`, {
+      method: "POST",
+      headers: {
+        apiKey: process.env.SUPABASE_SERVICE_ROLE_KEY,
+        Authorization: `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(entry),
+    });
   }
 }
 
@@ -207,12 +204,7 @@ async function savePrice(entry) {
 // 🚀 Main Job
 // -----------------------------------------------------
 (async () => {
-  console.log("🚀 Starting Puppeteer market price scraping job...");
-
-  if (!process.env.SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
-    console.error("❌ SUPABASE_URL oder SUPABASE_SERVICE_ROLE_KEY fehlt");
-    process.exit(1);
-  }
+  console.log("🚀 Starting improved Puppeteer scraping job...");
 
   const browser = await puppeteer.launch({
     headless: "new",
@@ -225,7 +217,7 @@ async function savePrice(entry) {
 
   try {
     const products = await fetchProducts();
-    console.log(`📦 Loaded ${products.length} products from Supabase`);
+    console.log(`📦 Loaded ${products.length} products.`);
 
     for (const product of products) {
       const ean = product.ean;
@@ -235,7 +227,7 @@ async function savePrice(entry) {
 
       for (const shop of Object.keys(SHOPS)) {
         try {
-          console.log(`🛒  Scraping ${shop} for EAN ${ean}`);
+          console.log(`🛒 Scraping ${shop}...`);
           const { price, url } = await scrapeShop(browser, shop, ean);
 
           await savePrice({
@@ -250,14 +242,14 @@ async function savePrice(entry) {
 
           console.log(`   ✔ Saved: ${shop} → ${price} CHF`);
         } catch (err) {
-          console.log(`   ❌ Error for ${shop}/${ean}:`, err.message);
+          console.log(`   ❌ Error at ${shop}/${ean}:`, err.message);
         }
       }
     }
 
     console.log("\n🏁 Done!");
   } catch (err) {
-    console.error("💥 Fatal error in scraping job:", err);
+    console.error("💥 Fatal scraper error:", err);
   } finally {
     await browser.close();
   }
