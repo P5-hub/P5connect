@@ -2,7 +2,7 @@
 import puppeteer from "puppeteer";
 
 // -----------------------------------------------------
-// 🔧 Random User Agents
+// 🔧 Random User Agents (Anti-Bot)
 // -----------------------------------------------------
 const USER_AGENTS = [
   "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:123.0) Gecko/20100101 Firefox/123.0",
@@ -11,62 +11,54 @@ const USER_AGENTS = [
 ];
 
 // -----------------------------------------------------
-// 🛒 Shop URLs
+// 🛒 SHOPS – Suchseiten
 // -----------------------------------------------------
 const SHOPS = {
-  digitec: (ean) => `https://www.digitec.ch/de/search?q=${encodeURIComponent(ean)}`,
-  mediamarkt: (ean) => `https://www.mediamarkt.ch/de/search.html?query=${encodeURIComponent(ean)}`,
-  interdiscount: (ean) => `https://www.interdiscount.ch/de/search?s=${encodeURIComponent(ean)}`,
-  fnac: (ean) => `https://www.fnac.ch/SearchResult/ResultList.aspx?Search=${encodeURIComponent(ean)}`,
-  brack: (ean) => `https://www.brack.ch/search?q=${encodeURIComponent(ean)}`,
-  fust: (ean) => `https://www.fust.ch/de/searchresult.html?q=${encodeURIComponent(ean)}`,
+  digitec: ean => `https://www.digitec.ch/de/search?q=${encodeURIComponent(ean)}`,
+  mediamarkt: ean => `https://www.mediamarkt.ch/de/search.html?query=${encodeURIComponent(ean)}`,
+  interdiscount: ean => `https://www.interdiscount.ch/de/search?s=${encodeURIComponent(ean)}`,
+  fnac: ean => `https://www.fnac.ch/SearchResult/ResultList.aspx?Search=${encodeURIComponent(ean)}`,
+  brack: ean => `https://www.brack.ch/search?q=${encodeURIComponent(ean)}`,
+  fust: ean => `https://www.fust.ch/de/searchresult.html?q=${encodeURIComponent(ean)}`,
 };
 
 // -----------------------------------------------------
-// 💰 Preis-Selektoren (final, geprüft – aus deinen Screenshots)
+// 💰 Preis-Selektoren (alle durch Screenshots bestätigt)
 // -----------------------------------------------------
 const PRICE_SELECTORS = {
-  // DIGITEC
   digitec: [
-    "button.yKEoTuX6",     // <button class="yKEoTuX6"><span>CHF</span> 2066.95 </button>
-    ".dg-product-price strong",
-    ".sc-product-card__price strong",
+    "button.yKEoTuX6",          // Button mit CHF 2066.95
+    "strong.yKEoTuX6",          // alternative Struktur
+    ".product__price",
   ],
-
-  // MEDIAMARKT
   mediamarkt: [
-    "[data-test='branded-price-whole-value']", // PREIS z.B.: CHF 3799.
-    ".sc-94eb08bc-0",                          // Klassenschlüssel aus Screenshot
+    ".sc-94eb08bc-0.kjXYoV",    // CHF 3799.–
     ".price__value",
+    "[itemprop=price]",
   ],
-
-  // INTERDISCOUNT
   interdiscount: [
-    ".inline-flex",                 // z.B. 1’749.<sub>95</sub>
+    ".inline-flex",             // 1’749.- + <sub>95</sub>
     "[data-test='product-price']",
+    ".price__digit",
   ],
-
-  // FNAC
   fnac: [
-    ".f-faPriceBox__price",         // z.B. 2'299.-
+    ".f-faPriceBox__price",     // 2'299.-
     ".userPrice",
+    ".priceBox-price",
   ],
-
-  // BRACK
   brack: [
-    ".bpaYB7Nv",                    // 639.00
-    ".bpaOuDN",
+    ".bpaYB7Nv",                // 639.00
+    ".product-price__price",
   ],
-
-  // FUST
   fust: [
-    ".price__price",                // 599.90
-    ".product-header__price",
+    ".price__price",            // 599.90
+    ".product-detail-price",
+    ".price strong",
   ],
 };
 
 // -----------------------------------------------------
-// 🔍 Preis-Extraktion
+// 🔍 Preis extrahieren (sehr tolerant)
 // -----------------------------------------------------
 function extractPrice(text) {
   if (!text) return null;
@@ -74,17 +66,25 @@ function extractPrice(text) {
   let cleaned = text
     .toString()
     .replace(/\s+/g, "")
-    .replace(/'/g, "")
     .replace(/CHF/gi, "")
     .replace(/Fr\./gi, "")
-    .replace(/[–-]/g, "") // Entfernt .– oder .-
+    .replace(/'/g, "")
+    .replace(/–/g, "-")
     .trim();
 
-  // 1) finden von xx.xx oder xx,xx
-  let m = cleaned.match(/(\d+[.,]\d{2})/);
+  // 3520.– oder 1299.–
+  let m = cleaned.match(/(\d+)\.-/);
+  if (m) return parseFloat(m[1]);
+
+  // 3520.- oder 1299.- oder 1299-
+  m = cleaned.match(/(\d+)-/);
+  if (m) return parseFloat(m[1]);
+
+  // 1234.56 oder 1234,56
+  m = cleaned.match(/(\d+[.,]\d{2})/);
   if (m) return parseFloat(m[1].replace(",", "."));
 
-  // 2) reine Zahl 2–6 Stellen
+  // reine Zahl (2–6 Stellen)
   m = cleaned.match(/(\d{2,6})/);
   if (m) return parseFloat(m[1]);
 
@@ -98,7 +98,7 @@ async function extractJSONLDPrice(page) {
   try {
     const scripts = await page.$$eval(
       'script[type="application/ld+json"]',
-      (nodes) => nodes.map((n) => n.textContent)
+      nodes => nodes.map(n => n.textContent)
     );
 
     for (const txt of scripts) {
@@ -124,59 +124,78 @@ async function extractJSONLDPrice(page) {
 }
 
 // -----------------------------------------------------
-// 🧠 Retry
+// 🧠 Retry Helper
 // -----------------------------------------------------
-async function retry(fn, retries = 3) {
-  for (let i = 0; i < retries; i++) {
+async function retry(fn, tries = 3) {
+  let lastErr = null;
+  for (let i = 0; i < tries; i++) {
     try {
       return await fn();
-    } catch (error) {
-      if (i === retries - 1) throw error;  // <--- FIXED
-      await new Promise((r) => setTimeout(r, 600 + Math.random() * 700));
+    } catch (e) {
+      lastErr = e;
+      await new Promise(r => setTimeout(r, 500 + Math.random() * 700));
     }
   }
+  throw lastErr;
 }
 
-
-
 // -----------------------------------------------------
-// 🕷 Shop-Scraper
+// 🕷 Shop scraping
 // -----------------------------------------------------
 async function scrapeShop(browser, shop, ean) {
   const url = SHOPS[shop](ean);
   const selectors = PRICE_SELECTORS[shop];
 
   const page = await browser.newPage();
-  await page.setUserAgent(USER_AGENTS[Math.floor(Math.random() * USER_AGENTS.length)]);
 
+  await page.setUserAgent(
+    USER_AGENTS[Math.floor(Math.random() * USER_AGENTS.length)]
+  );
+
+  // Anti-Bot verbessern
+  await page.setExtraHTTPHeaders({
+    "accept-language": "de-CH,de;q=0.9",
+  });
+
+  // HTTP/2 / Digitec Fix
   await page.setRequestInterception(true);
-  page.on("request", (req) => {
-    if (["image", "media", "font"].includes(req.resourceType())) req.abort();
+  page.on("request", req => {
+    if (req.resourceType() === "image" || req.resourceType() === "font")
+      req.abort();
     else req.continue();
   });
 
-  await retry(async () =>
-    page.goto(url, { waitUntil: "networkidle2", timeout: 60000 })
-  );
+  // Navigation robust
+  await retry(async () => {
+    await page.goto(url, {
+      waitUntil: "domcontentloaded",
+      timeout: 65000,
+    });
+  });
+
+  // Digitec: manchmal leitet Suche weiter → auf Produktseite warten
+  if (shop === "digitec") {
+    try {
+      await page.waitForSelector("button.yKEoTuX6", { timeout: 3000 });
+    } catch {}
+  }
 
   // 1) JSON-LD
-  const jsonPrice = await extractJSONLDPrice(page);
+  let jsonPrice = await extractJSONLDPrice(page);
   if (jsonPrice) {
-    const p = extractPrice(String(jsonPrice));
-    if (p) {
+    let p = extractPrice(String(jsonPrice));
+    if (p != null) {
       await page.close();
       return { price: p, url };
     }
   }
 
-  // 2) CSS Selektoren
+  // 2) Selektoren testen
   for (const sel of selectors) {
     try {
-      await page.waitForSelector(sel, { timeout: 4000 });
-
-      const raw = await page.$eval(sel, (el) => el.innerText || el.textContent);
+      await page.waitForSelector(sel, { timeout: 3000 });
+      const raw = await page.$eval(sel, el => el.innerText || el.textContent);
       const p = extractPrice(raw);
-
       if (p != null) {
         await page.close();
         return { price: p, url };
@@ -184,30 +203,35 @@ async function scrapeShop(browser, shop, ean) {
     } catch {}
   }
 
-  // 3) Body Scan
-  const body = await page.content();
-  const fallback = extractPrice(body);
+  // 3) Body-Fallback
+  const fallbackText = await page.content();
+  const fallbackPrice = extractPrice(fallbackText);
 
   await page.close();
-  return { price: fallback ?? null, url };
+
+  return {
+    price: fallbackPrice ?? null,
+    url,
+  };
 }
 
 // -----------------------------------------------------
-// 📦 Produkte laden
+// 📦 Produkte von Supabase laden
 // -----------------------------------------------------
 async function fetchProducts() {
   const res = await fetch(
     `${process.env.SUPABASE_URL}/rest/v1/products?select=product_id,ean&ean=not.is.null`,
     {
-      headers: { apiKey: process.env.SUPABASE_SERVICE_ROLE_KEY },
+      headers: {
+        apiKey: process.env.SUPABASE_SERVICE_ROLE_KEY,
+      },
     }
   );
-
   return res.json();
 }
 
 // -----------------------------------------------------
-// 💾 Preis speichern
+// 💾 Preise speichern (Update oder Insert)
 // -----------------------------------------------------
 async function savePrice(entry) {
   const updateRes = await fetch(
@@ -224,7 +248,10 @@ async function savePrice(entry) {
     }
   );
 
-  const updated = await updateRes.json().catch(() => []);
+  let updated = [];
+  try {
+    updated = await updateRes.json();
+  } catch {}
 
   if (Array.isArray(updated) && updated.length > 0) return;
 
@@ -240,39 +267,48 @@ async function savePrice(entry) {
 }
 
 // -----------------------------------------------------
-// 🚀 Main Runner
+// 🚀 MAIN
 // -----------------------------------------------------
 (async () => {
+  console.log("🚀 Starting market price scraper...");
+
   const browser = await puppeteer.launch({
     headless: "new",
     args: ["--no-sandbox", "--disable-setuid-sandbox"],
   });
 
-  const products = await fetchProducts();
-  console.log(`📦 Loaded ${products.length} products.`);
+  try {
+    const products = await fetchProducts();
+    console.log(`📦 Loaded ${products.length} products`);
 
-  for (const product of products) {
-    const ean = product.ean;
-    console.log(`\n🔎 Produkt ${product.product_id} – EAN ${ean}`);
+    for (const p of products) {
+      console.log(`\n🔎 Produkt ${p.product_id} (EAN ${p.ean})`);
+      for (const shop of Object.keys(SHOPS)) {
+        console.log(`🛒 Scraping ${shop}...`);
+        try {
+          const { price, url } = await scrapeShop(browser, shop, p.ean);
 
-    for (const shop of Object.keys(SHOPS)) {
-      console.log(`🛒 Scraping ${shop}...`);
+          await savePrice({
+            shop,
+            product_id: p.product_id,
+            product_ean: p.ean,
+            price,
+            currency: "CHF",
+            source_url: url,
+            fetched_at: new Date().toISOString(),
+          });
 
-      const { price, url } = await scrapeShop(browser, shop, ean);
-
-      await savePrice({
-        shop,
-        product_id: product.product_id,
-        product_ean: ean,
-        price,
-        currency: "CHF",
-        source_url: url,
-        fetched_at: new Date().toISOString(),
-      });
-
-      console.log(`   ✔ Saved: ${shop} → ${price} CHF`);
+          console.log(`   ✔ Saved ${shop}: ${price} CHF`);
+        } catch (err) {
+          console.log(`   ❌ ERROR ${shop}: ${err.message}`);
+        }
+      }
     }
-  }
 
-  await browser.close();
+    console.log("🏁 DONE");
+  } catch (err) {
+    console.error("💥 Fatal Error:", err);
+  } finally {
+    await browser.close();
+  }
 })();
