@@ -130,12 +130,14 @@ async function retry(fn, retries = 3) {
   for (let i = 0; i < retries; i++) {
     try {
       return await fn();
-    } catch {
-      if (i === retries - 1) throw err;
+    } catch (error) {
+      if (i === retries - 1) throw error;  // <--- FIXED
       await new Promise((r) => setTimeout(r, 600 + Math.random() * 700));
     }
   }
 }
+
+
 
 // -----------------------------------------------------
 // 🕷 Shop-Scraper
