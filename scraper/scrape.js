@@ -1,7 +1,6 @@
 // scraper/scrape.js
 import puppeteerExtra from "puppeteer-extra";
 import StealthPlugin from "puppeteer-extra-plugin-stealth";
-import puppeteer from "puppeteer-extra";
 import fetch from "node-fetch";
 
 puppeteerExtra.use(StealthPlugin());
@@ -27,28 +26,24 @@ const SHOPS = {
 };
 
 // -----------------------------------------------------
-// 💰 Preis-Selektoren (aktualisiert 2025)
+// 💰 Preis-Selektoren (2025)
 // -----------------------------------------------------
 const PRICE_SELECTORS = {
   digitec: [
     "span[data-testid='product-price']",
-    "div[data-testid='product-tile'] span[data-testid='product-price']",
     "[data-ga-label='product-price']",
     ".sc-8d3d65ab-0",
   ],
   mediamarkt: [
     "meta[itemprop='price']",
     "span[class*='Price_']",
-    ".ProductPrice",
   ],
   interdiscount: [
     "[data-test='product-price']",
-    ".productTile__price",
     ".price__digit",
   ],
   fnac: [
     "span[itemprop='price']",
-    "span[class*='fpPrice']",
     ".userPrice",
   ],
   brack: [
@@ -63,41 +58,31 @@ const PRICE_SELECTORS = {
 };
 
 // -----------------------------------------------------
-// 🧠 Numerische Preis-Auswertung
+// 🧠 Preis-Parser
 // -----------------------------------------------------
 function extractPrice(str) {
   if (!str) return null;
 
   let cleaned = str
-    .replace(/\s+/g, "")
-    .replace(/CHF|Fr\.?/gi, "")
-    .replace(/'/g, "")
-    .trim();
+    .replace(/[^\d.,-]/g, "")
+    .replace(",", ".");
 
-  // 12.95
-  let m = cleaned.match(/(\d+[.,]\d{2})/);
-  if (m) return parseFloat(m[1].replace(",", "."));
+  let m;
 
-  // 12.-
+  m = cleaned.match(/(\d+\.\d{2})/);
+  if (m) return parseFloat(m[1]);
+
   m = cleaned.match(/(\d+)\.-/);
   if (m) return parseFloat(m[1]);
 
-  // 12-
-  m = cleaned.match(/(\d+)-/);
+  m = cleaned.match(/(\d+)/);
   if (m) return parseFloat(m[1]);
-
-  // Letzte fallback Zahl (aber nicht 99 oder 0)
-  m = cleaned.match(/(\d{2,5})/);
-  if (m) {
-    let n = parseFloat(m[1]);
-    if (n > 9 && n < 20000) return n;
-  }
 
   return null;
 }
 
 // -----------------------------------------------------
-// 🔍 JSON-LD Price Extractor
+// 🧠 JSON-LD Price Extractor
 // -----------------------------------------------------
 async function extractJSONLDPrice(page) {
   try {
@@ -108,41 +93,24 @@ async function extractJSONLDPrice(page) {
 
     for (const txt of scripts) {
       try {
-        const json = JSON.parse(txt);
-
-        const candidates = [
-          json?.offers?.price,
-          json?.offers?.lowPrice,
-          json?.price,
+        const j = JSON.parse(txt);
+        const cand = [
+          j?.offers?.price,
+          j?.offers?.lowPrice,
+          j?.price,
         ];
-
-        for (const c of candidates) {
-          const p = extractPrice(String(c));
-          if (p != null) return p;
-        }
-
-        if (Array.isArray(json)) {
-          for (const item of json) {
-            const candidates = [
-              item?.offers?.price,
-              item?.offers?.lowPrice,
-              item?.price,
-            ];
-            for (const c of candidates) {
-              const p = extractPrice(String(c));
-              if (p != null) return p;
-            }
-          }
+        for (const c of cand) {
+          const price = extractPrice(String(c));
+          if (price != null) return price;
         }
       } catch {}
     }
   } catch {}
-
   return null;
 }
 
 // -----------------------------------------------------
-// 🧠 Retry
+// Retry
 // -----------------------------------------------------
 async function retry(fn, tries = 3) {
   let last;
@@ -151,24 +119,22 @@ async function retry(fn, tries = 3) {
       return await fn();
     } catch (e) {
       last = e;
-      await new Promise((r) => setTimeout(r, 500 + Math.random() * 700));
+      await new Promise((r) => setTimeout(r, 500));
     }
   }
   throw last;
 }
 
 // -----------------------------------------------------
-// 🕷 Generic scraper (alle außer Digitec)
+// Generic Shop Scraper
 // -----------------------------------------------------
 async function scrapeShop(browser, shop, ean) {
   const url = SHOPS[shop](ean);
   const selectors = PRICE_SELECTORS[shop];
 
   const page = await browser.newPage();
-
   await page.setUserAgent(CHROME_UA);
 
-  // Hard anti-block settings
   await page.setExtraHTTPHeaders({
     "accept-language": "de-CH,de;q=0.9",
   });
@@ -180,20 +146,15 @@ async function scrapeShop(browser, shop, ean) {
   });
 
   await retry(() =>
-    page.goto(url, {
-      waitUntil: "domcontentloaded",
-      timeout: 55000,
-    })
+    page.goto(url, { waitUntil: "domcontentloaded", timeout: 55000 })
   );
 
-  // JSON-LD
   const jsonPrice = await extractJSONLDPrice(page);
   if (jsonPrice != null) {
     await page.close();
     return { price: jsonPrice, url };
   }
 
-  // Selektoren
   for (const sel of selectors) {
     try {
       await page.waitForSelector(sel, { timeout: 2000 });
@@ -206,19 +167,14 @@ async function scrapeShop(browser, shop, ean) {
     } catch {}
   }
 
-  // Fallback: Body
   const fallback = extractPrice(await page.content());
 
   await page.close();
-
-  return {
-    price: fallback && fallback > 10 && fallback < 20000 ? fallback : null,
-    url,
-  };
+  return { price: fallback ?? null, url };
 }
 
 // -----------------------------------------------------
-// 🕷 Digitec (Stealth + HTTP Fallback)
+// Digitec Scraper
 // -----------------------------------------------------
 async function scrapeDigitec(browser, ean) {
   const url = SHOPS.digitec(ean);
@@ -230,14 +186,12 @@ async function scrapeDigitec(browser, ean) {
     page.goto(url, { waitUntil: "networkidle2", timeout: 55000 })
   );
 
-  // JSON-LD
-  const jsonPrice = await extractJSONLDPrice(page);
-  if (jsonPrice != null) {
+  const json = await extractJSONLDPrice(page);
+  if (json != null) {
     await page.close();
-    return { price: jsonPrice, url };
+    return { price: json, url };
   }
 
-  // Selektoren
   for (const sel of PRICE_SELECTORS.digitec) {
     try {
       await page.waitForSelector(sel, { timeout: 2000 });
@@ -252,45 +206,35 @@ async function scrapeDigitec(browser, ean) {
 
   await page.close();
 
-  // → HTTP fallback
-  try {
-    const res = await fetch(url, {
-      headers: { "user-agent": CHROME_UA },
-    });
-    const html = await res.text();
-    const price = extractPrice(html);
-    return { price: price ?? null, url };
-  } catch {
-    return { price: null, url };
-  }
+  // HTTP fallback
+  const res = await fetch(url, {
+    headers: { "user-agent": CHROME_UA },
+  });
+  const html = await res.text();
+  const p = extractPrice(html);
+
+  return { price: p ?? null, url };
 }
 
 // -----------------------------------------------------
-// 📦 Produkte holen
+// Produkte holen
 // -----------------------------------------------------
 async function fetchProducts() {
-  if (!process.env.SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
-    console.error("❌ SUPABASE CONFIG FEHLT");
-    process.exit(1);
-  }
-
   const res = await fetch(
     `${process.env.SUPABASE_URL}/rest/v1/products?select=product_id,ean&ean=not.is.null`,
     {
       headers: { apiKey: process.env.SUPABASE_SERVICE_ROLE_KEY },
     }
   );
-
   return res.json();
 }
 
 // -----------------------------------------------------
-// 💾 Preis speichern
+// Preis speichern
 // -----------------------------------------------------
 async function savePrice(entry) {
   const url = `${process.env.SUPABASE_URL}/rest/v1/market_prices`;
 
-  // UPDATE
   const update = await fetch(
     `${url}?shop=eq.${entry.shop}&product_ean=eq.${entry.product_ean}`,
     {
@@ -305,14 +249,11 @@ async function savePrice(entry) {
     }
   );
 
-  let updated = [];
   try {
-    updated = await update.json();
+    const updated = await update.json();
+    if (Array.isArray(updated) && updated.length > 0) return;
   } catch {}
 
-  if (Array.isArray(updated) && updated.length > 0) return;
-
-  // INSERT
   await fetch(url, {
     method: "POST",
     headers: {
@@ -325,7 +266,7 @@ async function savePrice(entry) {
 }
 
 // -----------------------------------------------------
-// 🚀 MAIN
+// MAIN
 // -----------------------------------------------------
 (async () => {
   console.log("🚀 Starting market price scraper...");
@@ -336,7 +277,6 @@ async function savePrice(entry) {
       "--no-sandbox",
       "--disable-setuid-sandbox",
       "--disable-http2",
-      "--disable-features=NetworkService",
       "--disable-gpu",
     ],
   });
