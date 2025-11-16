@@ -102,24 +102,45 @@ function ItemRow({
   const [priceNew, setPriceNew] = useState<number>(parseNum(row.preis));
   const [investVal, setInvestVal] = useState<number>(parseNum(row.invest));
   const [marginStreet, setMarginStreet] = useState<number | null>(
+  
     row.margin_street == null ? null : Number(row.margin_street)
   );
   const [source, setSource] = useState<string>(row.lowest_price_source || "");
   const [sourceCustom, setSourceCustom] = useState<string>(row.lowest_price_source_custom || "");
   const [distId, setDistId] = useState<string | null>(row.distributor_id ?? null);
+  const [priceNewInput, setPriceNewInput] = useState(
+  row.preis != null ? row.preis.toString() : ""
+);
 
-  // Sync von Server
+
+  // 🔥 Auto-Recalc on initial load
   useEffect(() => {
     if (isEditing) return;
-    setStreetBrutto(parseNum(row.lowest_price_brutto));
-    setStreetNetto(parseNum(row.lowest_price_netto));
-    setPriceNew(parseNum(row.preis));
-    setInvestVal(parseNum(row.invest));
-    setMarginStreet(row.margin_street == null ? null : Number(row.margin_street));
-    setSource(row.lowest_price_source || "");
-    setSourceCustom(row.lowest_price_source_custom || "");
-    setDistId(row.distributor_id ?? null);
-  }, [row, isEditing]);
+
+    const brutto = parseNum(row.lowest_price_brutto);
+    const netto = brutto ? brutto / 1.081 - vrg : 0;
+    const nettoRounded = Number(netto.toFixed(2));
+
+    const ekNeu = parseNum(row.preis);
+    const poiAlt = parseNum(row.price_on_invoice ?? row.dealer_invoice_price);
+
+    const mStreet = nettoRounded && ekNeu
+      ? Number((((nettoRounded - ekNeu) / nettoRounded) * 100).toFixed(1))
+      : null;
+
+    const investNeu = Number((poiAlt - calcPOI(ekNeu)).toFixed(2));
+
+    setStreetBrutto(brutto);
+    setStreetNetto(nettoRounded);
+    setPriceNew(ekNeu);
+    setPriceNewInput(ekNeu.toFixed(2));   // ← hinzufügen
+    setMarginStreet(mStreet);
+    setInvestVal(investNeu);
+
+   
+
+  }, [row]);
+
 
   const savePatch = useCallback(
     async (patch: Partial<ViewRow> & { distributor_id?: string | null }) => {
@@ -183,6 +204,7 @@ function ItemRow({
     // EK neu aus StreetNetto & Zielmarge
     const ekNeu = Number((streetNetto * (1 - target / 100)).toFixed(2));
     setPriceNew(ekNeu);
+    setPriceNewInput(ekNeu.toFixed(2));   // ← hinzufügen
 
     // Invest = POI alt - POI neu (POI neu aus EK neu)
     const investNeu = Number((poiAlt - calcPOI(ekNeu)).toFixed(2));
@@ -201,8 +223,7 @@ function ItemRow({
   };
 
   // 3) EK neu -> Invest + MargeStreet (auch wenn kein Streetprice vorhanden)
-  const onPriceChange = (val: string) => {
-    const p = parseNum(val);
+  const onPriceChange = (p: number) => {
     if (p <= 0) return;
     setPriceNew(p);
 
@@ -210,11 +231,12 @@ function ItemRow({
     const mStreet = streetNetto ? ((streetNetto - p) / streetNetto) * 100 : null;
     setMarginStreet(mStreet == null ? null : Number(mStreet.toFixed(1)));
 
-    // Invest immer berechnen: poiAlt - calcPOI(preisNeu)
+    // Invest immer berechnen
     const poiNeu = calcPOI(p);
     const investNeu = Number((poiAlt - poiNeu).toFixed(2));
     setInvestVal(investNeu);
   };
+
   const blurSavePrice = async () => {
     const poiNeu = calcPOI(priceNew);
     const investNeu = Number((poiAlt - poiNeu).toFixed(2));
@@ -239,6 +261,7 @@ function ItemRow({
     // EK neu aus POI neu: price = poi / (0.865*0.97) * 0.92
     const ekNeu = Number(((poiNeu / (0.865 * 0.97)) * 0.92).toFixed(2));
     setPriceNew(ekNeu);
+    setPriceNewInput(ekNeu.toFixed(2));   // ← hinzufügen
 
     const mStreet = streetNetto && ekNeu ? ((streetNetto - ekNeu) / streetNetto) * 100 : null;
     setMarginStreet(mStreet == null ? null : Number(mStreet.toFixed(1)));
@@ -417,17 +440,31 @@ function ItemRow({
 
         {/* EK neu */}
         <div>
-          <label className="block text-[11px] text-gray-500 mb-1">Händlerpreis / EK neu (CHF)</label>
+          <label className="block text-[11px] text-gray-500 mb-1">
+            Händlerpreis / EK neu (CHF)
+          </label>
           <input
             disabled={!isEditing}
-            type="number"
-            step="0.01"
-            value={Number.isFinite(priceNew) ? priceNew.toFixed(2) : ""}
-            onChange={(e) => onPriceChange(e.target.value)}
-            onBlur={blurSavePrice}
+            type="text"
+            value={priceNewInput}
+            onChange={(e) => {
+              const val = e.target.value;
+              setPriceNewInput(val);
+
+              const num = parseNum(val);
+              if (!isNaN(num)) onPriceChange(num); //  ← num ist number → korrekt!
+            }}
+            onBlur={() => {
+              const num = parseNum(priceNewInput);
+              const fixed = num.toFixed(2);
+              setPriceNewInput(fixed);
+              blurSavePrice();
+            }}
             className="w-28 h-7 border rounded text-xs text-right px-2"
           />
         </div>
+
+
 
         {/* Marge zum UPE netto */}
         <div className="text-right">
