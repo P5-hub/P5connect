@@ -2,63 +2,54 @@
 import puppeteer from "puppeteer";
 
 // -----------------------------------------------------
-// 🔧 Random User Agents (Anti-Bot)
+// 🔧 User Agents
 // -----------------------------------------------------
-const USER_AGENTS = [
-  "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:123.0) Gecko/20100101 Firefox/123.0",
-  "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/124.0 Safari/537.36",
-  "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 Version/17.0 Safari/605.1.15",
-];
+const CHROME_UA =
+  "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36";
+
+const USER_AGENTS = [CHROME_UA];
 
 // -----------------------------------------------------
 // 🛒 SHOPS – Suchseiten
 // -----------------------------------------------------
 const SHOPS = {
-  digitec: ean => `https://www.digitec.ch/de/search?q=${encodeURIComponent(ean)}`,
-  mediamarkt: ean => `https://www.mediamarkt.ch/de/search.html?query=${encodeURIComponent(ean)}`,
-  interdiscount: ean => `https://www.interdiscount.ch/de/search?s=${encodeURIComponent(ean)}`,
-  fnac: ean => `https://www.fnac.ch/SearchResult/ResultList.aspx?Search=${encodeURIComponent(ean)}`,
-  brack: ean => `https://www.brack.ch/search?q=${encodeURIComponent(ean)}`,
-  fust: ean => `https://www.fust.ch/de/searchresult.html?q=${encodeURIComponent(ean)}`,
+  digitec: (ean) =>
+    `https://www.digitec.ch/de/search?q=${encodeURIComponent(ean)}`,
+  mediamarkt: (ean) =>
+    `https://www.mediamarkt.ch/de/search.html?query=${encodeURIComponent(
+      ean,
+    )}`,
+  interdiscount: (ean) =>
+    `https://www.interdiscount.ch/de/search?s=${encodeURIComponent(ean)}`,
+  fnac: (ean) =>
+    `https://www.fnac.ch/SearchResult/ResultList.aspx?Search=${encodeURIComponent(
+      ean,
+    )}`,
+  brack: (ean) => `https://www.brack.ch/search?q=${encodeURIComponent(ean)}`,
+  fust: (ean) =>
+    `https://www.fust.ch/de/searchresult.html?q=${encodeURIComponent(ean)}`,
 };
 
 // -----------------------------------------------------
-// 💰 Preis-Selektoren (alle durch Screenshots bestätigt)
+// 💰 Preis-Selektoren
 // -----------------------------------------------------
 const PRICE_SELECTORS = {
   digitec: [
-    "button.yKEoTuX6",          // Button mit CHF 2066.95
-    "strong.yKEoTuX6",          // alternative Struktur
-    ".product__price",
+    "span[data-testid='product-price']",
+    ".sc-d0a80c58-0",
+    ".sc-d0a80c58-2",
+    ".sc-8d3d65ab-0",
+    "[data-ga-label='product-price']",
   ],
-  mediamarkt: [
-    ".sc-94eb08bc-0.kjXYoV",    // CHF 3799.–
-    ".price__value",
-    "[itemprop=price]",
-  ],
-  interdiscount: [
-    ".inline-flex",             // 1’749.- + <sub>95</sub>
-    "[data-test='product-price']",
-    ".price__digit",
-  ],
-  fnac: [
-    ".f-faPriceBox__price",     // 2'299.-
-    ".userPrice",
-    ".priceBox-price",
-  ],
-  brack: [
-    ".bpaYB7Nv",                // 639.00
-    ".product-price__price",
-  ],
-  fust: [
-    ".price__price",            // 599.90
-    ".product-detail-price",
-    ".price strong",
-  ],
+  mediamarkt: [".sc-94eb08bc-0.kjXYoV", ".price__value", "[itemprop=price]"],
+  interdiscount: [".inline-flex", "[data-test='product-price']", ".price__digit"],
+  fnac: [".f-faPriceBox__price", ".userPrice", ".priceBox-price"],
+  brack: [".bpaYB7Nv", ".product-price__price"],
+  fust: [".price__price", ".product-detail-price", ".price strong"],
 };
 
 // -----------------------------------------------------
-// 🔍 Preis extrahieren (sehr tolerant)
+// 🔍 Preis extrahieren
 // -----------------------------------------------------
 function extractPrice(text) {
   if (!text) return null;
@@ -72,19 +63,15 @@ function extractPrice(text) {
     .replace(/–/g, "-")
     .trim();
 
-  // 3520.– oder 1299.–
   let m = cleaned.match(/(\d+)\.-/);
   if (m) return parseFloat(m[1]);
 
-  // 3520.- oder 1299.- oder 1299-
   m = cleaned.match(/(\d+)-/);
   if (m) return parseFloat(m[1]);
 
-  // 1234.56 oder 1234,56
   m = cleaned.match(/(\d+[.,]\d{2})/);
   if (m) return parseFloat(m[1].replace(",", "."));
 
-  // reine Zahl (2–6 Stellen)
   m = cleaned.match(/(\d{2,6})/);
   if (m) return parseFloat(m[1]);
 
@@ -98,7 +85,7 @@ async function extractJSONLDPrice(page) {
   try {
     const scripts = await page.$$eval(
       'script[type="application/ld+json"]',
-      nodes => nodes.map(n => n.textContent)
+      (nodes) => nodes.map((n) => n.textContent),
     );
 
     for (const txt of scripts) {
@@ -116,9 +103,13 @@ async function extractJSONLDPrice(page) {
             if (item?.price) return item.price;
           }
         }
-      } catch {}
+      } catch {
+        // JSON parse error – ignorieren
+      }
     }
-  } catch {}
+  } catch {
+    // keine ld+json scripts
+  }
 
   return null;
 }
@@ -133,14 +124,14 @@ async function retry(fn, tries = 3) {
       return await fn();
     } catch (e) {
       lastErr = e;
-      await new Promise(r => setTimeout(r, 500 + Math.random() * 700));
+      await new Promise((r) => setTimeout(r, 500 + Math.random() * 700));
     }
   }
   throw lastErr;
 }
 
 // -----------------------------------------------------
-// 🕷 Shop scraping
+// 🕷 Generisches Shop-scraping (alle außer digitec)
 // -----------------------------------------------------
 async function scrapeShop(browser, shop, ean) {
   const url = SHOPS[shop](ean);
@@ -149,36 +140,27 @@ async function scrapeShop(browser, shop, ean) {
   const page = await browser.newPage();
 
   await page.setUserAgent(
-    USER_AGENTS[Math.floor(Math.random() * USER_AGENTS.length)]
+    USER_AGENTS[Math.floor(Math.random() * USER_AGENTS.length)],
   );
 
-  // Anti-Bot verbessern
   await page.setExtraHTTPHeaders({
     "accept-language": "de-CH,de;q=0.9",
   });
 
-  // HTTP/2 / Digitec Fix
+  // Hier lassen wir die Request-Interception bewusst drin
   await page.setRequestInterception(true);
-  page.on("request", req => {
+  page.on("request", (req) => {
     if (req.resourceType() === "image" || req.resourceType() === "font")
       req.abort();
     else req.continue();
   });
 
-  // Navigation robust
   await retry(async () => {
     await page.goto(url, {
       waitUntil: "domcontentloaded",
       timeout: 65000,
     });
   });
-
-  // Digitec: manchmal leitet Suche weiter → auf Produktseite warten
-  if (shop === "digitec") {
-    try {
-      await page.waitForSelector("button.yKEoTuX6", { timeout: 3000 });
-    } catch {}
-  }
 
   // 1) JSON-LD
   let jsonPrice = await extractJSONLDPrice(page);
@@ -190,17 +172,22 @@ async function scrapeShop(browser, shop, ean) {
     }
   }
 
-  // 2) Selektoren testen
+  // 2) Selektoren
   for (const sel of selectors) {
     try {
       await page.waitForSelector(sel, { timeout: 3000 });
-      const raw = await page.$eval(sel, el => el.innerText || el.textContent);
+      const raw = await page.$eval(
+        sel,
+        (el) => el.innerText || el.textContent,
+      );
       const p = extractPrice(raw);
       if (p != null) {
         await page.close();
         return { price: p, url };
       }
-    } catch {}
+    } catch {
+      // Selector nicht gefunden – nächster
+    }
   }
 
   // 3) Body-Fallback
@@ -216,17 +203,141 @@ async function scrapeShop(browser, shop, ean) {
 }
 
 // -----------------------------------------------------
+// 🕷 Digitec: Puppeteer + HTTP-Fallback
+// -----------------------------------------------------
+
+// 1) Puppeteer-Variante (gehärtet gegen Anti-Bot / HTTP2)
+async function scrapeDigitecWithPuppeteer(browser, ean) {
+  const shop = "digitec";
+  const url = SHOPS[shop](ean);
+  const selectors = PRICE_SELECTORS[shop];
+
+  const page = await browser.newPage();
+
+  await page.setUserAgent(CHROME_UA);
+
+  await page.setExtraHTTPHeaders({
+    "accept-language": "de-CH,de;q=0.9",
+    "sec-ch-ua": `"Chromium";v="124", "Not:A-Brand";v="99"`,
+    "sec-ch-ua-mobile": "?0",
+    "sec-ch-ua-platform": "Windows",
+  });
+
+  // WICHTIG: keine Request-Interception bei digitec
+  await retry(async () => {
+    await page.goto(url, {
+      waitUntil: "domcontentloaded",
+      timeout: 65000,
+    });
+  });
+
+  let jsonPrice = await extractJSONLDPrice(page);
+  if (jsonPrice) {
+    let p = extractPrice(String(jsonPrice));
+    if (p != null) {
+      await page.close();
+      return { price: p, url };
+    }
+  }
+
+  for (const sel of selectors) {
+    try {
+      await page.waitForSelector(sel, { timeout: 3000 });
+      const raw = await page.$eval(
+        sel,
+        (el) => el.innerText || el.textContent,
+      );
+      const p = extractPrice(raw);
+      if (p != null) {
+        await page.close();
+        return { price: p, url };
+      }
+    } catch {
+      // ignorieren
+    }
+  }
+
+  const fallbackText = await page.content();
+  const fallbackPrice = extractPrice(fallbackText);
+
+  await page.close();
+
+  return {
+    price: fallbackPrice ?? null,
+    url,
+  };
+}
+
+// 2) HTTP-Fallback ohne Puppeteer
+async function scrapeDigitecHTTPFallback(ean) {
+  const shop = "digitec";
+  const url = SHOPS[shop](ean);
+
+  try {
+    const res = await fetch(url, {
+      headers: {
+        "user-agent": CHROME_UA,
+        "accept-language": "de-CH,de;q=0.9",
+      },
+    });
+
+    const html = await res.text();
+    const price = extractPrice(html);
+
+    return { price: price ?? null, url };
+  } catch (err) {
+    console.error("   ❌ Digitec HTTP-Fallback Error:", err.message);
+    return { price: null, url };
+  }
+}
+
+// Kombinierte Digitec-Funktion:
+async function scrapeDigitec(browser, ean) {
+  try {
+    const res = await scrapeDigitecWithPuppeteer(browser, ean);
+    if (res.price != null) return res;
+
+    console.log("   ℹ Digitec Puppeteer lieferte keinen Preis, HTTP-Fallback...");
+    return await scrapeDigitecHTTPFallback(ean);
+  } catch (err) {
+    if (
+      String(err.message || "").includes("ERR_HTTP2_PROTOCOL_ERROR") ||
+      String(err.message || "").includes("net::ERR")
+    ) {
+      console.log(
+        "   ℹ Digitec HTTP2/Netzwerkproblem – versuche HTTP-Fallback ohne Browser...",
+      );
+      return await scrapeDigitecHTTPFallback(ean);
+    }
+    throw err;
+  }
+}
+
+// -----------------------------------------------------
 // 📦 Produkte von Supabase laden
 // -----------------------------------------------------
 async function fetchProducts() {
+  if (!process.env.SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
+    console.error("❌ FATAL: SUPABASE_URL oder SERVICE_ROLE_KEY fehlt!");
+    process.exit(1);
+  }
+
   const res = await fetch(
     `${process.env.SUPABASE_URL}/rest/v1/products?select=product_id,ean&ean=not.is.null`,
     {
       headers: {
         apiKey: process.env.SUPABASE_SERVICE_ROLE_KEY,
       },
-    }
+    },
   );
+
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(
+      `fetchProducts failed: ${res.status} ${res.statusText} – ${text}`,
+    );
+  }
+
   return res.json();
 }
 
@@ -245,13 +356,15 @@ async function savePrice(entry) {
         Prefer: "return=representation",
       },
       body: JSON.stringify(entry),
-    }
+    },
   );
 
   let updated = [];
   try {
     updated = await updateRes.json();
-  } catch {}
+  } catch {
+    // PATCH ohne Body
+  }
 
   if (Array.isArray(updated) && updated.length > 0) return;
 
@@ -274,7 +387,12 @@ async function savePrice(entry) {
 
   const browser = await puppeteer.launch({
     headless: "new",
-    args: ["--no-sandbox", "--disable-setuid-sandbox"],
+    args: [
+      "--no-sandbox",
+      "--disable-setuid-sandbox",
+      "--disable-http2", // wichtig für digitec
+      "--disable-features=NetworkService",
+    ],
   });
 
   try {
@@ -283,10 +401,19 @@ async function savePrice(entry) {
 
     for (const p of products) {
       console.log(`\n🔎 Produkt ${p.product_id} (EAN ${p.ean})`);
+
       for (const shop of Object.keys(SHOPS)) {
         console.log(`🛒 Scraping ${shop}...`);
         try {
-          const { price, url } = await scrapeShop(browser, shop, p.ean);
+          let result;
+
+          if (shop === "digitec") {
+            result = await scrapeDigitec(browser, p.ean);
+          } else {
+            result = await scrapeShop(browser, shop, p.ean);
+          }
+
+          const { price, url } = result;
 
           await savePrice({
             shop,
