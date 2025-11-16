@@ -51,7 +51,7 @@ export default function RootPage() {
       if (role === "admin") {
         router.push("/dashboard");
       } else {
-        router.push("/landing");
+        router.push("/bestellung");
       }
     };
 
