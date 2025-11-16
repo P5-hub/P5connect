@@ -14,8 +14,9 @@ import OrderDetailView from "@/components/admin/OrderDetailView";
 
 // 🔹 Typen
 type Dealer = { name?: string; email?: string; mail_dealer?: string };
+
 type SubmissionRecord = {
-  submission_id?: number;
+  submission_id?: number; // Für submissions & Sofortrabatt (gemappt von claim_id)
   dealer_id?: number;
   status?: "pending" | "approved" | "rejected" | null;
   datum?: string;
@@ -23,11 +24,16 @@ type SubmissionRecord = {
   typ?: string;
   kommentar?: string;
   dealers?: Dealer | null;
+
+  // Sofortrabatt-spezifisch (optional)
+  rabatt_level?: number | null;
+  rabatt_betrag?: number | null;
+  products?: any;
 };
 
 type UniversalDetailProps = {
-  tableName: string;
-  typeFilter?: string;
+  tableName: string;        // "submissions" oder "sofortrabatt_claims"
+  typeFilter?: string;      // z. B. "bestellung", "projekt", "support", "sofortrabatt"
   title: string;
   storageBucket?: string;
 };
@@ -36,7 +42,6 @@ export default function UniversalDetailPage({
   tableName,
   typeFilter,
   title,
-  storageBucket,
 }: UniversalDetailProps) {
   const params = useParams();
   const rawId = params.claim_id || params.id;
@@ -51,35 +56,86 @@ export default function UniversalDetailPage({
   const [loading, setLoading] = useState(true);
   const [sendingMail, setSendingMail] = useState(false);
 
+  // Sofortrabatt-Erkennung
+  const isSofort = tableName === "sofortrabatt_claims" || typeFilter === "sofortrabatt";
+
   // Daten laden
   const fetchData = async () => {
     if (!id) return;
     setLoading(true);
+
     try {
-      let query = supabase
-        .from("submissions")
-        .select(
+      if (isSofort) {
+        // 🔸 Sofortrabatt: aus sofortrabatt_claims lesen, Dealer separat holen
+        const { data, error } = await supabase
+          .from("sofortrabatt_claims")
+          .select("*")
+          .eq("claim_id", id)
+          .maybeSingle();
+
+        if (error || !data) {
+          console.error(error);
+          toast.error("Datensatz nicht gefunden.");
+          setRecord(null);
+          return;
+        }
+
+        const anyData: any = data; // ParserError-Typing entschärfen
+
+        // Händler separat nachladen
+        let dealer: Dealer | null = null;
+        if (anyData.dealer_id) {
+          const { data: dealerRow } = await supabase
+            .from("dealers")
+            .select("name, email, mail_dealer")
+            .eq("dealer_id", anyData.dealer_id)
+            .maybeSingle();
+          dealer = (dealerRow as Dealer) || null;
+        }
+
+        setRecord({
+          submission_id: anyData.claim_id,
+          dealer_id: anyData.dealer_id,
+          status: anyData.status,
+          datum: anyData.submission_date ?? anyData.created_at,
+          created_at: anyData.created_at,
+          typ: "sofortrabatt",
+          kommentar: anyData.comment,
+          rabatt_level: anyData.rabatt_level,
+          rabatt_betrag: anyData.rabatt_betrag,
+          products: anyData.products,
+          dealers: dealer,
+        });
+      } else {
+        // 🔸 Standard: submissions (dein Originalcode)
+        let query = supabase
+          .from("submissions")
+          .select(
+            `
+            submission_id, dealer_id, typ, datum, status, kommentar, created_at,
+            dealers ( name, email, mail_dealer )
           `
-          submission_id, dealer_id, typ, datum, status, kommentar, created_at,
-          dealers ( name, email, mail_dealer )
-        `
-        )
-        .eq("submission_id", id);
+          )
+          .eq("submission_id", id);
 
-      if (typeFilter) query = query.eq("typ", typeFilter);
+        if (typeFilter) query = query.eq("typ", typeFilter);
 
-      const { data, error } = await query.maybeSingle();
+        const { data, error } = await query.maybeSingle();
 
-      if (error || !data) {
-        toast.error("Datensatz nicht gefunden.");
-        setRecord(null);
-        return;
+        if (error || !data) {
+          console.error(error);
+          toast.error("Datensatz nicht gefunden.");
+          setRecord(null);
+          return;
+        }
+
+        const anyData: any = data; // Typ-Parser entschärfen
+
+        setRecord({
+          ...anyData,
+          dealers: Array.isArray(anyData.dealers) ? anyData.dealers[0] : anyData.dealers || null,
+        });
       }
-
-      setRecord({
-        ...data,
-        dealers: Array.isArray(data.dealers) ? data.dealers[0] : data.dealers || null,
-      });
     } catch (e) {
       console.error(e);
       toast.error("Fehler beim Laden.");
@@ -91,11 +147,15 @@ export default function UniversalDetailPage({
   useEffect(() => {
     fetchData();
     if (!id) return;
+
+    const table = isSofort ? "sofortrabatt_claims" : "submissions";
+    const idColumn = isSofort ? "claim_id" : "submission_id";
+
     const ch = supabase
-      .channel(`realtime-detail-${id}`)
+      .channel(`realtime-detail-${table}-${id}`)
       .on(
         "postgres_changes",
-        { event: "*", schema: "public", table: "submissions", filter: `submission_id=eq.${id}` },
+        { event: "*", schema: "public", table, filter: `${idColumn}=eq.${id}` },
         (payload) => {
           if (payload.new) {
             setRecord((prev) =>
@@ -105,8 +165,9 @@ export default function UniversalDetailPage({
         }
       )
       .subscribe();
+
     return () => void supabase.removeChannel(ch);
-  }, [id]);
+  }, [id, isSofort, tableName]);
 
   const dealerName = record?.dealers?.name ?? "Unbekannt";
   const dealerMail = record?.dealers?.mail_dealer || record?.dealers?.email || "-";
@@ -114,17 +175,22 @@ export default function UniversalDetailPage({
   // 🔸 Status-Update
   const updateStatus = async (newStatus: "approved" | "rejected" | "pending") => {
     if (!record?.submission_id) return;
+
+    const table = isSofort ? "sofortrabatt_claims" : "submissions";
+    const idColumn = isSofort ? "claim_id" : "submission_id";
+    const idValue = record.submission_id; // für Sofortrabatt = claim_id gemappt
+
     const { error } = await supabase
-      .from("submissions")
+      .from(table)
       .update({ status: newStatus, updated_at: new Date().toISOString() })
-      .eq("submission_id", record.submission_id);
+      .eq(idColumn, idValue);
 
     if (error) return toast.error("Status-Update fehlgeschlagen.");
     toast.success("Status aktualisiert.");
     setRecord((r) => (r ? { ...r, status: newStatus } : r));
   };
 
-  // 🔸 Mail-Preview
+  // 🔸 Mail-Preview (nur für Bestellungen)
   const handlePreviewMail = async () => {
     try {
       setSendingMail(true);
@@ -149,7 +215,7 @@ export default function UniversalDetailPage({
     }
   };
 
-  // 🔸 Bestätigen + Mail
+  // 🔸 Bestätigen + Mail (nur für Bestellungen)
   const handleApproveWithMail = async () => {
     try {
       setSendingMail(true);
@@ -279,14 +345,31 @@ export default function UniversalDetailPage({
 
         {/* 🔹 Detailkarte */}
         <CardContent className="pt-4">
+          {/* Bestellung → OrderDetailView wie bisher */}
           {record?.typ === "bestellung" && (
             <OrderDetailView
               submission={{
                 submission_id: Number(record.submission_id),
-                status: record.status ?? null, // ✅ fix gegen undefined
+                status: record.status ?? null,
               }}
               onStatusChange={fetchData}
             />
+          )}
+
+          {/* Sofortrabatt – optional einfache Anzeige (bricht nichts) */}
+          {record?.typ === "sofortrabatt" && (
+            <div className="mt-4 text-sm text-gray-700 space-y-1">
+              {record.rabatt_betrag != null && (
+                <p>
+                  <strong>Rabattbetrag:</strong> {record.rabatt_betrag} CHF
+                </p>
+              )}
+              {record.rabatt_level != null && (
+                <p>
+                  <strong>Rabatt-Level:</strong> {record.rabatt_level}
+                </p>
+              )}
+            </div>
           )}
         </CardContent>
       </Card>
