@@ -11,10 +11,22 @@ puppeteerExtra.use(StealthPlugin());
 const CHROME_UA =
   "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36";
 
-const USER_AGENTS = [CHROME_UA];
+// -----------------------------------------------------
+// 🛡 Preis-Limiter – schützt gegen 9e+21 & Co.
+// -----------------------------------------------------
+function validatePrice(n) {
+  if (!isFinite(n)) return null;
+  if (n <= 0) return null;
+
+  // realistische Preisbereiche
+  if (n < 5) return null;          // keine Micropreise
+  if (n > 20000) return null;      // keine Fantasiepreise
+
+  return n;
+}
 
 // -----------------------------------------------------
-// 🛒 Shops: URLs
+// 🛒 Shops
 // -----------------------------------------------------
 const SHOPS = {
   digitec: (ean) => `https://www.digitec.ch/de/search?q=${encodeURIComponent(ean)}`,
@@ -26,7 +38,7 @@ const SHOPS = {
 };
 
 // -----------------------------------------------------
-// 💰 Preis-Selektoren (2025)
+// 💰 Preis-Selektoren
 // -----------------------------------------------------
 const PRICE_SELECTORS = {
   digitec: [
@@ -69,20 +81,23 @@ function extractPrice(str) {
 
   let m;
 
+  // 12.95
   m = cleaned.match(/(\d+\.\d{2})/);
-  if (m) return parseFloat(m[1]);
+  if (m) return validatePrice(parseFloat(m[1]));
 
-  m = cleaned.match(/(\d+)\.-/);
-  if (m) return parseFloat(m[1]);
+  // 12.- oder 12-
+  m = cleaned.match(/(\d+)(?=\.-|-)/);
+  if (m) return validatePrice(parseFloat(m[1]));
 
-  m = cleaned.match(/(\d+)/);
-  if (m) return parseFloat(m[1]);
+  // einfache Zahl
+  m = cleaned.match(/(\d{2,5})/);
+  if (m) return validatePrice(parseFloat(m[1]));
 
   return null;
 }
 
 // -----------------------------------------------------
-// 🧠 JSON-LD Price Extractor
+// 🧠 JSON-LD Extractor
 // -----------------------------------------------------
 async function extractJSONLDPrice(page) {
   try {
@@ -94,32 +109,36 @@ async function extractJSONLDPrice(page) {
     for (const txt of scripts) {
       try {
         const j = JSON.parse(txt);
-        const cand = [
+
+        const candidates = [
           j?.offers?.price,
           j?.offers?.lowPrice,
           j?.price,
         ];
-        for (const c of cand) {
+
+        for (const c of candidates) {
+          if (!c) continue;
           const price = extractPrice(String(c));
           if (price != null) return price;
         }
+
       } catch {}
     }
   } catch {}
+
   return null;
 }
 
 // -----------------------------------------------------
-// Retry
+// Retry helper
 // -----------------------------------------------------
 async function retry(fn, tries = 3) {
   let last;
   for (let i = 0; i < tries; i++) {
-    try {
-      return await fn();
-    } catch (e) {
+    try { return await fn(); }
+    catch (e) {
       last = e;
-      await new Promise((r) => setTimeout(r, 500));
+      await new Promise((r) => setTimeout(r, 500 + Math.random() * 500));
     }
   }
   throw last;
@@ -149,12 +168,14 @@ async function scrapeShop(browser, shop, ean) {
     page.goto(url, { waitUntil: "domcontentloaded", timeout: 55000 })
   );
 
+  // JSON-LD
   const jsonPrice = await extractJSONLDPrice(page);
   if (jsonPrice != null) {
     await page.close();
     return { price: jsonPrice, url };
   }
 
+  // Selektoren
   for (const sel of selectors) {
     try {
       await page.waitForSelector(sel, { timeout: 2000 });
@@ -167,9 +188,10 @@ async function scrapeShop(browser, shop, ean) {
     } catch {}
   }
 
+  // Fallback
   const fallback = extractPrice(await page.content());
-
   await page.close();
+
   return { price: fallback ?? null, url };
 }
 
@@ -178,8 +200,8 @@ async function scrapeShop(browser, shop, ean) {
 // -----------------------------------------------------
 async function scrapeDigitec(browser, ean) {
   const url = SHOPS.digitec(ean);
-
   const page = await browser.newPage();
+
   await page.setUserAgent(CHROME_UA);
 
   await retry(() =>
@@ -207,9 +229,7 @@ async function scrapeDigitec(browser, ean) {
   await page.close();
 
   // HTTP fallback
-  const res = await fetch(url, {
-    headers: { "user-agent": CHROME_UA },
-  });
+  const res = await fetch(url, { headers: { "user-agent": CHROME_UA } });
   const html = await res.text();
   const p = extractPrice(html);
 
@@ -217,7 +237,7 @@ async function scrapeDigitec(browser, ean) {
 }
 
 // -----------------------------------------------------
-// Produkte holen
+// Produkte aus Supabase
 // -----------------------------------------------------
 async function fetchProducts() {
   const res = await fetch(
