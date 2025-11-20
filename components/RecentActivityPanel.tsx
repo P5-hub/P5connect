@@ -6,13 +6,13 @@ import { getSupabaseBrowser } from "@/lib/supabaseClient";
 import { useTheme } from "@/lib/theme/ThemeContext";
 import { FileSpreadsheet, Loader2, ChevronRight, FileText } from "lucide-react";
 import { usePathname } from "next/navigation"; // ⬅️ Ganz oben bei den Imports ergänzen
-
+import type { FormType } from "@/types/formTypes";
 
 type Props = {
   dealerId: number;
   limit?: number;
   excelLast?: number;
-  formType?: "bestellung" | "verkauf" | "projekt" | "support" | "sofortrabatt";
+  formType?: FormType;
 };
 
 type Row = {

@@ -219,7 +219,7 @@ const loadPendingCounts = async () => {
         <div className="flex justify-between items-center px-6 py-3">
 
           {/* LOGO */}
-          <Link href="/admin" className="font-semibold text-gray-800 text-lg flex items-center gap-1">
+          <Link href="/admin" className="font-semibold text-gray-800 text-lg flex items-center gap-0">
             <span className="text-black">P</span>
             <span className={`${activeColor} transition-colors`}>5</span>
             <span className="text-black">connect Admin Dashboard</span>

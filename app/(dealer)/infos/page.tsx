@@ -4,15 +4,19 @@ import Image from "next/image";
 import Link from "next/link";
 import { LifeBuoy, FileDown, Users, Headphones } from "lucide-react";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
+import { useI18n } from "@/lib/i18n/I18nProvider";
 
 export default function InfosPage() {
+  const { t } = useI18n();
+
   return (
     <div className="space-y-12 pb-20 bg-[#f9fafb] min-h-screen px-4 sm:px-6 lg:px-8 pt-8">
+
       {/* === TITEL === */}
       <div className="flex items-center gap-2 mb-6 border-b-2 border-[#1F3B9B] pb-2">
         <LifeBuoy className="w-6 h-6 text-[#1F3B9B]" />
         <h1 className="text-2xl font-semibold text-gray-800">
-          Support & Kontaktinformationen
+          {t("infos.title")}
         </h1>
       </div>
 
@@ -20,10 +24,11 @@ export default function InfosPage() {
       <section>
         <h2 className="text-lg font-semibold mb-3 text-[#1F3B9B] flex items-center gap-2">
           <Headphones className="w-5 h-5 text-[#1F3B9B]" />
-          Technischer Support
+          {t("infos.support.title")}
         </h2>
 
         <div className="grid md:grid-cols-2 gap-6">
+
           {/* Händler-Support */}
           <Card className="bg-white border border-gray-200 shadow-sm hover:shadow-md transition">
             <CardHeader className="pb-2 border-b border-[#1F3B9B]/20">
@@ -31,19 +36,22 @@ export default function InfosPage() {
                 🧩 Händler-Support
               </CardTitle>
             </CardHeader>
+
             <CardContent className="text-sm text-gray-700 space-y-4">
               <div className="flex flex-col lg:flex-row lg:justify-between lg:items-start gap-6">
+
                 {/* Linke Seite */}
                 <div className="flex-1 space-y-2">
-                  <p>Montag – Freitag, 09:00–18:00 Uhr</p>
-                  <p className="font-medium">Telefon:</p>
+                  <p>{t("infos.support.hours")}</p>
+
+                  <p className="font-medium">{t("infos.support.phone")}:</p>
                   <ul className="ml-4 list-disc">
                     <li>Deutsch: +41 (0)22 761 4182</li>
                     <li>Französisch: +41 (0)22 761 4183</li>
                     <li>Italienisch: +39 (0)26 968 2104</li>
                   </ul>
 
-                  <p className="font-medium mt-2">E-Mail:</p>
+                  <p className="font-medium mt-2">{t("infos.support.email")}:</p>
                   <ul className="ml-4 list-disc">
                     <li>
                       <a href="mailto:dealersupport.ch-de@eu.sony.com" className="text-[#1F3B9B] hover:underline">
@@ -63,7 +71,7 @@ export default function InfosPage() {
                   </ul>
 
                   <div className="pt-3 border-t border-gray-200 mt-3">
-                    <p className="text-sm text-gray-700">Weitere Hilfe direkt bei Sony:</p>
+                    <p className="text-sm text-gray-700">{t("infos.support.moreHelp")}</p>
                     <Link
                       href="https://www.sony.ch/de/electronics/support"
                       target="_blank"
@@ -83,9 +91,9 @@ export default function InfosPage() {
                       fill
                       unoptimized
                       className="object-cover object-[center_20%]"
-
                     />
                   </div>
+
                   <p className="font-semibold text-gray-800 text-sm">Holger Stuckenburg</p>
                   <p className="text-gray-600 text-xs leading-tight">
                     Senior Expert – Service Management<br />
@@ -96,6 +104,7 @@ export default function InfosPage() {
                   </a>
                   <p className="text-gray-700 text-xs mt-1">📱 +49 30 4195 53356</p>
                 </div>
+
               </div>
             </CardContent>
           </Card>
@@ -107,15 +116,18 @@ export default function InfosPage() {
                 🧩 Endkunden-Support
               </CardTitle>
             </CardHeader>
+
             <CardContent className="text-sm text-gray-700 space-y-2">
-              <p>Montag – Freitag, 09:00–18:00 Uhr</p>
-              <p className="font-medium">Telefon:</p>
+              <p>{t("infos.support.hours")}</p>
+
+              <p className="font-medium">{t("infos.support.phone")}:</p>
               <ul className="ml-4 list-disc">
                 <li>Deutsch: +41 (0)22 761 4182</li>
                 <li>Französisch: +41 (0)22 761 4183</li>
                 <li>Italienisch: +39 (0)26 968 2104</li>
               </ul>
-              <p className="font-medium mt-2">E-Mail:</p>
+
+              <p className="font-medium mt-2">{t("infos.support.email")}:</p>
               <ul className="ml-4 list-disc">
                 <li>
                   <a href="mailto:customersupport.ch-de@eu.sony.com" className="text-[#1F3B9B] hover:underline">
@@ -135,6 +147,7 @@ export default function InfosPage() {
               </ul>
             </CardContent>
           </Card>
+
         </div>
       </section>
 
@@ -142,7 +155,7 @@ export default function InfosPage() {
       <section>
         <h2 className="text-lg font-semibold mb-3 text-[#1F3B9B] flex items-center gap-2 border-b border-[#1F3B9B]/30 pb-1">
           <Users className="w-5 h-5 text-[#1F3B9B]" />
-          Verkauf Innendienst
+          {t("infos.sales.internal")}
         </h2>
 
         <div className="grid md:grid-cols-4 gap-6">
@@ -185,13 +198,16 @@ export default function InfosPage() {
                 <div className="w-36 h-42 relative overflow-hidden rounded-xl border border-gray-200 shadow-sm bg-gray-50">
                   <Image src={p.img} alt={p.name} fill unoptimized className="object-cover object-top" />
                 </div>
+
                 <div className="space-y-1">
                   <p className="font-semibold text-gray-800">{p.name}</p>
                   <p className="text-gray-600 text-sm">{p.role}</p>
                   <p className="text-gray-500 text-xs">{p.team}</p>
+
                   <a href={`mailto:${p.email}`} className="text-[#1F3B9B] text-sm hover:underline">
                     {p.email}
                   </a>
+
                   <p className="text-gray-700 text-sm">📱 {p.phone}</p>
                   <p className="text-gray-500 text-xs">E-Mail: sseschatoperations@sony.com</p>
                 </div>
@@ -205,7 +221,7 @@ export default function InfosPage() {
       <section>
         <h2 className="text-lg font-semibold mb-3 text-[#1F3B9B] flex items-center gap-2 border-b border-[#1F3B9B]/30 pb-1">
           <Users className="w-5 h-5 text-[#1F3B9B]" />
-          Ansprechpartner Verkauf
+          {t("infos.sales.kam")}
         </h2>
 
         <div className="grid md:grid-cols-3 gap-6">
@@ -237,11 +253,14 @@ export default function InfosPage() {
                 <div className="w-40 h-44 relative overflow-hidden rounded-xl border border-gray-200 shadow-sm bg-gray-50">
                   <Image src={p.img} alt={p.name} fill unoptimized className="object-cover object-top" />
                 </div>
+
                 <p className="font-semibold text-gray-800">{p.name}</p>
                 <p className="text-gray-600 text-sm">{p.role}</p>
+
                 <a href={`mailto:${p.email}`} className="text-[#1F3B9B] text-sm hover:underline">
                   {p.email}
                 </a>
+
                 <p className="text-gray-700 text-sm">📱 {p.phone}</p>
               </CardContent>
             </Card>
@@ -253,12 +272,12 @@ export default function InfosPage() {
       <section>
         <h2 className="text-lg font-semibold mb-3 text-[#1F3B9B] flex items-center gap-2 border-b border-[#1F3B9B]/30 pb-1">
           <FileDown className="w-5 h-5 text-[#1F3B9B]" />
-          Downloads
+          {t("infos.downloads.title")}
         </h2>
 
         <div className="space-y-2">
           {[
-            { name: "Anmeldung Sertronics", file: "/docs/Anmeldung_Sertronics.pdf" },
+            { name: t("infos.downloads.sertronics"), file: "/docs/Anmeldung_Sertronics.pdf" },
             { name: "DOA-Formular", file: "/docs/DOA-Formular.pdf" },
             { name: "DOA-Regelung (DE)", file: "/docs/DOA-Regelung-DE.pdf" },
           ].map((d) => (
@@ -271,6 +290,72 @@ export default function InfosPage() {
           ))}
         </div>
       </section>
+      {/* === NEWSLETTER ARCHIV === */}
+<section>
+  <h2 className="text-lg font-semibold mb-3 text-[#1F3B9B] flex items-center gap-2 border-b border-[#1F3B9B]/30 pb-1">
+    ✉️ {t("infos.newsletter.title")}
+  </h2>
+
+  <div className="space-y-4">
+
+    {/* Beispiel Newsletter #1 */}
+    <Card className="bg-white border border-gray-200 shadow-sm hover:shadow-md transition">
+      <CardHeader className="pb-2 border-b border-[#1F3B9B]/20">
+        <CardTitle className="text-[#1F3B9B] text-base font-semibold">
+          {t("infos.newsletter.jan2025.title")}
+        </CardTitle>
+      </CardHeader>
+
+      <CardContent className="text-sm text-gray-700 space-y-2">
+        <p>{t("infos.newsletter.jan2025.desc")}</p>
+
+        <div className="pt-3">
+          <Link
+            href="/newsletter/jan2025.html"
+            target="_blank"
+            className="text-[#1F3B9B] font-medium hover:underline"
+          >
+            👉 {t("infos.newsletter.openWeb")}
+          </Link>
+        </div>
+
+        <div className="pt-1">
+          <Link
+            href="/newsletter/jan2025.pdf"
+            target="_blank"
+            className="text-[#1F3B9B] text-sm hover:underline"
+          >
+            📄 PDF herunterladen
+          </Link>
+        </div>
+      </CardContent>
+    </Card>
+
+    {/* Newsletter #2 Beispiel */}
+    <Card className="bg-white border border-gray-200 shadow-sm hover:shadow-md transition">
+      <CardHeader className="pb-2 border-b border-[#1F3B9B]/20">
+        <CardTitle className="text-[#1F3B9B] text-base font-semibold">
+          {t("infos.newsletter.feb2025.title")}
+        </CardTitle>
+      </CardHeader>
+
+      <CardContent className="text-sm text-gray-700 space-y-2">
+        <p>{t("infos.newsletter.feb2025.desc")}</p>
+
+        <Link
+          href="/newsletter/feb2025.html"
+          target="_blank"
+          className="text-[#1F3B9B] font-medium hover:underline"
+        >
+          👉 {t("infos.newsletter.openWeb")}
+        </Link>
+      </CardContent>
+    </Card>
+
+  </div>
+</section>
+
+
     </div>
   );
 }

@@ -168,3 +168,21 @@
   --pulse-color: rgba(59, 130, 246, 0.3);
   animation: fadePulse 2.5s ease-in-out;
 }
+@keyframes loading-bar {
+  0% { transform: translateX(-100%); }
+  50% { transform: translateX(-20%); }
+  100% { transform: translateX(100%); }
+}
+
+.animate-loading-bar {
+  animation: loading-bar 1.2s ease-in-out infinite;
+}
+
+@keyframes button-fill {
+  0%   { transform: translateX(-100%); }
+  100% { transform: translateX(0%); }
+}
+
+.animate-button-fill {
+  animation: button-fill 1.5s ease-out forwards;
+}

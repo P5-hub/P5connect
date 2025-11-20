@@ -9,6 +9,7 @@ import { Product } from "@/types/Product";
 import { motion, AnimatePresence } from "framer-motion";
 
 import { useMarketPrices } from "@/lib/hooks/useMarketPrices";
+import { useI18n } from "@/lib/i18n/I18nProvider";
 
 import {
   Select,
@@ -25,6 +26,8 @@ export default function ProductCard({
   product: Product & { distri?: string | null };
   onAddToCart: (item: any) => void;
 }) {
+  const { t } = useI18n();
+
   const [quantity, setQuantity] = useState(1);
 
   const initialBestPrice =
@@ -61,8 +64,8 @@ export default function ProductCard({
     setSelectedDisti(allowedDistis[0] ?? "");
   }, [allowedDistis]);
 
-  // ⬅️ Bulk Market Prices (1 Request)
-  const { shops, loading, error } = useMarketPrices(product.ean);
+  // Marktpreise (1 Request für alle Shops)
+  const { shops, loading } = useMarketPrices(product.ean);
 
   const retailPrice =
     typeof product.retail_price === "number" ? product.retail_price : null;
@@ -141,7 +144,7 @@ export default function ProductCard({
               <CardTitle className="text-sm font-semibold text-gray-900 truncate">
                 {product.product_name ||
                   (product as any).sony_article ||
-                  "Unbekanntes Modell"}
+                  t("productCard.unknownModel")}
               </CardTitle>
 
               {(product as any).brand && (
@@ -151,25 +154,26 @@ export default function ProductCard({
               )}
 
               <p className="text-[11px] text-gray-400">
-                EAN: {product.ean || "-"}
+                {t("productCard.ean")}: {product.ean || "-"}
               </p>
             </div>
 
+            {/* DISTRIBUTOR */}
             {allowedDistis.length === 0 ? (
               <span className="inline-flex items-center whitespace-nowrap px-2 py-0.5 rounded-full text-[11px] border bg-gray-50">
-                Haupt-Distributor:&nbsp;<strong>EP</strong>
+                {t("productCard.mainDistributor")}:&nbsp;<strong>EP</strong>
               </span>
             ) : (
               <div className="min-w-[160px]">
                 <label className="block text-[11px] text-gray-500 mb-1">
-                  Distributor (Pflicht)
+                  {t("productCard.distributorRequired")}
                 </label>
                 <Select
                   value={selectedDisti}
                   onValueChange={(v) => setSelectedDisti(v)}
                 >
                   <SelectTrigger className="h-8 text-xs">
-                    <SelectValue placeholder="Bitte wählen" />
+                    <SelectValue placeholder={t("productCard.distributorSelect")} />
                   </SelectTrigger>
                   <SelectContent>
                     {allowedDistis.map((code) => (
@@ -185,11 +189,11 @@ export default function ProductCard({
         </CardHeader>
 
         <CardContent className="space-y-3">
-          {/* Preise */}
+          {/* PREISE */}
           <div className="grid grid-cols-2 gap-2 text-sm bg-gray-50 p-2 rounded-lg border">
             <div>
               <span className="block text-[11px] text-gray-500">
-                UVP (brutto)
+                {t("productCard.uvpGross")}
               </span>
               <span className="font-medium">
                 {retailPrice != null
@@ -199,7 +203,7 @@ export default function ProductCard({
             </div>
             <div className="text-right">
               <span className="block text-[11px] text-gray-500">
-                EK normal
+                {t("productCard.ekNormal")}
               </span>
               <span className="font-medium text-blue-600">
                 {dealerInvoice != null
@@ -209,10 +213,10 @@ export default function ProductCard({
             </div>
           </div>
 
-          {/* Marktpreise */}
+          {/* MARKTPREISE */}
           <div className="bg-gray-50 border rounded-lg p-2 text-xs text-gray-600 space-y-1">
             <p className="text-[11px] text-gray-500 font-medium mb-1">
-              Marktpreise (aktuell):
+              {t("productCard.marketPricesCurrent")}
             </p>
 
             {MARKET_SHOPS.map((shop) => {
@@ -223,7 +227,9 @@ export default function ProductCard({
                   <span>{shop}:</span>
 
                   {loading ? (
-                    <span className="text-gray-400">lädt…</span>
+                    <span className="text-gray-400">
+                      {t("productCard.loading")}
+                    </span>
                   ) : s?.price ? (
                     <a
                       href={s.sourceUrl ?? "#"}
@@ -235,7 +241,7 @@ export default function ProductCard({
                     </a>
                   ) : (
                     <span className="text-gray-400">
-                      {s?.error ?? "nicht verfügbar"}
+                      {s?.error ?? t("productCard.notAvailable")}
                     </span>
                   )}
                 </div>
@@ -244,15 +250,17 @@ export default function ProductCard({
 
             {lastChecked && (
               <p className="pt-1 mt-1 text-[10px] text-gray-400 text-right border-t border-gray-100">
-                Stand: {lastChecked}
+                {t("productCard.lastChecked")}: {lastChecked}
               </p>
             )}
           </div>
 
-          {/* Eingaben */}
+          {/* EINGABEN */}
           <div className="grid grid-cols-2 gap-3 text-sm">
             <div>
-              <label className="block text-xs text-gray-500 mb-1">Anzahl</label>
+              <label className="block text-xs text-gray-500 mb-1">
+                {t("productCard.amount")}
+              </label>
               <Input
                 type="number"
                 min={1}
@@ -266,7 +274,7 @@ export default function ProductCard({
 
             <div>
               <label className="block text-xs text-gray-500 mb-1">
-                Preis (CHF, exkl. MwSt & VRG)
+                {t("productCard.priceNet")}
               </label>
 
               <Input
@@ -295,12 +303,13 @@ export default function ProductCard({
             <div className="flex items-center justify-center gap-2 rounded-lg bg-green-50 border border-green-200 p-1.5">
               <Tag className="w-4 h-4 text-green-600" />
               <p className="text-green-700 text-xs font-semibold">
-                {savingTotal.toFixed(2)} CHF gespart (
+                {savingTotal.toFixed(2)} CHF {t("productCard.saving")} (
                 {savingPercent.toFixed(1)}%)
               </p>
             </div>
           )}
 
+          {/* ADD BUTTON */}
           <div className="relative h-9 mt-2">
             <AnimatePresence mode="wait">
               {added ? (
@@ -313,7 +322,7 @@ export default function ProductCard({
                   className="absolute inset-0 flex items-center justify-center 
                     text-green-600 font-semibold text-sm bg-green-50 rounded-lg"
                 >
-                  ✅ Produkt hinzugefügt
+                  {t("productCard.added")}
                 </motion.div>
               ) : (
                 <motion.div
@@ -332,7 +341,7 @@ export default function ProductCard({
                     disabled={allowedDistis.length > 0 && !selectedDisti}
                   >
                     <ShoppingCart className="w-4 h-4" />
-                    In den Warenkorb
+                    {t("productCard.addToCart")}
                   </Button>
                 </motion.div>
               )}

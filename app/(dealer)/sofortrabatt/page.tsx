@@ -11,15 +11,16 @@ export default function SofortrabattPage() {
   if (!dealer)
     return (
       <div className="p-6 text-gray-500">
-        🔒 {t("dealer.notfound") ?? "Kein Händler gefunden. Bitte einloggen."}
+        🔒 {t("dealer.notfound")}
       </div>
     );
 
   return (
-    <div className="p-6">
+    <div className="p-6 space-y-6 pb-20">
       <h1 className="text-2xl font-bold text-pink-600 mb-4">
-        Sofortrabatt beantragen
+        {t("instant.page.title")}
       </h1>
+
       <SofortrabattForm />
     </div>
   );

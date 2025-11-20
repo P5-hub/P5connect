@@ -202,7 +202,7 @@ export default function DealerNav() {
 const languages = [
   { code: "de", label: "Deutsch" },
   { code: "en", label: "English" },
-  { code: "fr", label: "FranÃ§ais" },
+  { code: "fr", label: "Français" },
   { code: "it", label: "Italiano" },
   { code: "rm", label: "Rumantsch" },
 ];
