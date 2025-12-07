@@ -6,14 +6,30 @@ const resend = resendApiKey ? new Resend(resendApiKey) : null;
 
 /**
  * Testmodus ist aktiv, solange NICHT 'live' gesetzt ist.
- * .env: NEXT_PUBLIC_EMAIL_MODE=test  (Standard für Entwicklung)
+ * .env: NEXT_PUBLIC_EMAIL_MODE=test  (Standardentwicklung)
  *       NEXT_PUBLIC_EMAIL_MODE=live  (Produktion)
  */
 const isTestMode = process.env.NEXT_PUBLIC_EMAIL_MODE !== "live";
 
 /* ============================================================================
+   🔧 EMAIL-BEREINIGUNG (exportiert für sendOrderNotification)
+   ============================================================================
+*/
+export function cleanEmails(list: (string | null | undefined)[]): string[] {
+  return Array.from(
+    new Set(
+      list
+        .filter((x): x is string => typeof x === "string" && x.trim().length > 0)
+        .map((x) => x.trim())
+        .map((x) => x.toLowerCase())
+    )
+  );
+}
+
+/* ============================================================================
    📧 BASIS-MAILFUNKTION
-   ========================================================================== */
+   ============================================================================
+*/
 console.log("🔑 RESEND_API_KEY vorhanden:", !!process.env.RESEND_API_KEY);
 console.log("📦 Email mode:", process.env.NEXT_PUBLIC_EMAIL_MODE);
 
@@ -25,7 +41,7 @@ type SendMailArgs = {
 };
 
 export async function sendMail({ to, subject, html, from }: SendMailArgs) {
-  const recipients = (to || []).filter(Boolean);
+  const recipients = cleanEmails(to || []);
 
   if (recipients.length === 0) {
     console.warn("⚠️ Keine Empfänger angegeben. Mail wird nicht gesendet.");
@@ -46,7 +62,6 @@ export async function sendMail({ to, subject, html, from }: SendMailArgs) {
     return { error: "no_resend_key" };
   }
 
-  // 📨 tatsächlicher Versand
   try {
     const result = await resend.emails.send({
       from: from ?? "P5connect <noreply@notifications.p5connect.ch>",
@@ -65,8 +80,9 @@ export async function sendMail({ to, subject, html, from }: SendMailArgs) {
 }
 
 /* ============================================================================
-   📧 SPEZIALFUNKTION FÜR PROJEKTANFRAGEN (erweitert)
-   ========================================================================== */
+   📧 SPEZIALFUNKTION FÜR PROJEKTANFRAGEN
+   ============================================================================
+*/
 type ProjectMailArgs = {
   toDealer?: string | null;
   toKAM?: string | null;
@@ -109,14 +125,15 @@ export async function sendProjectMail(
     from,
   } = args;
 
-  const recipients = Array.from(
-    new Set(
-      [toDealer, toKAM, toKAM2, toBG, toBG2, toDistributor, toDistributor2]
-        .filter(Boolean)
-        .map(String)
-        .map((e) => e.trim().toLowerCase())
-    )
-  );
+  const recipients = cleanEmails([
+    toDealer,
+    toKAM,
+    toKAM2,
+    toBG,
+    toBG2,
+    toDistributor,
+    toDistributor2,
+  ]);
 
   const subject =
     status === "approved"
@@ -144,12 +161,8 @@ export async function sendProjectMail(
           <h2 style="color: #5B21B6;">Projektanfrage bestätigt</h2>
           <p>Sehr geehrte Damen und Herren,</p>
           <p>Ihre Projektanfrage <strong>${projectName || "(unbenanntes Projekt)"}</strong> wurde bestätigt.</p>
-          ${
-            detailsRows.length
-              ? `<table style="border-collapse: collapse; margin-top: 10px;">${detailsRows.join("")}</table>`
-              : ""
-          }
-          <p style="margin-top: 15px;">Vielen Dank für Ihre Zusammenarbeit.<br /><strong>Ihr P5connect-Team</strong></p>
+          ${detailsRows.length ? `<table style="border-collapse: collapse; margin-top: 10px;">${detailsRows.join("")}</table>` : ""}
+          <p style="margin-top: 15px;">Vielen Dank für Ihre Zusammenarbeit.<br><strong>Ihr P5connect-Team</strong></p>
         </div>`
       : `
         <div style="font-family: Arial, sans-serif; color: #333;">
@@ -157,26 +170,21 @@ export async function sendProjectMail(
           <p>Sehr geehrte Damen und Herren,</p>
           <p>Ihre Projektanfrage <strong>${projectName || "(unbenanntes Projekt)"}</strong> wurde leider abgelehnt.</p>
           <p>Für Rückfragen steht Ihnen Ihr Ansprechpartner gerne zur Verfügung.</p>
-          <p style="margin-top: 15px;">Mit freundlichen Grüssen,<br /><strong>Ihr P5connect-Team</strong></p>
+          <p style="margin-top: 15px;">Mit freundlichen Grüssen,<br><strong>Ihr P5connect-Team</strong></p>
         </div>`;
 
-  const result = await sendMail({
+  return await sendMail({
     to: recipients.length ? recipients : ["test@p5connect.ch"],
     subject,
     html,
     from: from ?? "P5connect <noreply@notifications.p5connect.ch>",
   });
-
-  return {
-    ok: !!(result as any)?.success || !!(result as any)?.test,
-    mode: isTestMode ? "test" : "live",
-    ...result,
-  };
 }
 
 /* ============================================================================
    📧 SPEZIALFUNKTION FÜR SUPPORT-ANFRAGEN
-   ========================================================================== */
+   ============================================================================
+*/
 type SupportMailArgs = {
   toDealer?: string | null;
   toKAM?: string | null;
@@ -204,20 +212,14 @@ export async function sendSupportMail(args: SupportMailArgs) {
     from,
   } = args;
 
-  const recipients = Array.from(
-    new Set(
-      [toDealer, toKAM, toKAM2, toBG, toBG2]
-        .filter(Boolean)
-        .map((e) => e!.trim().toLowerCase())
-    )
-  );
+  const recipients = cleanEmails([toDealer, toKAM, toKAM2, toBG, toBG2]);
 
   const html = `
     <div style="font-family: Arial, sans-serif; color: #333;">
       <h2 style="color: #2563EB;">Neue Support-Anfrage</h2>
       <p>${message}</p>
       <p style="margin-top: 15px;">
-        Freundliche Grüsse,<br /><strong>Ihr P5connect-Team</strong>
+        Freundliche Grüsse,<br><strong>Ihr P5connect-Team</strong>
       </p>
     </div>`;
 

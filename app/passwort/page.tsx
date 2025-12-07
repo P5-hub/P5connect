@@ -1,6 +1,6 @@
 "use client";
 
-import ChangePasswordForm from "@/components/forms/ChangePasswordForm";
+import ChangePasswordForm from "@/app/(dealer)/components/forms/ChangePasswordForm";
 
 export default function PasswordPage() {
   return (

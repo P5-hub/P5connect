@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 
 interface UnifiedDashboardListProps {
-  type: string; // z. B. "bestellung" | "projekt" | "support" | "aktion" | "sofortrabatt"
+  type: string;
 }
 
 export default function UnifiedDashboardList({ type }: UnifiedDashboardListProps) {
@@ -22,7 +22,6 @@ export default function UnifiedDashboardList({ type }: UnifiedDashboardListProps
     "pending"
   );
 
-  // ✅ Mapping für URL-Pfade
   const pathMap: Record<string, string> = {
     projekt: "projekte",
     bestellung: "orders",
@@ -31,7 +30,6 @@ export default function UnifiedDashboardList({ type }: UnifiedDashboardListProps
     sofortrabatt: "sofortrabatt",
   };
 
-  // 🔹 Daten laden
   useEffect(() => {
     (async () => {
       setLoading(true);
@@ -39,41 +37,46 @@ export default function UnifiedDashboardList({ type }: UnifiedDashboardListProps
         let result: any[] = [];
 
         if (type === "aktion") {
-          // 👉 Aktionen aus promotion_offers
           const { data, error } = await supabase
             .from("promotion_offers")
-            .select("id, title, valid_from, valid_to, active, created_at")
+            .select("*")
             .order("created_at", { ascending: false })
             .limit(200);
+
           if (error) throw error;
+
           result = data.map((r) => ({
             submission_id: r.id,
             title: r.title,
             status: r.active ? "approved" : "rejected",
-            datum: r.valid_from,
+            datum: r.valid_from ?? r.created_at,
             dealers: { name: r.title ?? "–" },
           }));
-        } else if (type === "sofortrabatt") {
-          // 👉 Sofortrabatt aus sofortrabatt_claims
+        }
+
+        else if (type === "sofortrabatt") {
           const { data, error } = await supabase
             .from("sofortrabatt_claims")
             .select(`
               claim_id,
               status,
               created_at,
-              dealers ( name, email )
+              dealers:dealers(*)
             `)
             .order("created_at", { ascending: false })
             .limit(200);
+
           if (error) throw error;
+
           result = data.map((r) => ({
             submission_id: r.claim_id,
             status: r.status,
             datum: r.created_at,
             dealers: r.dealers,
           }));
-        } else {
-          // 👉 Standard: submissions (Projekt, Support, Bestellung)
+        }
+
+        else {
           const { data, error } = await supabase
             .from("submissions")
             .select(`
@@ -82,12 +85,14 @@ export default function UnifiedDashboardList({ type }: UnifiedDashboardListProps
               datum,
               status,
               created_at,
-              dealers ( name, email )
+              dealers:dealers(*)
             `)
             .eq("typ", type)
             .order("created_at", { ascending: false })
             .limit(200);
+
           if (error) throw error;
+
           result = data || [];
         }
 
@@ -100,7 +105,6 @@ export default function UnifiedDashboardList({ type }: UnifiedDashboardListProps
     })();
   }, [type, supabase]);
 
-  // 🔹 Filter & Suche anwenden
   useEffect(() => {
     let result = [...data];
 
@@ -122,58 +126,24 @@ export default function UnifiedDashboardList({ type }: UnifiedDashboardListProps
     setFiltered(result);
   }, [data, statusFilter, search]);
 
-  // 🔹 Status-Farbe & Icon
   function getStatusInfo(status: string) {
     switch (status) {
       case "approved":
-        return {
-          color: "text-green-600",
-          icon: <CheckCircle className="w-4 h-4 text-green-600" />,
-          label: "Bestätigt",
-        };
+        return { color: "text-green-600", icon: <CheckCircle className="w-4 h-4" />, label: "Bestätigt" };
       case "rejected":
-        return {
-          color: "text-red-600",
-          icon: <XCircle className="w-4 h-4 text-red-600" />,
-          label: "Abgelehnt",
-        };
+        return { color: "text-red-600", icon: <XCircle className="w-4 h-4" />, label: "Abgelehnt" };
       default:
-        return {
-          color: "text-yellow-600",
-          icon: <Clock className="w-4 h-4 text-yellow-600" />,
-          label: "Offen",
-        };
+        return { color: "text-yellow-600", icon: <Clock className="w-4 h-4" />, label: "Offen" };
     }
   }
 
-  // 🔹 Filter-Button-Komponente
-  const FilterButton = ({
-    label,
-    value,
-    active,
-  }: {
-    label: string;
-    value: any;
-    active: boolean;
-  }) => (
-    <Button
-      variant={active ? "default" : "outline"}
-      size="sm"
-      onClick={() => setStatusFilter(value)}
-      className={active ? "bg-black text-white hover:bg-gray-800" : ""}
-    >
-      {label}
-    </Button>
-  );
-
   return (
     <div className="space-y-4">
-      {/* 🔹 Filterleiste */}
       <div className="flex flex-wrap gap-3 items-center">
         <div className="relative">
           <Search className="w-4 h-4 absolute left-2 top-2.5 text-gray-400" />
           <Input
-            placeholder={`Suche nach Händler, E-Mail oder ID…`}
+            placeholder="Suche nach Händler, E-Mail oder ID…"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="pl-8 w-64 text-sm"
@@ -181,25 +151,25 @@ export default function UnifiedDashboardList({ type }: UnifiedDashboardListProps
         </div>
 
         <div className="flex gap-2 flex-wrap">
-          <FilterButton label="Offen" value="pending" active={statusFilter === "pending"} />
-          <FilterButton label="Bestätigt" value="approved" active={statusFilter === "approved"} />
-          <FilterButton label="Abgelehnt" value="rejected" active={statusFilter === "rejected"} />
-          <FilterButton label="Alle" value="all" active={statusFilter === "all"} />
+          <Button size="sm" variant={statusFilter === "pending" ? "default" : "outline"} onClick={() => setStatusFilter("pending")}>
+            Offen
+          </Button>
+          <Button size="sm" variant={statusFilter === "approved" ? "default" : "outline"} onClick={() => setStatusFilter("approved")}>
+            Bestätigt
+          </Button>
+          <Button size="sm" variant={statusFilter === "rejected" ? "default" : "outline"} onClick={() => setStatusFilter("rejected")}>
+            Abgelehnt
+          </Button>
+          <Button size="sm" variant={statusFilter === "all" ? "default" : "outline"} onClick={() => setStatusFilter("all")}>
+            Alle
+          </Button>
         </div>
 
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => {
-            setSearch("");
-            setStatusFilter("pending");
-          }}
-        >
+        <Button variant="outline" size="sm" onClick={() => { setSearch(""); setStatusFilter("pending"); }}>
           Neu laden
         </Button>
       </div>
 
-      {/* 🔹 Ladeanzeige */}
       {loading ? (
         <p className="flex items-center gap-2 text-sm text-gray-500">
           <Loader2 className="w-4 h-4 animate-spin" /> Lade {type}-Einträge…

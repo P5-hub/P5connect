@@ -186,3 +186,33 @@
 .animate-button-fill {
   animation: button-fill 1.5s ease-out forwards;
 }
+[data-radix-portal] {
+  z-index: 99999 !important;
+  position: relative;
+}
+@keyframes progressSmooth {
+  0% { width: 0%; }
+  100% { width: 100%; }
+}
+
+.animate-progressSmooth {
+  animation: progressSmooth 1.6s ease-in-out forwards;
+}
+@keyframes greenPulse {
+  0% {
+    transform: scale(1);
+    background-color: #22c55e;
+  }
+  50% {
+    transform: scale(1.03);
+    background-color: #16a34a;
+  }
+  100% {
+    transform: scale(1);
+    background-color: #22c55e;
+  }
+}
+
+.animate-greenPulse {
+  animation: greenPulse 0.9s ease-out;
+}

@@ -42,7 +42,7 @@ export default function AdminBestellungenListPage() {
           created_at,
           status,
           dealers:dealers(name, email),
-          submission_items(submission_id, preis)
+          submission_items:submission_items(*)
         `
         )
         .eq("typ", "bestellung")

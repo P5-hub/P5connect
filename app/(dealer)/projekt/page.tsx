@@ -1,34 +1,50 @@
-"use client";
+import { cookies } from "next/headers";
+import { createServerClient } from "@supabase/ssr";
+import DealerServerWrapper from "@/app/(dealer)/DealerServerWrapper";
+import ProjectClient from "./ProjectClient";
 
-import { useEffect, useState } from "react";
-import { ClipboardList } from "lucide-react";
-import ProjectForm from "@/components/forms/ProjectForm";
-import { useI18n } from "@/lib/i18n/I18nProvider";
+export default async function ProjectPage() {
+  const cookieStore = await cookies();
 
-export default function ProjectPage() {
-  const { t, lang } = useI18n();
-  const [hydrated, setHydrated] = useState(false);
+  const supabase = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        get(name: string) {
+          return cookieStore.get(name)?.value;
+        },
+      },
+    }
+  );
 
-  // ⏳ SSR → Client Übergang abfangen
-  useEffect(() => {
-    setHydrated(true);
-  }, []);
+  // User laden
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
 
-  if (!hydrated) {
-    // Verhindert SSR-Mismatch (zeigt nichts bis Hydration fertig)
-    return <div className="h-8 bg-gray-100 rounded animate-pulse w-64" />;
+  if (!user) {
+    return <p className="p-4 text-red-600">Nicht eingeloggt.</p>;
+  }
+
+  // Händler laden
+  const { data: dealer } = await supabase
+    .from("dealers")
+    .select("*")
+    .eq("auth_user_id", user.id)
+    .maybeSingle();
+
+  if (!dealer) {
+    return (
+      <p className="p-4 text-red-600">
+        Händlerdaten nicht gefunden – bitte Support kontaktieren.
+      </p>
+    );
   }
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center gap-2 text-purple-700">
-        <ClipboardList className="w-5 h-5" />
-        <h1 className="text-xl font-semibold">
-          {t("project.page.title") || t("project.title")}
-        </h1>
-      </div>
-
-      <ProjectForm key={lang} />
-    </div>
+    <DealerServerWrapper dealer={dealer}>
+      <ProjectClient />
+    </DealerServerWrapper>
   );
 }

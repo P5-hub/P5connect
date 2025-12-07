@@ -36,6 +36,7 @@ type OrderMeta = {
 
   kamName?: string | null;
   kamEmail?: string | null;
+  kamSonyEmail?: string | null; 
 };
 
 function clean(v?: string | null) {
@@ -122,10 +123,20 @@ function orderFacts(meta: OrderMeta) {
     meta.customerPhone
       ? `<tr><td style="padding:4px 8px;">Telefon</td><td style="padding:4px 8px;">${meta.customerPhone}</td></tr>`
       : "",
-    meta.kamName || meta.kamEmail
-      ? `<tr><td style="padding:4px 8px;">KAM</td><td style="padding:4px 8px;">${[meta.kamName, meta.kamEmail]
-          .filter(Boolean)
-          .join(" · ")}</td></tr>`
+
+    // 👉 NEUE SONY-KAM-LOGIK
+    meta.kamName || meta.kamSonyEmail || meta.kamEmail
+      ? `<tr>
+          <td style="padding:4px 8px;">KAM</td>
+          <td style="padding:4px 8px;">
+            ${[
+              meta.kamName,
+              meta.kamSonyEmail || meta.kamEmail
+            ]
+              .filter(Boolean)
+              .join(" · ")}
+          </td>
+        </tr>`
       : "",
   ].filter(Boolean);
 
@@ -137,6 +148,7 @@ function orderFacts(meta: OrderMeta) {
     `
     : "";
 }
+
 
 /* ========================================================================== */
 /* ✉️ HTML-Gesamtvorlage                                                     */

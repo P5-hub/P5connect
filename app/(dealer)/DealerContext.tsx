@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect } from "react";
-import { getSupabaseBrowser } from "@/lib/supabaseClient";
-import { createContext, useContext, useState, ReactNode } from "react";
-import { useSearchParams } from "next/navigation";
+import {
+  createContext,
+  useContext,
+  ReactNode,
+} from "react";
 
 export type Dealer = {
   dealer_id: number;
@@ -17,99 +18,42 @@ export type Dealer = {
   phone?: string | null;
 };
 
-type DealerContextValue = {
+type DealerContextState = {
   dealer: Dealer | null;
-  setDealer: (dealer: Dealer | null) => void;
+  setDealer: (d: Dealer | null) => void;
 };
 
-// 🧠 Context anlegen
-const DealerContext = createContext<DealerContextValue>({
-  dealer: null,
-  setDealer: () => {},
-});
+const DealerContext = createContext<DealerContextState | null>(null);
 
-// 💡 Provider-Komponente
-export function DealerProvider({ children }: { children: ReactNode }) {
-  const [dealer, setDealer] = useState<Dealer | null>(null);
-
-useEffect(() => {
-  const fetchDealer = async () => {
-    try {
-      const supabase = getSupabaseBrowser();
-      const searchParams = new URLSearchParams(window.location.search);
-      const dealerId = searchParams.get("dealer_id");
-
-      if (dealerId) {
-        // 🔹 Admin agiert als Händler
-        const { data, error } = await supabase
-          .from("dealers")
-          .select("*")
-          .eq("dealer_id", Number(dealerId))
-          .maybeSingle();
-
-        if (error) {
-          console.error("❌ Fehler beim Laden des Händlers via dealer_id:", error);
-          return;
-        }
-
-        if (!data) {
-          console.warn("⚠️ Kein Händler gefunden für dealer_id", dealerId);
-          return;
-        }
-
-        console.log("✅ Händler via dealer_id geladen:", data);
-        setDealer(data);
-        return;
-      }
-
-      // 🔹 Normaler Händler-Login
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-
-      if (!user?.email) {
-        console.warn("⚠️ Kein Benutzer angemeldet.");
-        return;
-      }
-
-      const { data, error } = await supabase
-        .from("dealers")
-        .select("*")
-        .ilike("login_email", user.email)
-        .maybeSingle();
-
-      if (error) {
-        console.error("❌ Fehler beim Laden des Händlers:", error.message);
-        return;
-      }
-
-      if (!data) {
-        console.warn("⚠️ Kein Händler gefunden für", user.email);
-        return;
-      }
-
-      console.log("✅ Händler erfolgreich geladen:", data);
-      setDealer(data);
-    } catch (err) {
-      console.error("❌ Unerwarteter Fehler beim Laden des Händlers:", err);
-    }
-  };
-
-  fetchDealer();
-}, []);
-
-
-
+export function DealerProvider({
+  children,
+  dealer,
+  setDealer,
+}: {
+  children: ReactNode;
+  dealer: Dealer | null;
+  setDealer: (d: Dealer | null) => void;
+}) {
   return (
-    <DealerContext.Provider value={{ dealer, setDealer }}>
+    <DealerContext.Provider
+      value={{
+        dealer,
+        setDealer,
+      }}
+    >
       {children}
     </DealerContext.Provider>
   );
 }
 
-
-// 🎯 Hook zurückgibt direkt den Händler selbst
 export function useDealer() {
-  const context = useContext(DealerContext);
-  return context.dealer; // <— nur den Händler, nicht das ganze Objekt
+  const ctx = useContext(DealerContext);
+  if (!ctx) throw new Error("useDealer must be used inside DealerProvider");
+  return ctx.dealer;
+}
+
+export function useDealerSetter() {
+  const ctx = useContext(DealerContext);
+  if (!ctx) throw new Error("useDealerSetter must be used inside DealerProvider");
+  return ctx.setDealer;
 }

@@ -1,22 +1,52 @@
-"use client";
+import { cookies } from "next/headers";
+import { createServerClient } from "@supabase/ssr";
+import DealerServerWrapper from "@/app/(dealer)/DealerServerWrapper";
+import BestellungClient from "./components/BestellungClient";
 
-import BestellungForm from "@/components/forms/BestellungForm";
-import { ShoppingCart } from "lucide-react";
-import { useI18n } from "@/lib/i18n/I18nProvider";
+export default async function BestellungPage() {
+  const cookieStore = await cookies();
 
-export default function BestellungPage() {
-  const { t } = useI18n();
+  const supabase = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        get(name: string) {
+          return cookieStore.get(name)?.value;
+        },
+      },
+    }
+  );
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return (
+      <p className="p-4 text-red-600">
+        Nicht eingeloggt.
+      </p>
+    );
+  }
+
+  const { data: dealer } = await supabase
+    .from("dealers")
+    .select("*")
+    .eq("auth_user_id", user.id)
+    .maybeSingle();
+
+  if (!dealer) {
+    return (
+      <p className="p-4 text-red-600">
+        Händlerdaten nicht gefunden – bitte Support kontaktieren.
+      </p>
+    );
+  }
 
   return (
-    <div className="space-y-6 pb-20">
-      {/* 🛒 Titel */}
-      <h1 className="text-2xl font-bold flex items-center gap-2 text-blue-600">
-        <ShoppingCart className="w-7 h-7" />
-        {t("bestprice.heading")}
-      </h1>
-
-      {/* Formular */}
-      <BestellungForm />
-    </div>
+    <DealerServerWrapper dealer={dealer}>
+      <BestellungClient />
+    </DealerServerWrapper>
   );
 }

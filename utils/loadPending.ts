@@ -31,6 +31,21 @@ export async function loadAllPending() {
     cashback: 0,
   };
 
+  // ⭐ Einheitliches Typ-Mapping (Normalisierung)
+  const normalizeTyp = (t: string): string => {
+    const x = t?.toLowerCase() ?? "";
+
+    if (x === "order" || x === "orders" || x === "einreichung") return "bestellung";
+    if (x === "projekt" || x === "projekts" || x === "projekte") return "projekt";
+    if (x === "promotion" || x === "promotions") return "promotion";
+    if (x === "sofortrabatt" || x === "sofort") return "sofortrabatt";
+    if (x === "cashback" || x === "cashbacks") return "cashback";
+    if (x === "monatsaktion" || x === "monatsaktionen") return "monatsaktion";
+
+    return x; // fallback: unverändert
+  };
+
+  // Titel-Mapping
   const mapping: Record<string, string> = {
     promotion: "Promotion",
     projekt: "Projektanfrage",
@@ -45,14 +60,14 @@ export async function loadAllPending() {
     obj.id ??
     obj.claim_id ??
     obj.submission_id ??
-    crypto.randomUUID(); // ⬅ garantiert eindeutige ID
+    crypto.randomUUID();
 
   const resolveTimestamp = (obj: any) =>
     obj.created_at ??
     obj.submitted_at ??
     obj.timestamp ??
     obj.created ??
-    new Date().toISOString(); // ⬅ robustes Timestamp-Fallback
+    new Date().toISOString();
 
   /* ---------------- submissions ---------------- */
   const { data: subs } = await supabase.from("submissions").select("*");
@@ -60,28 +75,32 @@ export async function loadAllPending() {
   if (subs) {
     subs.forEach((s: any) => {
       if (s.status !== "pending") return;
-      if (s.typ === "verkauf") return; // Verkauf nicht anzeigen
+
+      // Verkauf wird nie angezeigt
+      if (s.typ === "verkauf") return;
+
+      // ⭐ Typ normalisieren (wichtig!)
+      const typ = normalizeTyp(s.typ);
 
       list.push({
         id: normalizeID(s),
-        typ: s.typ,
-        title: mapping[s.typ] ?? "Einreichung",
+        typ,
+        title: mapping[typ] ?? "Einreichung",
         created_at: resolveTimestamp(s),
       });
 
-      if (s.typ === "promotion") counts.promotions++;
-      if (s.typ === "projekt") counts.projekts++;
-      if (s.typ === "bestellung") counts.bestellungen++;
-      if (s.typ === "support") counts.support++;
-      if (s.typ === "monatsaktion") counts.aktionen++;
-      if (s.typ === "cashback") counts.cashback++;
+      // Sicheres Zählen
+      if (typ === "promotion") counts.promotions++;
+      if (typ === "projekt") counts.projekts++;
+      if (typ === "bestellung") counts.bestellungen++;
+      if (typ === "support") counts.support++;
+      if (typ === "monatsaktion") counts.aktionen++;
+      if (typ === "cashback") counts.cashback++;
     });
   }
 
   /* ---------------- promotion_claims ---------------- */
-  const { data: promo } = await supabase
-    .from("promotion_claims")
-    .select("*");
+  const { data: promo } = await supabase.from("promotion_claims").select("*");
 
   if (promo) {
     promo.forEach((p: any) => {
@@ -115,6 +134,24 @@ export async function loadAllPending() {
       });
 
       counts.sofortrabatt++;
+    });
+  }
+
+  /* ---------------- cashback_claims ---------------- */
+  const { data: cash } = await supabase.from("cashback_claims").select("*");
+
+  if (cash) {
+    cash.forEach((c: any) => {
+      if (c.status !== "pending") return;
+
+      list.push({
+        id: normalizeID(c),
+        typ: "cashback",
+        title: "Cashback-Antrag",
+        created_at: resolveTimestamp(c),
+      });
+
+      counts.cashback++;
     });
   }
 

@@ -50,10 +50,11 @@ export async function POST(req: Request) {
 
     console.log(`📆 KW ${kw} (${week_start} – ${week_end}) | Dealer ${dealer_id}`);
 
+
     // 1️⃣ Submission anlegen
     const submissionInsert: SubmissionInsert = {
       dealer_id,
-      typ: "order", // 👈 laut Supabase Enum (z. B. "verkauf", "order", etc.)
+      typ: "verkauf",   // ✅ KORRIGIERT: Verkaufszahlen-Upload
       kommentar: kommentar || null,
       sony_share: sony_share ?? 100,
       calendar_week: kw,
@@ -61,6 +62,7 @@ export async function POST(req: Request) {
       week_end,
       created_at: new Date().toISOString(),
     };
+
 
     const { data: submission, error: subErr } = await supabase
       .from("submissions")

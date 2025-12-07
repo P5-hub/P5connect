@@ -1,20 +1,51 @@
-"use client";
+import { cookies } from "next/headers";
+import { createServerClient } from "@supabase/ssr";
+import DealerServerWrapper from "@/app/(dealer)/DealerServerWrapper";
+import { SupportCartProvider } from "@/app/(dealer)/components/SupportCartContext";
+import SupportClient from "./SupportClient";
 
-import SupportForm from "@/components/forms/SupportForm";
-import { LifeBuoy } from "lucide-react";
-import { getThemeByForm } from "@/lib/theme/ThemeContext"; // ✅ hinzufügen
+export default async function SupportPage() {
+  const cookieStore = await cookies();
 
-export default function SupportPage() {
-  const theme = getThemeByForm("support"); // ✅ dynamische Farbe ziehen
+  const supabase = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        get(name: string) {
+          return cookieStore.get(name)?.value;
+        },
+      },
+    }
+  );
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return <p className="p-4 text-red-600">Nicht eingeloggt.</p>;
+  }
+
+  const { data: dealer } = await supabase
+    .from("dealers")
+    .select("*")
+    .eq("auth_user_id", user.id)
+    .maybeSingle();
+
+  if (!dealer) {
+    return (
+      <p className="p-4 text-red-600">
+        Händlerdaten nicht gefunden – bitte Support kontaktieren.
+      </p>
+    );
+  }
 
   return (
-    <div className="space-y-6 pb-20">
-      <h1 className={`text-2xl font-bold flex items-center gap-2 ${theme.color}`}>
-        <LifeBuoy className="w-7 h-7" />
-        Support-Anfrage
-      </h1>
-
-      <SupportForm />
-    </div>
+    <DealerServerWrapper dealer={dealer}>
+      <SupportCartProvider>
+        <SupportClient />
+      </SupportCartProvider>
+    </DealerServerWrapper>
   );
 }

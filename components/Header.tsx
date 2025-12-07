@@ -1,6 +1,6 @@
 "use client";
 
-import UserInfo from "@/components/UserInfo";
+import UserInfo from "@/app/(dealer)/components/UserInfo";
 import LogoutButton from "@/components/LogoutButton";
 
 export default function Header() {

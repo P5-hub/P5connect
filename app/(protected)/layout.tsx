@@ -5,62 +5,66 @@ import { useRouter } from "next/navigation";
 import { Toaster, toast } from "sonner";
 import { createClient } from "@/utils/supabase/client";
 
-const SESSION_DURATION = 20 * 60 * 1000; // 20 Min
-const WARNING_TIME = 18 * 60 * 1000;    // Warnung nach 18 Min
-const AUTO_REFRESH_COOLDOWN = 30 * 1000; // alle 30 Sek max. erneuern
+const SESSION_DURATION = 20 * 60 * 1000;
+const WARNING_TIME = 18 * 60 * 1000;
+const AUTO_REFRESH_COOLDOWN = 30 * 1000;
 
 export default function ProtectedLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const router = useRouter();
   const supabase = createClient();
+  const router = useRouter();
 
   const [expireAt, setExpireAt] = useState<number | null>(null);
   const warningShownRef = useRef(false);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
   const lastActivityRefreshRef = useRef(0);
 
-  // ----------------------------------------------------
-  // 🔵 Session erneuern (manuell oder automatisch)
-  // ----------------------------------------------------
-  const renewSession = () => {
-    const newExpiry = Date.now() + SESSION_DURATION;
-    setExpireAt(newExpiry);
-    warningShownRef.current = false;
+  // ❗ WICHTIG: Login-Seite nicht schützen
+  if (typeof window !== "undefined") {
+    const pathname = window.location.pathname;
+    if (pathname === "/login") {
+      return <main>{children}</main>;
+    }
+  }
 
-    toast.success("Sitzung verlängert");
+  // 🔥 Session prüfen
+  useEffect(() => {
+    async function checkSession() {
+      const { data } = await supabase.auth.getSession();
+      if (!data.session) {
+        router.replace("/login");
+        return;
+      }
+      renewSession();
+    }
+
+    checkSession();
+  }, []);
+
+  const renewSession = () => {
+    setExpireAt(Date.now() + SESSION_DURATION);
+    warningShownRef.current = false;
   };
 
-  // ----------------------------------------------------
-  // 🟥 Harte Abmeldung
-  // ----------------------------------------------------
   const forceLogout = async () => {
     await supabase.auth.signOut();
     toast.error("Sitzung abgelaufen");
-    router.push("/login");
+    router.replace("/login");
   };
 
-  // ----------------------------------------------------
-  // 🟧 Haupttimer (jede Sekunde prüfen)
-  // ----------------------------------------------------
+  // Timer
   useEffect(() => {
-    // Sitzung starten
-    renewSession();
+    if (!expireAt) return;
 
     intervalRef.current = setInterval(() => {
-      if (!expireAt) return;
-      const now = Date.now();
-      const remaining = expireAt - now;
+      const remaining = expireAt - Date.now();
 
-      // ⚠️ Warnung bei 18 Min
-      if (!warningShownRef.current && remaining <= SESSION_DURATION - WARNING_TIME) {
+      if (!warningShownRef.current && remaining <= WARNING_TIME) {
         warningShownRef.current = true;
-
         toast.warning("Ihre Sitzung läuft bald ab", {
-          duration: 8000,
-          description: "Klicken Sie, um die Sitzung zu verlängern.",
           action: {
             label: "Verlängern",
             onClick: () => renewSession(),
@@ -68,72 +72,37 @@ export default function ProtectedLayout({
         });
       }
 
-      // ❌ Session abgelaufen
       if (remaining <= 0) {
         clearInterval(intervalRef.current!);
         forceLogout();
       }
     }, 1000);
 
-    return () => {
-      if (intervalRef.current) clearInterval(intervalRef.current);
-    };
+    return () => clearInterval(intervalRef.current!);
   }, [expireAt]);
 
-  // ----------------------------------------------------
-  // 🌟 Auto-Extend bei User-Aktivität (Throttle 30s)
-  // ----------------------------------------------------
+  // Aktivität → verlängern
   useEffect(() => {
-    const refreshOnActivity = () => {
+    const refresh = () => {
       const now = Date.now();
-      if (now - lastActivityRefreshRef.current < AUTO_REFRESH_COOLDOWN) return; // Cooldown
-
+      if (now - lastActivityRefreshRef.current < AUTO_REFRESH_COOLDOWN) return;
       lastActivityRefreshRef.current = now;
       renewSession();
     };
 
-    const events = [
-      "mousemove",
-      "keydown",
-      "click",
-      "scroll",
-      "touchstart",
-      "touchmove",
-    ];
-
-    events.forEach((ev) => window.addEventListener(ev, refreshOnActivity));
+    window.addEventListener("mousemove", refresh);
+    window.addEventListener("keydown", refresh);
 
     return () => {
-      events.forEach((ev) => window.removeEventListener(ev, refreshOnActivity));
+      window.removeEventListener("mousemove", refresh);
+      window.removeEventListener("keydown", refresh);
     };
   }, []);
 
-  // ----------------------------------------------------
-  // UI
-  // ----------------------------------------------------
   return (
     <>
       <main>{children}</main>
-
-      <Toaster
-        position="top-right"
-        richColors
-        expand
-        closeButton
-        duration={2000}
-      />
-
-      {/* Optional: manuelle Verlängerung */}
-      <button
-        onClick={renewSession}
-        className="
-          fixed bottom-4 right-4 px-4 py-2 rounded-full
-          bg-indigo-600 text-white shadow-lg shadow-indigo-500/30
-          hover:bg-indigo-700 transition text-sm font-medium
-        "
-      >
-        Sitzung verlängern
-      </button>
+      <Toaster position="top-right" richColors />
     </>
   );
 }

@@ -1,91 +1,83 @@
-import { NextResponse } from "next/server";
-import type { NextRequest } from "next/server";
-import { createServerClient } from "@supabase/ssr";
+import { NextResponse } from 'next/server'
+import type { NextRequest } from 'next/server'
+import { createServerClient } from '@supabase/ssr'
 
-// Seiten, die keinen Login brauchen
-const publicRoutes = ["/login", "/_next", "/favicon.ico"];
+// ✅ Erweiterte Public-Routen + startsWith kompatibel
+const publicRoutes = [
+  "/login",
+  "/reset-password",
+  "/reset-password/change",
+  "/favicon.ico"
+]
 
 export async function middleware(req: NextRequest) {
-  const res = NextResponse.next();
+  let res = NextResponse.next()
 
-  // Supabase Client mit Cookies
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
       cookies: {
-        get(name: string) {
-          return req.cookies.get(name)?.value;
-        },
-        set(name: string, value: string, options: any) {
-          res.cookies.set(name, value, options);
-        },
-        remove(name: string, options: any) {
-          res.cookies.delete(name);
+        getAll: () => req.cookies.getAll(),
+        setAll: (cookiesToSet) => {
+          cookiesToSet.forEach(({ name, value, options }) => {
+            res.cookies.set(name, value, options)
+          })
         },
       },
     }
-  );
+  )
 
+  // Session holen
   const {
-    data: { user },
-  } = await supabase.auth.getUser();
+    data: { session },
+  } = await supabase.auth.getSession()
 
-  const url = req.nextUrl;
-  const path = url.pathname;
-  const dealerId = url.searchParams.get("dealer_id");
+  const user = session?.user ?? null
+  const path = req.nextUrl.pathname
 
-  // Falls nicht eingeloggt → nur Public Routes erlauben
+  // ⭐ Jetzt mit startsWith statt includes
+  const isPublic = publicRoutes.some(route => path.startsWith(route))
+
+  // --------------------
+  // 1) Nicht eingeloggt
+  // --------------------
   if (!user) {
-    if (publicRoutes.some((r) => path.startsWith(r))) {
-      return res;
-    }
-    return NextResponse.redirect(new URL("/login", req.url));
+    if (isPublic) return res
+    return NextResponse.redirect(new URL("/login", req.url))
   }
 
-  // Eingeloggt → Rolle prüfen
-  const role = user.user_metadata?.role;
+  // --------------------
+  // 2) Rolle bestimmen
+  // --------------------
+  const role = user.user_metadata?.role ?? "dealer"
 
-  // 🔹 LOGIN-REDIRECT LOGIK
-  if (path === "/login") {
-    if (role === "admin") {
-      return NextResponse.redirect(new URL("/admin", req.url));
-    }
-    if (role === "dealer") {
-      return NextResponse.redirect(new URL("/bestellung", req.url));
-    }
-  }
-
-  // 🔹 ADMIN → darf Händlerseiten aufrufen, wenn dealer_id in URL
+  // --------------------
+  // 3) ADMIN BYPASS
+  // --------------------
   if (role === "admin") {
-    if (dealerId) {
-      // Impersonation erlaubt für alle Händlerseiten
-      return res;
+    if (path === "/login") {
+      return NextResponse.redirect(new URL("/admin", req.url))
     }
-
-    // Ohne dealer_id → kein Zugriff auf Händlerbereiche
-    if (
-      path.startsWith("/bestellung") ||
-      path.startsWith("/verkauf") ||
-      path.startsWith("/projekt") ||
-      path.startsWith("/support") ||
-      path.startsWith("/sofortrabatt") ||
-      path.startsWith("/infos")
-    ) {
-      return NextResponse.redirect(new URL("/admin", req.url));
-    }
+    return res
   }
 
-  // 🔹 HÄNDLER → darf nicht in Admin-Bereich
-  if (role === "dealer" && path.startsWith("/admin")) {
-    return NextResponse.redirect(new URL("/bestellung", req.url));
+  // --------------------
+  // 4) Dealer-Restriktionen
+  // --------------------
+  if (path === "/login") {
+    return NextResponse.redirect(new URL("/bestellung", req.url))
   }
 
-  // 🔹 Wenn kein dealer_id, kein admin → normale Weiterleitung
-  return res;
+  if (path.startsWith("/admin")) {
+    return NextResponse.redirect(new URL("/bestellung", req.url))
+  }
+
+  return res
 }
 
-// Auf welche Routen Middleware angewendet wird
 export const config = {
-  matcher: ["/((?!_next/static|_next/image|favicon.ico).*)"],
-};
+  matcher: [
+    "/((?!_next/static|_next/image|favicon.ico|auth).*)",
+  ],
+}

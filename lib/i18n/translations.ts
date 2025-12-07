@@ -332,13 +332,32 @@ export const translationsByLang = {
     "toast.success.title": "✅ Bestellung gespeichert",
     "toast.success.text": "Die Bestellung wurde erfolgreich übermittelt.",
     "toast.error.title": "❌ Fehler beim Speichern",
-    "toast.error.text": "Unbekannter Fehler"
-  }
-    
-
+    "toast.error.text": "Unbekannter Fehler",
   },
-
-  
+    /* E-Mail übersetzer*/
+    /* 🇩🇪 E-Mail Labels → müssen HIER rein! */
+  email: {
+      firmendaten: "Firmendaten",
+      ansprechperson: "Ansprechperson",
+      email: "E-Mail",
+      telefon: "Telefon",
+      kundennr: "Kunden-Nr.",
+      kam: "KAM",
+      kam_email: "KAM E-Mail",
+      lieferoption: "Lieferoption",
+      lieferdatum: "Geplantes Lieferdatum",
+      lieferadresse_warn: "⚠️ Achtung: Abweichende Lieferadresse (Direktlieferung)",
+      lieferadresse: "Lieferadresse",
+      kommentar: "Kommentar des Händlers",
+      bestellpositionen: "Bestellpositionen",
+      bestellweg: "Bestellweg",
+      haendler_referenz: "Ihre Händler-Referenz",
+      bestellnr: "P5 Bestell-Nr.",
+      delivery_immediately: "Sofort",
+      delivery_scheduled: "Geplante Lieferung",
+    },
+  },
+ 
 
   /* 🇬🇧 English */
   en: {
@@ -646,10 +665,31 @@ export const translationsByLang = {
     "toast.success.title": "✅ Order saved",
     "toast.success.text": "The order has been successfully submitted.",
     "toast.error.title": "❌ Error saving order",
-    "toast.error.text": "Unknown error"
-  }
+    "toast.error.text": "Unknown error",
   },
-
+      /* E-Mail übersetzer*/
+      /* 🇩🇪 E-Mail Labels → müssen HIER rein! */
+    email: {
+        firmendaten: "Company Information",
+        ansprechperson: "Contact Person",
+        email: "Email",
+        telefon: "Phone",
+        kundenNr: "Customer No.",
+        kam: "Account Manager",
+        kamEmail: "AM Email",
+        lieferoption: "Delivery Option",
+        lieferdatum: "Scheduled Delivery Date",
+        lieferadresseWarn: "⚠️ Attention: Different delivery address (direct shipment)",
+        lieferadresse: "Delivery Address",
+        kommentar: "Dealer Comment",
+        bestellpositionen: "Order Items",
+        bestellweg: "Order Method",
+        haendlerReferenz: "Your Dealer Reference",
+        bestellNr: "P5 Order No.",
+        sofort: "Immediate",
+        geplant: "Scheduled Delivery",
+      },
+    },
   /* 🇫🇷 Français */
   fr: {
     nav: {
@@ -960,8 +1000,30 @@ export const translationsByLang = {
       "toast.success.title": "✅ Commande enregistrée",
       "toast.success.text": "La commande a été transmise avec succès.",
       "toast.error.title": "❌ Erreur d’enregistrement",
-      "toast.error.text": "Erreur inconnue"
-    }
+      "toast.error.text": "Erreur inconnue",
+    },
+          /* E-Mail übersetzer*/
+      /* 🇩🇪 E-Mail Labels → müssen HIER rein! */
+    email: {
+        firmendaten: "Données de l’entreprise",
+        ansprechperson: "Personne de contact",
+        email: "E-mail",
+        telefon: "Téléphone",
+        kundenNr: "N° client",
+        kam: "KAM",
+        kamEmail: "E-mail KAM",
+        lieferoption: "Option de livraison",
+        lieferdatum: "Date de livraison prévue",
+        lieferadresseWarn: "⚠️ Attention : adresse de livraison différente (livraison directe)",
+        lieferadresse: "Adresse de livraison",
+        kommentar: "Commentaire du revendeur",
+        bestellpositionen: "Positions de commande",
+        bestellweg: "Méthode de commande",
+        haendlerReferenz: "Votre référence revendeur",
+        bestellNr: "N° de commande P5",
+        sofort: "Immédiatement",
+        geplant: "Livraison planifiée",
+      },
   },
 
   /* 🇮🇹 Italiano */
@@ -1276,8 +1338,29 @@ export const translationsByLang = {
       "toast.success.title": "✅ Ordine salvato",
       "toast.success.text": "L’ordine è stato inviato con successo.",
       "toast.error.title": "❌ Errore salvataggio",
-      "toast.error.text": "Errore sconosciuto"
-    }
+      "toast.error.text": "Errore sconosciuto",
+    },
+          /* 🇩🇪 E-Mail Labels → müssen HIER rein! */
+    email: {
+        firmendaten: "Dati dell’azienda",
+        ansprechperson: "Persona di contatto",
+        email: "E-mail",
+        telefon: "Telefono",
+        kundenNr: "N. cliente",
+        kam: "KAM",
+        kamEmail: "E-mail KAM",
+        lieferoption: "Opzione di consegna",
+        lieferdatum: "Data di consegna prevista",
+        lieferadresseWarn: "⚠️ Attenzione: indirizzo di consegna diverso (consegna diretta)",
+        lieferadresse: "Indirizzo di consegna",
+        kommentar: "Commento del rivenditore",
+        bestellpositionen: "Posizioni dell’ordine",
+        bestellweg: "Modalità dell’ordine",
+        haendlerReferenz: "Vostra referenza rivenditore",
+        bestellNr: "N. ordine P5",
+        sofort: "Immediato",
+        geplant: "Consegna programmata",
+      },
   },
 
   /* 🇷🇲 Rumantsch */
@@ -1596,7 +1679,29 @@ export const translationsByLang = {
     "toast.success.title": "✅ Cumanda memorisada",
     "toast.success.text": "La cumanda è vegnida transmesscha cun success.",
     "toast.error.title": "❌ Sbagl da memorisar",
-    "toast.error.text": "Sbagl nunenconuschent"
-  }
+    "toast.error.text": "Sbagl nunenconuschent",
+  },
+            /* 🇩🇪 E-Mail Labels → müssen HIER rein! */
+  email: {
+      firmendaten: "Datas da l'interpresa",
+      ansprechperson: "Persuna da contact",
+      email: "E-mail",
+      telefon: "Telefon",
+      kundenNr: "Nr. client",
+      kam: "KAM",
+      kamEmail: "E-mail KAM",
+      lieferoption: "Opziun da furniziun",
+      lieferdatum: "Data previsa da furniziun",
+      lieferadresseWarn: "⚠️ Attenziun: Adressa da furniziun differenta (furniziun directa)",
+      lieferadresse: "Adresa da furniziun",
+      kommentar: "Commentari dal vendaider",
+      bestellpositionen: "Posiziuns da l’ordinaziun",
+      bestellweg: "Metoda d'ordinaziun",
+      haendlerReferenz: "Vossa referenza dal venditaider",
+      bestellNr: "Nr. d’ordinaziun P5",
+      sofort: "Immediat",
+      geplant: "Furniziun planisada",
+    },
+      
   },
 } as const;

@@ -52,9 +52,13 @@ export default function UniversalDetailPage({
   const theme = useTheme();
 
   const [record, setRecord] = useState<SubmissionRecord | null>(null);
-  const [previewHtml, setPreviewHtml] = useState<string | null>(null);
+  const [dealerPreview, setDealerPreview] = useState<string | null>(null);
+  const [distiPreview, setDistiPreview] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [sendingMail, setSendingMail] = useState(false);
+
+  const [activeTab, setActiveTab] = useState<"dealer" | "disti">("dealer");
+
 
   // Sofortrabatt-Erkennung
   const isSofort = tableName === "sofortrabatt_claims" || typeFilter === "sofortrabatt";
@@ -191,22 +195,47 @@ export default function UniversalDetailPage({
   };
 
   // 🔸 Mail-Preview (nur für Bestellungen)
+  // 🔸 Mail-Preview (Bestellungen)
   const handlePreviewMail = async () => {
     try {
       setSendingMail(true);
+
       if (!record?.submission_id) throw new Error("Keine Submission-ID.");
-      const { html, ok } = await sendOrderNotification({
+
+      const res = await sendOrderNotification({
         submissionId: Number(record.submission_id),
         stage: "confirmed",
         preview: true,
       });
 
-      if (!ok || !html) {
-        setPreviewHtml("<p>Keine Vorschau verfügbar.</p>");
+      // ❗ Fehlerfall
+      if (!res.ok) {
+        setDealerPreview("<p>Keine Vorschau verfügbar.</p>");
+        setDistiPreview("<p>Keine Vorschau verfügbar.</p>");
         toast.warning("Keine Vorschau verfügbar.");
-      } else {
-        setPreviewHtml(html);
+        return;
       }
+
+      // ❗ Preview-Modus → dealer & disti existieren garantiert
+      if (res.preview === true) {
+        setActiveTab("dealer");
+
+        const dealerHtml =
+          res.dealer?.html ?? "<p>Keine Händler-Mail vorhanden.</p>";
+        const distiHtml =
+          res.disti?.html ?? "<p>Keine Disti-Mail vorhanden.</p>";
+
+        setDealerPreview(dealerHtml);
+        setDistiPreview(distiHtml);
+
+        return;
+      }
+
+      // ❗ Falls aus irgendeinem Grund preview=false kam (soll nicht passieren)
+      setDealerPreview("<p>Keine Vorschau verfügbar.</p>");
+      setDistiPreview("<p>Keine Vorschau verfügbar.</p>");
+      toast.warning("Keine Vorschau verfügbar.");
+
     } catch (e) {
       console.error(e);
       toast.error("Fehler bei der Vorschau.");
@@ -214,6 +243,8 @@ export default function UniversalDetailPage({
       setSendingMail(false);
     }
   };
+
+
 
   // 🔸 Bestätigen + Mail (nur für Bestellungen)
   const handleApproveWithMail = async () => {
@@ -237,6 +268,7 @@ export default function UniversalDetailPage({
       setSendingMail(false);
     }
   };
+
 
   if (loading) return <p className="p-6 text-sm text-gray-500">Lade Daten…</p>;
   if (!record) return <p className="p-6 text-sm text-gray-500">Kein Datensatz gefunden.</p>;
@@ -375,15 +407,68 @@ export default function UniversalDetailPage({
       </Card>
 
       {/* 🔹 Mail Vorschau */}
-      <Dialog open={!!previewHtml} onOpenChange={(o) => !o && setPreviewHtml(null)}>
-        <DialogContent className="max-w-3xl">
-          <DialogHeader>
-            <DialogTitle>E-Mail-Vorschau</DialogTitle>
+      {/* --- MAIL PREVIEW DIALOG --- */}
+      <Dialog
+        open={!!dealerPreview || !!distiPreview}
+        onOpenChange={(o) => {
+          if (!o) {
+            setDealerPreview(null);
+            setDistiPreview(null);
+          }
+        }}
+      >
+        <DialogContent className="w-[95vw] max-w-[1600px] p-0">
+          <DialogHeader className="px-6 pt-6">
+            <DialogTitle className="text-xl font-semibold">
+              E-Mail Vorschau
+            </DialogTitle>
           </DialogHeader>
-          <div
-            className="prose max-w-none border rounded-md p-4 bg-white"
-            dangerouslySetInnerHTML={{ __html: previewHtml || "" }}
-          />
+
+          {/* Tabs */}
+          <div className="px-6 mt-4 border-b flex gap-6 text-sm font-medium">
+            <button
+              onClick={() => setActiveTab("dealer")}
+              className={`pb-3 -mb-px ${
+                activeTab === "dealer"
+                  ? "border-b-2 border-blue-600 text-blue-600"
+                  : "text-gray-500"
+              }`}
+            >
+              Händler-Mail
+            </button>
+
+            <button
+              onClick={() => setActiveTab("disti")}
+              className={`pb-3 -mb-px ${
+                activeTab === "disti"
+                  ? "border-b-2 border-amber-600 text-amber-600"
+                  : "text-gray-500"
+              }`}
+            >
+              Disti-Mail
+            </button>
+          </div>
+
+          {/* Content */}
+          <div className="p-8 max-h-[85vh] overflow-auto w-full">
+            {activeTab === "dealer" && (
+              <div
+                className="prose prose-sm max-w-none w-full"
+                dangerouslySetInnerHTML={{
+                  __html: dealerPreview || "<p>Keine Händler-Mail verfügbar.</p>",
+                }}
+              />
+            )}
+
+            {activeTab === "disti" && (
+              <div
+                className="prose prose-sm max-w-none w-full"
+                dangerouslySetInnerHTML={{
+                  __html: distiPreview || "<p>Keine Disti-Mail verfügbar.</p>",
+                }}
+              />
+            )}
+          </div>
         </DialogContent>
       </Dialog>
     </div>

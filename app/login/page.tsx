@@ -59,9 +59,24 @@ export default function LoginPage() {
     setErrorMsg(null);
 
     try {
-      const email = `${loginNr}@p5.local`;
+      // 1) Dealer anhand login_nr holen
+      const { data: dealer, error: dealerError } = await supabase
+        .from("dealers")
+        .select("dealer_id, login_nr, role, store_name, email")
+        .eq("login_nr", loginNr)
+        .maybeSingle();
+
+      if (dealerError || !dealer) {
+        throw new Error("Unbekannte Login-Nummer.");
+      }
+
+      if (!dealer.email) {
+        throw new Error("Für diesen Händler ist keine E-Mail hinterlegt.");
+      }
+
+      // 2) Login über echte E-Mail
       const { data, error: authError } = await supabase.auth.signInWithPassword({
-        email,
+        email: dealer.email,
         password,
       });
 
@@ -69,22 +84,18 @@ export default function LoginPage() {
         throw new Error("Login fehlgeschlagen. Bitte Login-Nr. und Passwort prüfen.");
       }
 
-      const { data: dealer } = await supabase
-        .from("dealers")
-        .select("dealer_id, login_nr, role, store_name")
-        .eq("login_nr", loginNr)
-        .maybeSingle();
-
+      // 3) User-Metadaten aktualisieren (für Middleware & Dashboard)
       await supabase.auth.updateUser({
         data: {
-          dealer_id: dealer?.dealer_id,
-          login_nr: loginNr,
-          role: dealer?.role ?? "haendler",
-          store_name: dealer?.store_name ?? "",
+          dealer_id: dealer.dealer_id,
+          login_nr: dealer.login_nr,
+          role: dealer.role ?? "dealer",
+          store_name: dealer.store_name ?? "",
         },
       });
 
-      if (dealer?.role === "admin") {
+      // 4) Routing anhand Rolle (nur aus dealers.role, NICHT aus JWT)
+      if (dealer.role === "admin") {
         router.push("/admin");
       } else {
         router.push("/bestellung");
@@ -238,16 +249,33 @@ export default function LoginPage() {
             {loading && (
               <span className="inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
             )}
-            {loading ? _("login") : _("login")}
+            {_("login")}
           </span>
         </button>
 
         {/* ⭐ Footer */}
-        <p className="text-center text-xs text-gray-500 dark:text-gray-400 mt-4">
-          {_("loginFooter")}
-        </p>
+        {/* ⭐ Footer + Passwort vergessen */}
+        <div className="mt-4 space-y-1">
+          <p className="text-center text-xs text-gray-500 dark:text-gray-400">
+            {_("loginFooter")}
+          </p>
 
-      </form>
+          
+        </div>
+
+        </form>
+
+        {/* Passwort vergessen – Textlink */}
+        <div className="mt-3">
+          <a
+            onClick={() => router.push("/reset-password")}
+            className="block mx-auto text-[11px] text-indigo-500 hover:text-indigo-700 hover:underline cursor-pointer text-center"
+          >
+            Passwort vergessen?
+          </a>
+        </div>
+
+
     </div>
   );
 }

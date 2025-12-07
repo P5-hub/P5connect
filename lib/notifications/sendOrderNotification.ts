@@ -1,204 +1,299 @@
 ﻿"use server";
-// @ts-nocheck
 
 import { getSupabaseServer } from "@/utils/supabase/server";
-import { sendMail } from "@/lib/mailer";
-import { buildOrderEmailHTML } from "@/lib/emails/orderEmail";
+import { sendMail, cleanEmails } from "@/lib/mailer";
+import { buildDealerOrderEmailHTML } from "@/lib/emails/orderEmailDealer";
+import { buildDistiOrderEmailHTML } from "@/lib/emails/orderEmailDisti";
+import { orderMailTexts } from "@/lib/emails/orderMailTexts";
+
+// ---------------------------------------------------
+// TYPES
+// ---------------------------------------------------
 
 type Stage = "placed" | "confirmed";
+
+type DealerPreviewBlock = {
+  html: string;
+  recipients: string[];
+  subject: string;
+};
+
+type DistiPreviewBlock = {
+  html: string;
+  recipients: string[];
+  subject: string;
+};
+
+export type OrderNotificationResult =
+  | {
+      ok: false;
+      error: string;
+    }
+  | {
+      ok: true;
+      stage: Stage;
+      preview: true;
+      dealer: DealerPreviewBlock;
+      disti?: DistiPreviewBlock; // only for confirmed
+    }
+  | {
+      ok: true;
+      preview: false;
+    };
+
+// ---------------------------------------------------
+// DashboardRow (unchanged)
+// ---------------------------------------------------
+
+type DashboardRow = {
+  submission_id: number;
+  created_at: string;
+  status: string | null;
+  typ: string | null;
+  bestellweg: string | null;
+  order_comment: string | null;
+  dealer_reference: string | null;
+  project_id: number | null;
+  order_number: string | null;
+  dealer_login_nr: string | null;
+
+  dealer_name: string | null;
+  dealer_contact_person: string | null;
+  dealer_phone: string | null;
+  dealer_email: string | null;
+  mail_dealer: string | null;
+
+  dealer_language: "de_CH" | "fr_CH" | "it_CH" | null;
+  dealer_city: string | null;
+  dealer_street: string | null;
+  dealer_zip: string | null;
+  dealer_country: string | null;
+  requested_delivery: string | null;
+  requested_delivery_date: string | null;
+
+  kam_name: string | null;
+  kam_email: string | null;
+  kam_email_2: string | null;
+  kam_email_sony: string | null;
+  mail_bg: string | null;
+  mail_bg2: string | null;
+
+  distributor_id: string | null;
+  distributor_name: string | null;
+  distributor_code: string | null;
+  distributor_email: string | null;
+
+  item_id: number | null;
+  product_id: number | null;
+  menge: number | null;
+  preis: number | null;
+  calc_price_on_invoice: number | null;
+  invest: number | null;
+
+  lowest_price_brutto: number | null;
+  lowest_price_source: string | null;
+  lowest_price_source_custom: string | null;
+
+  product_name: string | null;
+  ean: string | null;
+  brand: string | null;
+  gruppe: string | null;
+  category: string | null;
+  retail_price: number | null;
+  vrg: number | null;
+  dealer_invoice_price: number | null;
+  support_on_invoice: number | null;
+  tactical_support: number | null;
+  suisa: number | null;
+
+  delivery_name: string | null;
+  delivery_street: string | null;
+  delivery_zip: string | null;
+  delivery_city: string | null;
+  delivery_country: string | null;
+};
+
+// ---------------------------------------------------
+// FUNCTION
+// ---------------------------------------------------
 
 export async function sendOrderNotification(opts: {
   submissionId: number;
   stage: Stage;
   preview?: boolean;
-}) {
+}): Promise<OrderNotificationResult> {
   const { submissionId, stage, preview = false } = opts;
   const supabase = await getSupabaseServer();
 
-  // ------------------------------------------------------------
-  // 1) Bestellung laden (aus deiner View bestellung_dashboard)
-  // ------------------------------------------------------------
-  const { data: order, error: orderErr } = await supabase
+  // Load rows
+  const { data: rows, error } = await supabase
     .from("bestellung_dashboard")
     .select("*")
-    .eq("submission_id", submissionId)
-    .maybeSingle();
+    .eq("submission_id", submissionId);
 
-  if (orderErr || !order) {
-    console.error("❌ order load failed:", orderErr);
+  if (error || !rows?.length) {
+    console.error("❌ Error loading bestellung_dashboard:", error);
     return { ok: false, error: "order_not_found" };
   }
 
-  // ------------------------------------------------------------
-  // 2) Items laden (+ Distributor-Daten embedded)
-  // ------------------------------------------------------------
-  const { data: itemRows, error: itemsErr } = await supabase
-    .from("submission_items")
-    .select(`
-      item_id,
-      submission_id,
-      menge,
-      preis,
-      invest,
-      distributor_id,
-      products:product_id(product_name, ean),
-      distributors:distributor_id(id, code, name, email)
-    `)
-    .eq("submission_id", submissionId);
+  // SAFE cast
+  const order = rows[0] as unknown as DashboardRow;
 
-  if (itemsErr) {
-    console.error("❌ items load failed:", itemsErr);
-    return { ok: false, error: "items_not_found" };
-  }
+  // Items
+  const items = rows.map((r) => ({
+    menge: r.menge ?? null,
+    preis: r.preis ?? null,
+    invest: r.invest ?? r.calc_price_on_invoice ?? null,
+    calc_price_on_invoice: r.calc_price_on_invoice ?? null,
+    lowest_price_brutto: r.lowest_price_brutto ?? null,
+    lowest_price_source: r.lowest_price_source ?? null,
+    lowest_price_source_custom: r.lowest_price_source_custom ?? null,
 
-  // ------------------------------------------------------------
-  // 3) Distributor bestimmen
-  //    - Priorität: Item Distributor
-  //    - Fallback über distributor_id oder code in View
-  // ------------------------------------------------------------
-  let dist = itemRows?.[0]?.distributors ?? null;
+    products: {
+      product_name: r.product_name,
+      ean: r.ean,
+      brand: r.brand,
+      gruppe: r.gruppe,
+      category: r.category,
+      retail_price: r.retail_price,
+      vrg: r.vrg,
+      dealer_invoice_price: r.dealer_invoice_price,
+      support_on_invoice: r.support_on_invoice,
+      tactical_support: r.tactical_support,
+      suisa: r.suisa,
+    },
+  }));
 
-  if (!dist?.email) {
-    // Fallback-Möglichkeiten aus deiner View
-    const fallbackCodes = [
-      order.distributor_code,
-      order.distributor_id,
-      order.distributor_name,
-      order.distributor_email,
-    ]
-      .map((v) => (v ? String(v).trim() : null))
-      .filter(Boolean);
-
-    for (const raw of fallbackCodes) {
-      if (!raw) continue;
-
-      const isUuid =
-        /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
-          raw
-        );
-
-      let q = supabase
-        .from("distributors")
-        .select("id, code, name, email")
-        .limit(1);
-
-      q = isUuid ? q.eq("id", raw) : q.eq("code", raw);
-
-      const { data: fallbackDist } = await q.maybeSingle();
-      if (fallbackDist) {
-        dist = fallbackDist;
-        break;
-      }
-    }
-  }
-
-  // ------------------------------------------------------------
-  // 4) Meta-Daten fürs E-Mail-Template
-  //    (ALLE Felder basieren 100% auf deiner View)
-  // ------------------------------------------------------------
+  // Meta
   const meta = {
-    // Händler
-    dealerCompany: order.dealer_name ?? null,
-    dealerName: order.dealer_name ?? null,
-    dealerEmail: order.dealer_email ?? null,
-    dealerPhone: order.dealer_phone ?? null,
-    dealerStreet: order.dealer_street ?? null,
-    dealerZip: order.dealer_zip ?? null,
-    dealerCity: order.dealer_city ?? null,
-    dealerCountry: order.dealer_country ?? "Schweiz",
-
-    // KAM / Sony Empfänger
-    kamName: order.kam_name ?? null,
-    kamEmail:
-      order.kam_email ??
-      order.kam_email_2 ??
-      order.kam_email_sony ??
-      null,
-
-    // Bestellung / Kunde
-    orderNumber: order.order_number ?? order.submission_id ?? null,
-    customerNumber: order.dealer_login_nr ?? null,
-    customerName: order.dealer_name ?? null,
-    customerContact: order.dealer_contact_person ?? null,
-    customerPhone: order.dealer_phone ?? null,
-
-    // Lieferadresse
-    deliveryName: order.delivery_name ?? null,
-    deliveryStreet: order.delivery_street ?? null,
-    deliveryZip: order.delivery_zip ?? null,
-    deliveryCity: order.delivery_city ?? null,
-    deliveryCountry: order.delivery_country ?? null,
-
-    // Kommentar
-    orderComment: order.order_comment ?? null,
+    submissionId,
+    createdAt: order.created_at,
+    status: order.status,
+    typ: order.typ,
+    bestellweg: order.bestellweg,
+    orderNumber: order.order_number,
+    dealerReference: order.dealer_reference,
+    customerNumber: order.dealer_login_nr,
+    dealerCompany: order.dealer_name,
+    dealerName: order.dealer_contact_person,
+    dealerEmail: order.dealer_email ?? order.mail_dealer,
+    dealerPhone: order.dealer_phone,
+    dealerStreet: order.dealer_street,
+    dealerZip: order.dealer_zip,
+    dealerCity: order.dealer_city,
+    dealerCountry: order.dealer_country,
+    dealerLanguage: order.dealer_language ?? "de_CH",
+    kamName: order.kam_name,
+    kamEmail: order.kam_email,
+    kamEmail2: order.kam_email_2,
+    kamSonyEmail: order.kam_email_sony,
+    mailBG: order.mail_bg,
+    mailBG2: order.mail_bg2,
+    distributorId: order.distributor_id,
+    distributorName: order.distributor_name,
+    distributorCode: order.distributor_code,
+    distributorEmail: order.distributor_email,
+    deliveryName: order.delivery_name,
+    deliveryStreet: order.delivery_street,
+    deliveryZip: order.delivery_zip,
+    deliveryCity: order.delivery_city,
+    deliveryCountry: order.delivery_country,
+    orderComment: order.order_comment,
+    requested_delivery: order.requested_delivery,
+    requested_delivery_date: order.requested_delivery_date,
   };
 
-  // ------------------------------------------------------------
-  // 5) HTML-E-Mail generieren
-  // ------------------------------------------------------------
-  const html = buildOrderEmailHTML({
-    distributor: {
-      name: dist?.name ?? order.distributor_name ?? "",
-      email: dist?.email ?? order.distributor_email ?? null,
-    },
-    items: (itemRows || []).map((i) => ({
-      menge: i.menge ?? 0,
-      preis: i.preis ?? 0,
-      products: {
-        product_name: i.products?.product_name ?? "-",
-        ean: i.products?.ean ?? "-",
-      },
-    })),
-    meta,
-  });
+  const lang = (order.dealer_language as "de_CH" | "fr_CH" | "it_CH") ?? "de_CH";
+  const txt = orderMailTexts[stage][lang];
 
-  // ------------------------------------------------------------
-  // 6) Betreff vorbereiten
-  // ------------------------------------------------------------
-  const distributorName = dist?.name ?? order.distributor_name ?? null;
-  const subject =
-    stage === "placed"
-      ? `📦 Neue Bestellung von ${order.dealer_name ?? "Händler"}${
-          distributorName ? ` → ${distributorName}` : ""
-        }`
-      : `✅ Bestellung bestätigt – ${order.dealer_name ?? "Händler"}${
-          distributorName ? ` → ${distributorName}` : ""
-        }`;
+  // Build HTML
+  const dealerHtml = buildDealerOrderEmailHTML({ meta, items, text: txt });
+  const distiHtml = buildDistiOrderEmailHTML({ meta, items });
 
-  // ------------------------------------------------------------
-  // 7) Empfänger ermitteln (distributor + Händler + KAM)
-  // ------------------------------------------------------------
-  const emailsRaw = [
-    dist?.email ?? null,
-    order.dealer_email ?? null,
-    order.kam_email_sony ?? null,
-    order.kam_email ?? null,
-    order.kam_email_2 ?? null,
-    order.mail_bg ?? null,
-    order.mail_bg2 ?? null,
-    order.mail_dealer ?? null,
-  ].filter(Boolean) as string[];
+  // Recipients
+  const dealerRecipients = cleanEmails([order.dealer_email, order.mail_dealer]);
+  const sonyKamRecipients = cleanEmails([order.kam_email_sony]);
 
-  // doppelte entfernen
-  const seen = new Set<string>();
-  const recipients = emailsRaw.filter((e) => {
-    const key = e.trim().toLowerCase();
-    if (seen.has(key)) return false;
-    seen.add(key);
-    return true;
-  });
+  const distiRecipients = cleanEmails([
+    order.distributor_email,
+    order.kam_email_sony,
+    order.kam_email,
+    order.kam_email_2,
+  ]);
 
-  // ------------------------------------------------------------
-  // 8) Preview ohne Versand
-  // ------------------------------------------------------------
-  if (preview) {
-    return { ok: true, html, recipients, detail: { preview: true } };
+  // ---------------------------------------------------
+  // STAGE: PLACED
+  // ---------------------------------------------------
+
+  if (stage === "placed") {
+    const recipients = cleanEmails([...dealerRecipients, ...sonyKamRecipients]);
+    const subject = txt.subject;
+
+    if (preview) {
+      return {
+        ok: true,
+        stage,
+        preview: true,
+        dealer: { html: dealerHtml, recipients, subject },
+      };
+    }
+
+    const mailRes = await sendMail({
+      to: recipients.length ? recipients : ["test@p5connect.ch"],
+      subject,
+      html: dealerHtml,
+    });
+
+    if ((mailRes as any)?.error) {
+      return { ok: false, error: "mail_failed" };
+    }
+
+    return { ok: true, preview: false };
   }
 
-  // ------------------------------------------------------------
-  // 9) Versand
-  // ------------------------------------------------------------
-  const res = await sendMail({ to: recipients, subject, html });
+  // ---------------------------------------------------
+  // STAGE: CONFIRMED
+  // ---------------------------------------------------
+  if (stage === "confirmed") {
+    const dealerSubject = txt.subject;
+    const distiSubject = `Neue Bestellung von ${order.dealer_name ?? "P5-Partner"}`;
 
-  return { ok: !(res as any)?.error, html, recipients, detail: res };
+    if (preview) {
+      return {
+        ok: true,
+        stage,
+        preview: true,
+        dealer: {
+          html: dealerHtml,
+          recipients: dealerRecipients,
+          subject: dealerSubject,
+        },
+        disti: {
+          html: distiHtml,
+          recipients: distiRecipients,
+          subject: distiSubject,
+        },
+      };
+    }
+
+    const dealerRes = await sendMail({
+      to: dealerRecipients.length ? dealerRecipients : ["test@p5connect.ch"],
+      subject: dealerSubject,
+      html: dealerHtml,
+    });
+
+    const distiRes = await sendMail({
+      to: distiRecipients.length ? distiRecipients : ["test@p5connect.ch"],
+      subject: distiSubject,
+      html: distiHtml,
+    });
+
+    if ((dealerRes as any)?.error || (distiRes as any)?.error) {
+      return { ok: false, error: "mail_failed" };
+    }
+
+    return { ok: true, preview: false };
+  }
+
+  return { ok: false, error: "invalid_stage" };
 }

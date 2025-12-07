@@ -1,27 +1,50 @@
-"use client";
+import { cookies } from "next/headers";
+import { createServerClient } from "@supabase/ssr";
+import DealerServerWrapper from "@/app/(dealer)/DealerServerWrapper";
+import SofortrabattClient from "./SofortrabattClient";
 
-import SofortrabattForm from "@/components/forms/SofortrabattForm";
-import { useDealer } from "@/app/(dealer)/DealerContext";
-import { useI18n } from "@/lib/i18n/I18nProvider";
+export default async function SofortrabattPage() {
+  const cookieStore = await cookies();
 
-export default function SofortrabattPage() {
-  const dealer = useDealer();
-  const { t } = useI18n();
+  const supabase = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        get(name) {
+          return cookieStore.get(name)?.value;
+        },
+      },
+    }
+  );
 
-  if (!dealer)
+  // User ermitteln
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return <p className="p-4 text-red-600">Nicht eingeloggt.</p>;
+  }
+
+  // Händler laden
+  const { data: dealer } = await supabase
+    .from("dealers")
+    .select("*")
+    .eq("auth_user_id", user.id)
+    .maybeSingle();
+
+  if (!dealer) {
     return (
-      <div className="p-6 text-gray-500">
-        🔒 {t("dealer.notfound")}
-      </div>
+      <p className="p-4 text-red-600">
+        Händlerdaten nicht gefunden – bitte Support kontaktieren.
+      </p>
     );
+  }
 
   return (
-    <div className="p-6 space-y-6 pb-20">
-      <h1 className="text-2xl font-bold text-pink-600 mb-4">
-        {t("instant.page.title")}
-      </h1>
-
-      <SofortrabattForm />
-    </div>
+    <DealerServerWrapper dealer={dealer}>
+      <SofortrabattClient />
+    </DealerServerWrapper>
   );
 }

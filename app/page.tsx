@@ -49,7 +49,7 @@ export default function RootPage() {
       const role = (data as any).role ?? null;
 
       if (role === "admin") {
-        router.push("/dashboard");
+        router.push("/admin/bestellungen");
       } else {
         router.push("/bestellung");
       }
