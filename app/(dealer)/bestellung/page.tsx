@@ -1,7 +1,11 @@
+import { Suspense } from "react";
 import { cookies } from "next/headers";
 import { createServerClient } from "@supabase/ssr";
 import DealerServerWrapper from "@/app/(dealer)/DealerServerWrapper";
 import BestellungClient from "./components/BestellungClient";
+
+export const dynamic = "force-dynamic";
+export const fetchCache = "force-no-store";
 
 export default async function BestellungPage() {
   const cookieStore = await cookies();
@@ -23,11 +27,7 @@ export default async function BestellungPage() {
   } = await supabase.auth.getUser();
 
   if (!user) {
-    return (
-      <p className="p-4 text-red-600">
-        Nicht eingeloggt.
-      </p>
-    );
+    return <p className="p-4 text-red-600">Nicht eingeloggt.</p>;
   }
 
   const { data: dealer } = await supabase
@@ -45,8 +45,10 @@ export default async function BestellungPage() {
   }
 
   return (
-    <DealerServerWrapper dealer={dealer}>
-      <BestellungClient />
-    </DealerServerWrapper>
+    <Suspense fallback={<div className="p-4">Lade Bestellung…</div>}>
+      <DealerServerWrapper dealer={dealer}>
+        <BestellungClient />
+      </DealerServerWrapper>
+    </Suspense>
   );
 }

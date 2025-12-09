@@ -161,6 +161,15 @@ export default function DealerNav() {
               )}
             </div>
 
+            {/* 🔐 Passwort ändern */}
+            <button
+              onClick={() => router.push("/reset-password/change")}
+              className="text-sm text-blue-600 hover:text-blue-800 underline"
+            >
+              {t("nav.password")}
+            </button>
+
+
             {/* Logout */}
             <button
               className="bg-red-500 hover:bg-red-600 text-white text-sm px-3 py-1.5 rounded"

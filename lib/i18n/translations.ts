@@ -2,21 +2,23 @@ export type Lang = "de" | "en" | "fr" | "it" | "rm";
 
 export const translationsByLang = {
   /* 🇩🇪 Deutsch */
-  de: {
-    nav: {
-      order: "Bestellung",
-      sales: "Verkauf",
-      project: "Projekt",
-      support: "Support",
-      instantDiscount: "Sofortrabatt",
-      info: "Infos",
-      password: "Passwort ändern",
-      logout: "Logout",
-      dashboard: "P5connect Dashboard",
-      dashboardTitle: "connect Dashboard",
-      backToDashboard: "Zurück zum Dashboard",
+de: {
+  nav: {
+    order: "Bestellung",
+    sales: "Verkauf",
+    project: "Projekt",
+    support: "Support",
+    instantDiscount: "Sofortrabatt",
+    info: "Infos",
+    password: "Passwort ändern",
+    logout: "Logout",
+    dashboard: "P5connect Dashboard",
+    dashboardTitle: "connect Dashboard",
+    backToDashboard: "Zurück zum Dashboard",
+  },
 
-          },
+  passwordForgot: "Passwort vergessen?",
+
     dealer: {
       infoTitle: "📋 Händlerinformationen",
       shop: "Shop",
@@ -355,7 +357,38 @@ export const translationsByLang = {
       bestellnr: "P5 Bestell-Nr.",
       delivery_immediately: "Sofort",
       delivery_scheduled: "Geplante Lieferung",
+   },
+  login: {
+    welcome: "Willkommen beim Login",
+    loginNr: "Login-Nummer",
+    loginNrPlaceholder: "Ihre Login-Nummer eingeben",
+    password: "Passwort",
+    passwordPlaceholder: "Passwort eingeben",
+    login: "Einloggen",
+    error: {
+      unknownLogin: "Unbekannte Login-Nummer.",
+      noEmail: "Für diesen Händler ist keine E-Mail hinterlegt.",
+      failed: "Login fehlgeschlagen. Bitte Login-Nr. und Passwort prüfen.",
     },
+    footer: "Zugang nur für registrierte P5 Partner.",
+  },
+/*passwortchange*/
+auth: {
+  reset: {
+    title: "Neues Passwort setzen",
+    newPassword: "Neues Passwort",
+    confirm: "Passwort bestätigen",
+    submit: "Passwort ändern",
+
+    invalidLink: "❌ Fehler: Reset-Token fehlt oder ist ungültig.",
+    expired: "❌ Der Link ist ungültig oder abgelaufen.",
+    noSession: "❌ Fehler: Auth-Session nicht verfügbar.",
+    mismatch: "❌ Die Passwörter stimmen nicht überein.",
+    short: "❌ Passwort muss mind. 8 Zeichen lang sein.",
+    success: "✅ Passwort erfolgreich geändert!",
+  }
+}
+
   },
  
 
@@ -368,13 +401,16 @@ export const translationsByLang = {
       support: "Support",
       instantDiscount: "Instant Discount",
       info: "Info",
-      password: "Change Password",
+      password: "Change Password",    
       logout: "Logout",
       dashboard: "P5connect Dashboard",
       dashboardTitle: "connect Dashboard",
       backToDashboard: "Back to Dashboard",
 
     },
+
+    passwordForgot: "Forgot password?",
+
     dealer: {
       infoTitle: "📋 Dealer Information",
       shop: "Shop",
@@ -688,7 +724,38 @@ export const translationsByLang = {
         bestellNr: "P5 Order No.",
         sofort: "Immediate",
         geplant: "Scheduled Delivery",
+    },
+    login: {
+      welcome: "Welcome to the login",
+      loginNr: "Login number",
+      loginNrPlaceholder: "Enter your login number",
+      password: "Password",
+      passwordPlaceholder: "Enter password",
+      login: "Log in",
+      error: {
+        unknownLogin: "Unknown login number.",
+        noEmail: "No email registered for this dealer.",
+        failed: "Login failed. Please check login number and password.",
       },
+      footer: "Access for registered P5 partners only.",
+    },
+  /*passwortchange*/
+  auth: {
+  reset: {
+    title: "Set new password",
+    newPassword: "New password",
+    confirm: "Confirm password",
+    submit: "Change password",
+
+    invalidLink: "❌ Error: Reset token missing or invalid.",
+    expired: "❌ The link is invalid or expired.",
+    noSession: "❌ Error: Auth session not available.",
+    mismatch: "❌ Passwords do not match.",
+    short: "❌ Password must be at least 8 characters.",
+    success: "✅ Password successfully changed!",
+  }
+}
+
     },
   /* 🇫🇷 Français */
   fr: {
@@ -699,13 +766,16 @@ export const translationsByLang = {
       support: "Support",
       instantDiscount: "Remise immédiate",
       info: "Infos",
-      password: "Changer le mot de passe",
+      password: "Changer le mot de passe",      
       logout: "Déconnexion",
       dashboard: "Tableau de bord P5connect",
       dashboardTitle: "connect Dashboard",
       backToDashboard: "Retour au tableau de bord",
 
     },
+
+    passwordForgot: "Mot de passe oublié ?",
+
     dealer: {
       infoTitle: "📋 Informations du revendeur",
       shop: "Magasin",
@@ -1023,7 +1093,38 @@ export const translationsByLang = {
         bestellNr: "N° de commande P5",
         sofort: "Immédiatement",
         geplant: "Livraison planifiée",
+    },
+    login: {
+      welcome: "Bienvenue à la connexion",
+      loginNr: "Numéro de connexion",
+      loginNrPlaceholder: "Entrez votre numéro de connexion",
+      password: "Mot de passe",
+      passwordPlaceholder: "Entrez le mot de passe",
+      login: "Se connecter",
+      error: {
+        unknownLogin: "Numéro de connexion inconnu.",
+        noEmail: "Aucun e-mail enregistré pour ce revendeur.",
+        failed: "Échec de la connexion. Vérifiez le numéro et le mot de passe.",
       },
+      footer: "Accès réservé aux partenaires P5 enregistrés.",
+    },
+    /* 🇫🇷 Français */
+    auth: {
+  reset: {
+    title: "Définir un nouveau mot de passe",
+    newPassword: "Nouveau mot de passe",
+    confirm: "Confirmer le mot de passe",
+    submit: "Changer le mot de passe",
+
+    invalidLink: "❌ Erreur : le lien de réinitialisation est manquant ou invalide.",
+    expired: "❌ Le lien est invalide ou a expiré.",
+    noSession: "❌ Erreur : session d’authentification non disponible.",
+    mismatch: "❌ Les mots de passe ne correspondent pas.",
+    short: "❌ Le mot de passe doit contenir au moins 8 caractères.",
+    success: "✅ Mot de passe modifié avec succès !",
+  }
+}
+
   },
 
   /* 🇮🇹 Italiano */
@@ -1035,13 +1136,16 @@ export const translationsByLang = {
       support: "Supporto",
       instantDiscount: "Sconto immediato",
       info: "Informazioni",
-      password: "Cambia password",
+      password: "Cambia password",      
       logout: "Logout",
       dashboard: "P5connect Dashboard",
       dashboardTitle: "connect Dashboard",
       backToDashboard: "Torna alla dashboard",
 
     },
+
+    passwordForgot: "Password dimenticata?",
+
     dealer: {
       infoTitle: "📋 Informazioni sul rivenditore",
       shop: "Negozio",
@@ -1360,7 +1464,40 @@ export const translationsByLang = {
         bestellNr: "N. ordine P5",
         sofort: "Immediato",
         geplant: "Consegna programmata",
+    },
+    login: {
+      welcome: "Benvenuto",
+      loginNr: "Numero di login",
+      loginNrPlaceholder: "Inserisci il numero di login",
+      password: "Password",
+      passwordPlaceholder: "Inserisci la password",
+      login: "Accedi",
+      error: {
+        unknownLogin: "Numero di login sconosciuto.",
+        noEmail: "Nessuna e-mail registrata per questo rivenditore.",
+        failed: "Accesso non riuscito. Controlla numero e password.",
       },
+      footer: "Accesso riservato ai partner P5 registrati.",
+    },
+
+/* Passwort change */    
+auth: {
+  reset: {
+    title: "Imposta una nuova password",
+    newPassword: "Nuova password",
+    confirm: "Conferma password",
+    submit: "Cambia password",
+
+    invalidLink: "❌ Errore: link di reset mancante o non valido.",
+    expired: "❌ Il link non è valido o è scaduto.",
+    noSession: "❌ Errore: sessione di autenticazione non disponibile.",
+    mismatch: "❌ Le password non coincidono.",
+    short: "❌ La password deve contenere almeno 8 caratteri.",
+    success: "✅ Password modificata con successo!",
+  }
+}
+
+
   },
 
   /* 🇷🇲 Rumantsch */
@@ -1372,13 +1509,16 @@ export const translationsByLang = {
       support: "Support",
       instantDiscount: "Rabatt immediat",
       info: "Infurmaziuns",
-      password: "Midar pled-clav",
+      password: "Midar pled-clav",      
       logout: "Sortir",
       dashboard: "P5connect Dashboard",
       dashboardTitle: "connect Dashboard",
       backToDashboard: "Turnar al dashboard",
 
     },
+
+    passwordForgot: "Emblidà il pled-clav?",
+
     dealer: {
       infoTitle: "📋 Infurmaziuns dal commerziant",
       shop: "Butia",
@@ -1701,7 +1841,54 @@ export const translationsByLang = {
       bestellNr: "Nr. d’ordinaziun P5",
       sofort: "Immediat",
       geplant: "Furniziun planisada",
+  },
+  login: {
+    welcome: "Bainvegni al login",
+    loginNr: "Numer da login",
+    loginNrPlaceholder: "Endatar il numer da login",
+    password: "Pled-clav",
+    passwordPlaceholder: "Endatar il pled-clav",
+    login: "S’annunziar",
+    error: {
+      unknownLogin: "Numer da login nunenconuschent.",
+      noEmail: "Nagina adressa dad e-mail registrada per quest commerziant.",
+      failed: "S'annunzia betg reussida. Controllescha numer e pled-clav.",
     },
+    footer: "Access mo per partenaris P5 registrads.",
+  },
+  /*passwort change*/
+auth: {
+  reset: {
+    title: "Fixar in nov pled-clav",
+    newPassword: "Nov pled-clav",
+    confirm: "Confermar il pled-clav",
+    submit: "Midar il pled-clav",
+
+    invalidLink: "❌ Errur: il link da reset manca u n’è betg valaivel.",
+    expired: "❌ Il link è nunvalaivel u è scrudà.",
+    noSession: "❌ Errur: nagina session d’autentificaziun disponibla.",
+    mismatch: "❌ Ils pleds-clav na correspundan betg.",
+    short: "❌ Il pled-clav sto cuntegnair almain 8 cars.",
+    success: "✅ Il pled-clav è vegnì midà cun success!",
+  }
+}
+
       
   },
 } as const;
+
+/* -------------------------------------------------------
+   🔥 Rekursive Keys für alle verschachtelten Übersetzungen
+--------------------------------------------------------*/
+
+type DeepKeys<T, P extends string = ""> =
+  T extends object
+    ? {
+        [K in keyof T & string]:
+          T[K] extends string
+            ? `${P}${K}`             // direkter Key, z. B. "passwordForgot"
+            : `${P}${K}` | DeepKeys<T[K], `${P}${K}.`>; // verschachtelte Keys
+      }[keyof T & string]
+    : never;
+
+export type TranslationKey = DeepKeys<typeof translationsByLang["de"]>;

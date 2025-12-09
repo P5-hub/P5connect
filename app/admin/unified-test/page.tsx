@@ -1,11 +1,13 @@
-"use client";
+import { Suspense } from "react";
+import UnifiedDashboardTestClient from "./UnifiedDashboardTestClient";
 
-import UnifiedDashboard from "@/components/admin/UnifiedDashboard";
+export const dynamic = "force-dynamic";
+export const fetchCache = "force-no-store";
 
 export default function UnifiedDashboardTestPage() {
   return (
-    <div className="p-6">
-      <UnifiedDashboard submissionType="bestellung" />
-    </div>
+    <Suspense fallback={<div className="p-6">Lade Dashboard…</div>}>
+      <UnifiedDashboardTestClient />
+    </Suspense>
   );
 }

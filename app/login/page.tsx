@@ -3,7 +3,8 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/utils/supabase/client";
-import { _, setCurrentLang, getInitialLang, type Lang } from "@/utils/translations";
+import { useI18n } from "@/lib/i18n/I18nProvider";          // ⭐ NEU
+import type { Lang } from "@/lib/i18n/translations";       // ⭐ NEU
 import { Globe, Handshake } from "lucide-react";
 
 // Themefarben für animiertes 5
@@ -19,17 +20,18 @@ export default function LoginPage() {
   const supabase = createClient();
   const router = useRouter();
 
+  // ⭐ i18n Hook (statt altes _())
+  const { t, lang, setLang } = useI18n();
+
   // States
   const [loginNr, setLoginNr] = useState("");
   const [password, setPassword] = useState("");
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
-  // Sprache
-  const [lang, setLang] = useState<Lang>(getInitialLang());
+  // Sprache umschalten
   const switchLang = (l: Lang) => {
-    setCurrentLang(l);
-    setLang(l);
+    setLang(l); // Cookie + LocalStorage + State
   };
 
   // Animiertes Farblogo P5
@@ -59,7 +61,6 @@ export default function LoginPage() {
     setErrorMsg(null);
 
     try {
-      // 1) Dealer anhand login_nr holen
       const { data: dealer, error: dealerError } = await supabase
         .from("dealers")
         .select("dealer_id, login_nr, role, store_name, email")
@@ -67,24 +68,22 @@ export default function LoginPage() {
         .maybeSingle();
 
       if (dealerError || !dealer) {
-        throw new Error("Unbekannte Login-Nummer.");
+        throw new Error(t("login.error.unknownLogin"));
       }
 
       if (!dealer.email) {
-        throw new Error("Für diesen Händler ist keine E-Mail hinterlegt.");
+        throw new Error(t("login.error.noEmail"));
       }
 
-      // 2) Login über echte E-Mail
       const { data, error: authError } = await supabase.auth.signInWithPassword({
         email: dealer.email,
         password,
       });
 
       if (authError || !data.user) {
-        throw new Error("Login fehlgeschlagen. Bitte Login-Nr. und Passwort prüfen.");
+        throw new Error(t("login.error.failed"));
       }
 
-      // 3) User-Metadaten aktualisieren (für Middleware & Dashboard)
       await supabase.auth.updateUser({
         data: {
           dealer_id: dealer.dealer_id,
@@ -94,7 +93,6 @@ export default function LoginPage() {
         },
       });
 
-      // 4) Routing anhand Rolle (nur aus dealers.role, NICHT aus JWT)
       if (dealer.role === "admin") {
         router.push("/admin");
       } else {
@@ -108,13 +106,14 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="
+    <div
+      className="
       min-h-screen flex flex-col items-center justify-center 
       bg-gradient-to-b from-gray-100 to-gray-200 
       dark:from-gray-900 dark:to-black 
       px-4 transition
-    ">
-
+    "
+    >
       {/* 🌐 Sprachbuttons */}
       <div className="flex items-center gap-2 mb-6 select-none">
         <Globe className="w-4 h-4 text-gray-600 dark:text-gray-300" />
@@ -147,8 +146,7 @@ export default function LoginPage() {
           border border-gray-200 dark:border-gray-700
         "
       >
-
-        {/* ⭐ Premium Loading Bar oben */}
+        {/* ⭐ Loading Bar */}
         {loading && (
           <div className="absolute top-0 left-0 w-full h-1 overflow-hidden rounded-t-2xl">
             <div className="h-full bg-indigo-500 animate-loading-bar shadow-[0_0_12px_rgba(99,102,241,0.8)]"></div>
@@ -156,11 +154,13 @@ export default function LoginPage() {
         )}
 
         {/* Logo */}
-        <h1 className="
+        <h1
+          className="
           text-4xl font-semibold text-center 
           text-gray-800 dark:text-gray-100
           mb-3 tracking-tight select-none font-[Inter,sans-serif]
-        ">
+        "
+        >
           <span>P</span>
           <span
             style={{
@@ -178,12 +178,12 @@ export default function LoginPage() {
         {/* Subtitle */}
         <div className="flex items-center justify-center gap-2 mb-6 text-gray-600 dark:text-gray-300">
           <Handshake className="w-5 h-5" />
-          <span className="text-sm font-medium">{_("welcomeLogin")}</span>
+          <span className="text-sm font-medium">{t("login.welcome")}</span>
         </div>
 
         {/* Login-Nr */}
         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-          {_("loginNr")}
+          {t("login.loginNr")}
         </label>
         <input
           type="text"
@@ -196,13 +196,13 @@ export default function LoginPage() {
             text-gray-900 dark:text-gray-100
             focus:border-indigo-600 focus:ring-indigo-600
           "
-          placeholder={_("loginNrPlaceholder")}
+          placeholder={t("login.loginNrPlaceholder")}
           required
         />
 
         {/* Passwort */}
         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-          {_("password")}
+          {t("login.password")}
         </label>
         <input
           type="password"
@@ -215,7 +215,7 @@ export default function LoginPage() {
             text-gray-900 dark:text-gray-100
             focus:border-indigo-600 focus:ring-indigo-600
           "
-          placeholder={_("passwordPlaceholder")}
+          placeholder={t("login.passwordPlaceholder")}
           required
         />
 
@@ -226,7 +226,7 @@ export default function LoginPage() {
           </p>
         )}
 
-        {/* ⭐ Premium-Login-Button */}
+        {/* Login Button */}
         <button
           type="submit"
           disabled={loading}
@@ -239,43 +239,35 @@ export default function LoginPage() {
             transition disabled:opacity-50 shadow-md
           "
         >
-          {/* Progress-Fill im Button */}
           {loading && (
             <span className="absolute inset-0 bg-indigo-400/30 animate-button-fill"></span>
           )}
 
-          {/* Kreis-Loader + Text */}
           <span className="relative z-10 flex items-center justify-center gap-2">
             {loading && (
               <span className="inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
             )}
-            {_("login")}
+            {t("login.login")}
           </span>
         </button>
 
-        {/* ⭐ Footer */}
-        {/* ⭐ Footer + Passwort vergessen */}
+        {/* Footer */}
         <div className="mt-4 space-y-1">
           <p className="text-center text-xs text-gray-500 dark:text-gray-400">
-            {_("loginFooter")}
+            {t("login.footer")}
           </p>
-
-          
         </div>
+      </form>
 
-        </form>
-
-        {/* Passwort vergessen – Textlink */}
-        <div className="mt-3">
-          <a
-            onClick={() => router.push("/reset-password")}
-            className="block mx-auto text-[11px] text-indigo-500 hover:text-indigo-700 hover:underline cursor-pointer text-center"
-          >
-            Passwort vergessen?
-          </a>
-        </div>
-
-
+      {/* Passwort vergessen */}
+      <div className="mt-3">
+        <a
+          onClick={() => router.push("/reset-password")}
+          className="block mx-auto text-[11px] text-indigo-500 hover:text-indigo-700 hover:underline cursor-pointer text-center"
+        >
+          {t("passwordForgot")}
+        </a>
+      </div>
     </div>
   );
 }

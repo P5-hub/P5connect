@@ -48,6 +48,10 @@ export type CartContextType = {
   switchForm: (form: FormName) => void;
   updateItem: (form: FormName, index: number, updates: Partial<any>) => void;
   replaceItem: (form: FormName, index: number, newItem: any) => void;
+
+  // 🔥 NEU für ProjectForm → CartProjekt
+  projectDetails: any;
+  setProjectDetails: (d: any) => void;
 };
 
 const CartContext = createContext<CartContextType | undefined>(undefined);
@@ -73,6 +77,9 @@ export function GlobalCartProvider({ children }: { children: ReactNode }) {
 
   const [state, setState] = useState<CartState>(emptyState);
 
+  // 🔥 NEU: Projekt-Details Speicher
+  const [projectDetails, setProjectDetails] = useState<any>({});
+
   /* ---------------------------------------------------------
      Laden aus localStorage
   --------------------------------------------------------- */
@@ -83,7 +90,6 @@ export function GlobalCartProvider({ children }: { children: ReactNode }) {
       if (raw) {
         const parsed = JSON.parse(raw);
 
-        // 🛡 Schutz: keine leeren Items übernehmen
         const sanitize = (arr: any[]) =>
           arr.filter((item) => item && item.product_id);
 
@@ -97,13 +103,20 @@ export function GlobalCartProvider({ children }: { children: ReactNode }) {
           sofortrabatt: sanitize(parsed.sofortrabatt ?? []),
           cashback: sanitize(parsed.cashback ?? []),
         });
+
+        // 🔥 NEU: falls vorhanden → Projekt-Details laden
+        if (parsed.projectDetails) {
+          setProjectDetails(parsed.projectDetails);
+        }
+
       } else {
-        // Händlerwechsel → Warenkorb komplett leeren
         setState(emptyState);
+        setProjectDetails({});
       }
     } catch (e) {
       console.error("Fehler beim Laden des Warenkorbs:", e);
       setState(emptyState);
+      setProjectDetails({});
     }
   }, [dealerId]);
 
@@ -112,17 +125,23 @@ export function GlobalCartProvider({ children }: { children: ReactNode }) {
   --------------------------------------------------------- */
   useEffect(() => {
     try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+      localStorage.setItem(
+        STORAGE_KEY,
+        JSON.stringify({
+          ...state,
+          projectDetails, // 🔥 NEU speichern
+        })
+      );
     } catch (e) {
       console.error("Fehler beim Speichern des Warenkorbs:", e);
     }
-  }, [state, STORAGE_KEY]);
+  }, [state, projectDetails, STORAGE_KEY]);
 
   /* ---------------------------------------------------------
      Produkt hinzufügen
   --------------------------------------------------------- */
   const addItem = (form: FormName, item: any) => {
-    if (!item || !item.product_id) return; // 🛡 Schutz
+    if (!item || !item.product_id) return;
     setState((prev) => ({
       ...prev,
       [form]: [...prev[form], item],
@@ -188,7 +207,7 @@ export function GlobalCartProvider({ children }: { children: ReactNode }) {
   };
 
   /* ---------------------------------------------------------
-     Item aktualisieren – MIT SCHUTZ
+     Item aktualisieren
   --------------------------------------------------------- */
   const updateItem = (
     form: FormName,
@@ -197,13 +216,9 @@ export function GlobalCartProvider({ children }: { children: ReactNode }) {
   ) => {
     setState((prev) => {
       const newList = [...prev[form]];
-
-      // 🛡 Schutz: nur updaten, wenn Item existiert
       if (!newList[index]) return prev;
 
       newList[index] = { ...newList[index], ...updates };
-
-      // 🛡 Schutz: nie leere Items erzeugen
       if (!newList[index].product_id) return prev;
 
       return { ...prev, [form]: newList };
@@ -211,13 +226,13 @@ export function GlobalCartProvider({ children }: { children: ReactNode }) {
   };
 
   /* ---------------------------------------------------------
-     Item vollständig ersetzen
+     Item ersetzen
   --------------------------------------------------------- */
   const replaceItem = (form: FormName, index: number, newItem: any) => {
-    if (!newItem || !newItem.product_id) return; // 🛡 Schutz
+    if (!newItem || !newItem.product_id) return;
     setState((prev) => {
       const newList = [...prev[form]];
-      if (!newList[index]) return prev; // Schutz
+      if (!newList[index]) return prev;
       newList[index] = newItem;
       return { ...prev, [form]: newList };
     });
@@ -236,6 +251,10 @@ export function GlobalCartProvider({ children }: { children: ReactNode }) {
         switchForm,
         updateItem,
         replaceItem,
+
+        // 🔥 NEU
+        projectDetails,
+        setProjectDetails,
       }}
     >
       {children}

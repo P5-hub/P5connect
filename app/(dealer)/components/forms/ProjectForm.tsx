@@ -4,13 +4,18 @@ import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft } from "lucide-react";
+
 import ProductList from "@/app/(dealer)/components/ProductList";
 import ProductCardProject from "@/app/(dealer)/components/ProductCardProject";
-import UnifiedCart from "@/app/(dealer)/components/cart/UnifiedCart";
+
+// WICHTIG: GlobalCartProvider
+import { useCart } from "@/app/(dealer)/GlobalCartProvider";
+
 import { useI18n } from "@/lib/i18n/I18nProvider";
 
 export default function ProjectForm() {
   const { t } = useI18n();
+  const { addItem, openCart, setProjectDetails } = useCart();
 
   /* ------------------------------
      Lokale States
@@ -27,10 +32,6 @@ export default function ProjectForm() {
     comment: "",
   });
 
-  // UnifiedCart – lokaler Warenkorb
-  const [cart, setCart] = useState<any[]>([]);
-  const [cartOpen, setCartOpen] = useState(false);
-
   /* ------------------------------
      VALIDIERUNG
   ------------------------------ */
@@ -38,6 +39,30 @@ export default function ProjectForm() {
     details.name.trim().length > 2 &&
     details.customer.trim().length > 2 &&
     details.location.trim().length > 2;
+
+  /* ------------------------------
+     Weiter zu Step 2
+  ------------------------------ */
+  const goToProducts = () => {
+    if (!canProceed) return;
+
+    // Projekt-Details in GLOBALEN Cart speichern
+    setProjectDetails(details);
+
+    // Schritt wechseln
+    setStep("products");
+
+    // Projekt-Cart öffnen
+    openCart("projekt");
+  };
+
+  /* ------------------------------
+     Produkt zum globalen Cart hinzufügen
+  ------------------------------ */
+  const handleAdd = (item: any) => {
+    addItem("projekt", item);
+    openCart("projekt");
+  };
 
   /* ------------------------------
      RENDER
@@ -176,9 +201,9 @@ export default function ProjectForm() {
             {/* Weiter */}
             <div className="pt-4">
               <Button
-               
+                disabled={!canProceed}
                 className="bg-purple-600 hover:bg-purple-700 text-white"
-                onClick={() => setStep("products")}
+                onClick={goToProducts}
               >
                 {t("project.next")}
               </Button>
@@ -209,34 +234,8 @@ export default function ProjectForm() {
             <ProductList
               CardComponent={ProductCardProject}
               cardProps={{
-                onAddToCart: (item: any) => {
-                  setCart((prev) => [...prev, item]);
-                  setCartOpen(true);
-                },
+                onAddToCart: (item: any) => handleAdd(item),
               }}
-            />
-
-            {/* UnifiedCart – ersetzt frühere CartProject-Variante */}
-            <UnifiedCart
-              mode="projekt"
-              cart={cart}
-              setCart={setCart}
-              open={cartOpen}
-              setOpen={setCartOpen}
-              onSuccess={() => {
-                setCart([]);
-                setDetails({
-                  type: "standard",
-                  name: "",
-                  customer: "",
-                  location: "",
-                  start: "",
-                  end: "",
-                  comment: "",
-                });
-                setStep("details");
-              }}
-              details={details}
             />
           </motion.div>
         )}
