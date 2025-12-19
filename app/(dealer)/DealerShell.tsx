@@ -23,6 +23,8 @@ type Dealer = {
   city?: string | null;
   email?: string | null;
   phone?: string | null;
+  contact_person?: string | null;
+  kam_name?: string | null;
 };
 
 // Mapping: URL → Formular-Typ
@@ -75,6 +77,8 @@ export default function DealerShell({ children }: { children: ReactNode }) {
             city: row.city,
             email: row.email,
             phone: row.phone,
+            contact_person: row.contact_person,
+            kam_name: row.kam_email_sony,
           });
           setLoading(false);
           return;
@@ -104,6 +108,8 @@ export default function DealerShell({ children }: { children: ReactNode }) {
             city: row.city,
             email: row.email,
             phone: row.phone,
+            contact_person: row.contact_person,
+            kam_name: row.kam_email_sony,
           });
         }
       }
@@ -137,7 +143,7 @@ export default function DealerShell({ children }: { children: ReactNode }) {
   // RENDERING
   // ================================
   return (
-    <DealerProvider dealer={dealer} setDealer={setDealer}>
+    <DealerProvider dealer={dealer}>
       <GlobalCartProvider>
         <div className="min-h-screen flex flex-col bg-gray-50">
 

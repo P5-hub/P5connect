@@ -538,28 +538,32 @@ export default function CartBestellung() {
   useEffect(() => {
     const loadAllowedDistis = async () => {
       for (const [index, item] of cart.entries()) {
+        // ⛔️ Wenn allowedDistis schon vorhanden → nichts tun
+        if (Array.isArray((item as any).allowedDistis)) continue;
+
         const { data } = await supabase
           .from("product_distributors")
-          .select("distributor_id, distributors(code)")
+          .select("distributors(code)")
           .eq("product_id", Number((item as any).product_id));
 
-        if (data && data.length > 0) {
-          const allowed = data
-            .map((d: any) => d.distributors?.code)
-            .filter(Boolean) as string[];
+        if (!data || data.length === 0) continue;
 
-          updateItem("bestellung", index, {
-            allowedDistis: allowed,
-            overrideDistributor:
-              (item as any).overrideDistributor ??
-              pickPreferred(item as CartItem, allowed),
-          });
-        }
+        const allowed = data
+          .map((d: any) => d.distributors?.code)
+          .filter(Boolean) as string[];
+
+        updateItem("bestellung", index, {
+          allowedDistis: allowed,
+          overrideDistributor:
+            (item as any).overrideDistributor ||
+            pickPreferred(item as CartItem, allowed),
+        });
       }
     };
 
     if (cart.length > 0) loadAllowedDistis();
-  }, [cart.length, supabase, cart, updateItem]);
+  }, [cart.length, supabase, updateItem]);
+
 
   /* ------------------------------------------------------------------
      🧹 REMOVE ITEM WRAPPER

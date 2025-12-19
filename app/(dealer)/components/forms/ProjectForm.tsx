@@ -1,9 +1,20 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import ProjectFileUpload from "@/app/(dealer)/components/project/ProjectFileUpload";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft } from "lucide-react";
+import {
+  ArrowLeft,
+  ClipboardList,
+  Briefcase,
+  FolderKanban,
+  User,
+  MapPin,
+  Folder,
+  CalendarRange,
+  MessageSquare,
+} from "lucide-react";
 
 import ProductList from "@/app/(dealer)/components/ProductList";
 import ProductCardProject from "@/app/(dealer)/components/ProductCardProject";
@@ -15,14 +26,23 @@ import { useI18n } from "@/lib/i18n/I18nProvider";
 
 export default function ProjectForm() {
   const { t } = useI18n();
-  const { addItem, openCart, setProjectDetails } = useCart();
+  const { addItem, openCart, setProjectDetails, getItems } = useCart();
 
   /* ------------------------------
      Lokale States
   ------------------------------ */
   const [step, setStep] = useState<"details" | "products">("details");
 
-  const [details, setDetails] = useState({
+  const [details, setDetails] = useState<{
+    type: string;
+    name: string;
+    customer: string;
+    location: string;
+    start: string;
+    end: string;
+    comment: string;
+    files: File[];
+  }>({
     type: "standard",
     name: "",
     customer: "",
@@ -30,7 +50,20 @@ export default function ProjectForm() {
     start: "",
     end: "",
     comment: "",
+    files: [],
   });
+
+  const patchDetails = (
+    patch: Partial<typeof details>
+  ) => setDetails((d) => ({ ...d, ...patch }));
+
+  /* ------------------------------
+     Cart Count (Badge)
+  ------------------------------ */
+  const projectItemCount = useMemo(
+    () => getItems("projekt")?.length || 0,
+    [getItems]
+  );
 
   /* ------------------------------
      VALIDIERUNG
@@ -46,14 +79,10 @@ export default function ProjectForm() {
   const goToProducts = () => {
     if (!canProceed) return;
 
-    // Projekt-Details in GLOBALEN Cart speichern
+    // ✅ Projekt-Details inkl. Dateien in GLOBALEN Cart speichern
     setProjectDetails(details);
 
-    // Schritt wechseln
     setStep("products");
-
-    // Projekt-Cart öffnen
-    openCart("projekt");
   };
 
   /* ------------------------------
@@ -61,13 +90,11 @@ export default function ProjectForm() {
   ------------------------------ */
   const handleAdd = (item: any) => {
     addItem("projekt", item);
-    openCart("projekt");
   };
 
   /* ------------------------------
      RENDER
   ------------------------------ */
-
   return (
     <div className="p-4">
       <AnimatePresence mode="wait">
@@ -92,7 +119,7 @@ export default function ProjectForm() {
                   className="border px-2 py-1 rounded w-full"
                   value={details.name}
                   onChange={(e) =>
-                    setDetails((d) => ({ ...d, name: e.target.value }))
+                    patchDetails({ name: e.target.value })
                   }
                 />
               </div>
@@ -107,7 +134,7 @@ export default function ProjectForm() {
                   className="border px-2 py-1 rounded w-full"
                   value={details.customer}
                   onChange={(e) =>
-                    setDetails((d) => ({ ...d, customer: e.target.value }))
+                    patchDetails({ customer: e.target.value })
                   }
                 />
               </div>
@@ -122,7 +149,7 @@ export default function ProjectForm() {
                   className="border px-2 py-1 rounded w-full"
                   value={details.location}
                   onChange={(e) =>
-                    setDetails((d) => ({ ...d, location: e.target.value }))
+                    patchDetails({ location: e.target.value })
                   }
                 />
               </div>
@@ -132,11 +159,10 @@ export default function ProjectForm() {
                 <label className="block text-sm mb-1">
                   {t("project.type")}
                 </label>
-
                 <select
                   value={details.type}
                   onChange={(e) =>
-                    setDetails((d) => ({ ...d, type: e.target.value }))
+                    patchDetails({ type: e.target.value })
                   }
                   className="border px-2 py-1 rounded w-full"
                 >
@@ -162,7 +188,7 @@ export default function ProjectForm() {
                   className="border px-2 py-1 rounded w-full"
                   value={details.start}
                   onChange={(e) =>
-                    setDetails((d) => ({ ...d, start: e.target.value }))
+                    patchDetails({ start: e.target.value })
                   }
                 />
               </div>
@@ -177,7 +203,7 @@ export default function ProjectForm() {
                   className="border px-2 py-1 rounded w-full"
                   value={details.end}
                   onChange={(e) =>
-                    setDetails((d) => ({ ...d, end: e.target.value }))
+                    patchDetails({ end: e.target.value })
                   }
                 />
               </div>
@@ -193,10 +219,16 @@ export default function ProjectForm() {
                 className="border px-2 py-1 rounded w-full"
                 value={details.comment}
                 onChange={(e) =>
-                  setDetails((d) => ({ ...d, comment: e.target.value }))
+                  patchDetails({ comment: e.target.value })
                 }
               />
             </div>
+
+            {/* 📎 FILE UPLOAD – HIER GEHÖRT ER HIN */}
+            <ProjectFileUpload
+              files={details.files}
+              onChange={(files) => patchDetails({ files })}
+            />
 
             {/* Weiter */}
             <div className="pt-4">
@@ -230,13 +262,50 @@ export default function ProjectForm() {
               {t("project.products")}
             </h2>
 
-            {/* Produktliste */}
+            {/* Projekt-Zusammenfassung */}
+            <div className="border rounded-xl p-3 bg-purple-50 text-sm space-y-2">
+              <p className="font-semibold flex items-center gap-2 text-purple-700">
+                <ClipboardList className="w-4 h-4" />
+                Projekt
+              </p>
+
+              <div className="flex items-center gap-2">
+                <Briefcase className="w-4 h-4 text-gray-500" />
+                <span>{details.name}</span>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <User className="w-4 h-4 text-gray-500" />
+                <span>{details.customer}</span>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <MapPin className="w-4 h-4 text-gray-500" />
+                <span>{details.location}</span>
+              </div>
+
+              {details.files.length > 0 && (
+                <div className="text-xs text-gray-600">
+                  📎 {details.files.length} Datei(en) angehängt
+                </div>
+              )}
+            </div>
+
             <ProductList
               CardComponent={ProductCardProject}
-              cardProps={{
-                onAddToCart: (item: any) => handleAdd(item),
-              }}
+              cardProps={{ onAddToCart: handleAdd }}
             />
+
+            {projectItemCount > 0 && (
+              <div className="fixed bottom-5 right-5 z-50">
+                <Button
+                  onClick={() => openCart("projekt")}
+                  className="bg-purple-600 hover:bg-purple-700 text-white rounded-full h-14 w-14"
+                >
+                  <ClipboardList className="w-6 h-6" />
+                </Button>
+              </div>
+            )}
           </motion.div>
         )}
       </AnimatePresence>

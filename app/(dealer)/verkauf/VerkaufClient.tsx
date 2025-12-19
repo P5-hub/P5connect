@@ -3,14 +3,14 @@
 import VerkaufForm from "@/app/(dealer)/components/forms/VerkaufForm";
 import { BarChart3 } from "lucide-react";
 import { useI18n } from "@/lib/i18n/I18nProvider";
-import { useDealer } from "@/app/(dealer)/DealerContext";
+import { useActiveDealer } from "@/app/(dealer)/hooks/useActiveDealer";
 
 export default function VerkaufClient() {
   const { t } = useI18n();
-  const dealer = useDealer();
+  const { dealer, loading } = useActiveDealer();
 
-  if (dealer === undefined) {
-    return <p className="text-gray-500">⏳ Initialisiere…</p>;
+  if (loading) {
+    return <p className="text-gray-500">⏳ Händler wird geladen…</p>;
   }
 
   if (!dealer) {

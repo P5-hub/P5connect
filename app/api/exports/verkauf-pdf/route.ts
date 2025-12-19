@@ -2,160 +2,248 @@
 import { getSupabaseServer } from "@/utils/supabase/server";
 import { Readable } from "node:stream";
 import { createPDFDocument } from "@/utils/pdf/createPDFDocument";
-import type { TSubmission, TDealer } from "@/types";
+import type { TDealer } from "@/types";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-const toCHF = (n: any) => (Number(n) || 0).toFixed(2);
+/* -------------------------------------------------------
+   HELPERS
+------------------------------------------------------- */
+
+const toCHF = (n: number) =>
+  new Intl.NumberFormat("de-CH", {
+    style: "currency",
+    currency: "CHF",
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(n);
+
 const formatDate = (d: string | null) =>
   d ? new Date(d).toLocaleString("de-CH") : "-";
+
+/* -------------------------------------------------------
+   ROUTE
+------------------------------------------------------- */
 
 export async function GET(req: Request) {
   try {
     const { searchParams } = new URL(req.url);
-    const idParam = searchParams.get("id");
-    const id = idParam ? Number(idParam) : NaN;
+    const id = Number(searchParams.get("id"));
 
-    // ✅ ID prüfen
     if (!Number.isFinite(id)) {
       return new NextResponse("invalid id", { status: 400 });
     }
 
     const supabase = await getSupabaseServer();
 
-    // === VERKAUFSMELDUNG LADEN ===
-    const { data: sub, error: e1 } = await supabase
+    /* ---------------------------------------------------
+       SUBMISSION
+    --------------------------------------------------- */
+
+    const { data: submission } = await supabase
       .from("submissions")
       .select(`
-        submission_id, dealer_id, created_at, typ, status,
-        dealer_reference, order_comment, calendar_week
+        submission_id,
+        dealer_id,
+        created_at,
+        status,
+        dealer_reference,
+        calendar_week,
+        sony_share_qty,
+        sony_share_revenue
       `)
       .eq("submission_id", id)
       .maybeSingle();
 
-    if (e1) throw e1;
-    if (!sub) return new NextResponse("submission not found", { status: 404 });
+    if (!submission) {
+      return new NextResponse("submission not found", { status: 404 });
+    }
 
-    const submission = sub as TSubmission;
+    /* ---------------------------------------------------
+       DEALER
+    --------------------------------------------------- */
 
-    // === HÄNDLER LADEN ===
-    const { data: dealerData, error: e2 } = await supabase
+    const { data: dealer } = await supabase
       .from("dealers")
       .select("*")
       .eq("dealer_id", submission.dealer_id ?? 0)
       .maybeSingle();
 
-    if (e2) throw e2;
-    const dealer = dealerData as TDealer | null;
+    /* ---------------------------------------------------
+       ITEMS
+    --------------------------------------------------- */
 
-    // === POSITIONEN LADEN ===
-    type TItemMinimal = {
+    type Item = {
       menge: number | null;
       preis: number | null;
-      products: { product_name: string; ean: string } | null;
+      product_name: string | null;
+      ean: string | null;
     };
 
-    const { data: itemData, error: e3 } = await supabase
+    const { data: itemsRaw } = await supabase
       .from("submission_items")
-      .select(`menge, preis, products(product_name, ean)`)
-      .eq("submission_id", id)
-      .returns<TItemMinimal[]>();
+      .select("menge, preis, product_name, ean")
+      .eq("submission_id", id);
 
-    if (e3) throw e3;
-    const items = itemData ?? [];
+    const items: Item[] = itemsRaw ?? [];
 
-    // === PDF INITIALISIEREN ===
+    /* ---------------------------------------------------
+       BERECHNUNGEN
+    --------------------------------------------------- */
+
+    const sonyQty = items.reduce(
+      (s, i) => s + (Number(i.menge) || 0),
+      0
+    );
+
+    const sonyRevenue = items.reduce(
+      (s, i) =>
+        s + (Number(i.menge) || 0) * (Number(i.preis) || 0),
+      0
+    );
+
+    const shareQty = submission.sony_share_qty ?? 0;
+    const shareRevenue = submission.sony_share_revenue ?? 0;
+
+    const totalQty =
+      shareQty > 0 ? Math.round(sonyQty / (shareQty / 100)) : sonyQty;
+
+    const totalRevenue =
+      shareRevenue > 0
+        ? sonyRevenue / (shareRevenue / 100)
+        : sonyRevenue;
+
+    /* ---------------------------------------------------
+       PDF SETUP
+    --------------------------------------------------- */
+
     const { doc, useFallback } = createPDFDocument({ margin: 42 });
     const font = useFallback ? "Helvetica" : "Body";
     const bold = useFallback ? "Helvetica-Bold" : "BodyBold";
     const stream = doc as unknown as Readable;
 
-    // === HEADER ===
-    doc.font(bold).fontSize(16).fillColor("#000")
-      .text(`Verkaufsmeldung #${submission.submission_id}`);
-    doc.moveDown(0.2);
+    const pageWidth = doc.page.width - 84;
+
+    /* ---------------------------------------------------
+       HEADER
+    --------------------------------------------------- */
+
+    doc.font(bold).fontSize(18).fillColor("#000");
+    doc.text(`Verkaufsmeldung #${submission.submission_id}`);
+
+    doc.moveDown(0.4);
     doc.font(font).fontSize(10).fillColor("#555");
     doc.text(`Datum: ${formatDate(submission.created_at)}`);
-    doc.text(`Status: ${submission.status || "-"}`);
-    doc.text(`Kalenderwoche: ${submission.calendar_week || "-"}`);
-    doc.text(`Referenz: ${submission.dealer_reference || "-"}`);
+    doc.text(`Status: ${submission.status ?? "-"}`);
+    doc.text(`Referenz: ${submission.dealer_reference ?? "-"}`);
 
-    if (submission.order_comment) {
-      doc.moveDown(0.3);
-      doc.fillColor("#333").text(`Kommentar: ${submission.order_comment}`);
-    }
+    /* ===================================================
+       🔁 HÄNDLER (JETZT ZUERST)
+    =================================================== */
 
-    // === HÄNDLERDATEN ===
+    doc.moveDown(0.8);
+    doc.font(bold).fontSize(11).fillColor("#000");
+    doc.text("Händler");
+
     if (dealer) {
-      const name =
-        dealer.store_name ||
-        (dealer as any).company_name ||
-        (dealer as any).firma ||
-        "-";
-      const zip = dealer.plz ?? dealer.zip ?? "";
-      const address =
-        (dealer as any)["address"] ||
-        (dealer as any)["street"] ||
-        (dealer as any)["strasse"] ||
-        "";
-      const addr = [address, zip, dealer.city].filter(Boolean).join(" ");
-
-      doc.moveDown(0.6);
-      doc.font(bold).fontSize(11).fillColor("#000").text("Händler");
+      doc.moveDown(0.2);
       doc.font(font).fontSize(10).fillColor("#333");
-      doc.text(name);
+
+      doc.text(dealer.store_name ?? "-");
+
+      const addr = [dealer.street, dealer.zip, dealer.city]
+        .filter(Boolean)
+        .join(" ");
+
       if (addr) doc.text(addr);
-      doc.text(`Kd-Nr.: ${dealer.login_nr || "-"}`);
+      if (dealer.login_nr) doc.text(`Kd-Nr.: ${dealer.login_nr}`);
       if (dealer.email) doc.text(`E-Mail: ${dealer.email}`);
       if (dealer.phone) doc.text(`Telefon: ${dealer.phone}`);
     }
 
-    // === PRODUKTE ===
-    doc.moveDown(0.8);
-    doc.font(bold).fontSize(11).fillColor("#000").text("Produkte");
-    doc.moveDown(0.2);
+    /* ===================================================
+       🔁 VERKAUFSPARAMETER (JETZT NACH HÄNDLER)
+    =================================================== */
+
+    let y = doc.y + 20;
+
+    doc
+      .rect(42, y, pageWidth, 120)
+      .strokeColor("#ddd")
+      .stroke();
+
+    doc.font(bold).fontSize(11).fillColor("#000");
+    doc.text("Verkaufsparameter", 50, y + 10);
+
+    doc.font(font).fontSize(10).fillColor("#333");
+
+    const lx = 50;
+    const rx = 300;
+
+    doc.text(`Kalenderwoche: ${submission.calendar_week ?? "-"}`, lx, y + 30);
+    doc.text(`SONY Anteil Stück: ${shareQty} %`, lx, y + 48);
+    doc.text(`SONY Anteil Umsatz: ${shareRevenue} %`, lx, y + 66);
+
+    doc.text(`SONY Stückzahl: ${sonyQty}`, rx, y + 30);
+    doc.text(`Händler Gesamtstückzahl: ${totalQty}`, rx, y + 48);
+    doc.text(`SONY Umsatz: ${toCHF(sonyRevenue)}`, rx, y + 66);
+    doc.text(
+      `Händler Gesamtumsatz: ${toCHF(totalRevenue)}`,
+      rx,
+      y + 84
+    );
+
+    doc.y = y + 140;
+
+    /* ---------------------------------------------------
+       PRODUKTE
+    --------------------------------------------------- */
+
+    doc.moveDown(0.6);
+    doc.font(bold).fontSize(11).fillColor("#000");
+    doc.text("Produkte");
+
+    const tableTop = doc.y + 10;
+
+    const col = {
+      name: 42,
+      ean: 270,
+      qty: 430,
+      price: 500,
+    };
+
     doc.font(font).fontSize(10).fillColor("#555");
+    doc.text("Produkt", col.name, tableTop);
+    doc.text("EAN", col.ean, tableTop);
+    doc.text("Menge", col.qty, tableTop, { align: "right" });
+    doc.text("Preis (CHF)", col.price, tableTop, { align: "right" });
 
-    const colX = { name: 42, ean: 300, qty: 450, price: 510 };
-    doc.text("Produkt", colX.name, doc.y, { width: 240 });
-    doc.text("EAN", colX.ean, doc.y, { width: 120 });
-    doc.text("Menge", colX.qty, doc.y, { width: 50, align: "right" });
-    doc.text("Preis (CHF)", colX.price, doc.y, { width: 70, align: "right" });
+    doc
+      .moveTo(42, tableTop + 14)
+      .lineTo(553, tableTop + 14)
+      .strokeColor("#ddd")
+      .stroke();
 
-    doc.moveDown(0.1);
-    doc.moveTo(42, doc.y).lineTo(553, doc.y).strokeColor("#ddd").stroke();
-    doc.fillColor("#000").font(font);
+    let rowY = tableTop + 22;
 
-    let totalQty = 0;
-    let totalSum = 0;
+    items.forEach((i) => {
+      doc.font(font).fillColor("#000");
 
-    for (const it of items) {
-      // @ts-ignore – Supabase liefert products evtl. als Array
-      const product = Array.isArray(it.products) ? it.products[0] : it.products;
-      const name = product?.product_name || "Produkt";
-      const ean = product?.ean || "-";
-      const qty = Number(it.menge) || 0;
-      const price = Number(it.preis) || 0;
+      doc.text(i.product_name ?? "Produkt", col.name, rowY, {
+        width: 220,
+      });
+      doc.text(i.ean ?? "-", col.ean, rowY);
+      doc.text(String(i.menge ?? 0), col.qty, rowY, { align: "right" });
+      doc.text(
+        toCHF(Number(i.preis) || 0),
+        col.price,
+        rowY,
+        { align: "right" }
+      );
 
-      totalQty += qty;
-      totalSum += qty * price;
-
-      doc.moveDown(0.2);
-      doc.text(name, colX.name, doc.y, { width: 240 });
-      doc.text(ean, colX.ean, doc.y, { width: 110 });
-      doc.text(String(qty), colX.qty, doc.y, { width: 50, align: "right" });
-      doc.text(toCHF(price), colX.price, doc.y, { width: 70, align: "right" });
-    }
-
-    doc.moveDown(0.2);
-    doc.moveTo(42, doc.y).lineTo(553, doc.y).strokeColor("#ddd").stroke();
-    doc.moveDown(0.2);
-    doc.font(bold).fontSize(10).fillColor("#000");
-    doc.text("Summe", colX.name, doc.y, { width: 240 });
-    doc.text("", colX.ean, doc.y, { width: 110 });
-    doc.text(String(totalQty), colX.qty, doc.y, { width: 50, align: "right" });
-    doc.text(toCHF(totalSum), colX.price, doc.y, { width: 70, align: "right" });
+      rowY += 20;
+    });
 
     doc.end();
 
@@ -166,10 +254,8 @@ export async function GET(req: Request) {
         "Cache-Control": "no-store",
       },
     });
-  } catch (e: any) {
+  } catch (e) {
     console.error("❌ Verkauf-PDF Fehler:", e);
-    return new NextResponse(e?.message || "PDF generation failed", {
-      status: 500,
-    });
+    return new NextResponse("PDF generation failed", { status: 500 });
   }
 }

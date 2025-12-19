@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { calcInvestByRule } from "@/lib/helpers/calcHelpers";
 
+
 import {
   Sheet,
   SheetContent,
@@ -30,6 +31,10 @@ import {
   Tag,
   Hash,
   User,
+  FolderKanban,
+  MapPin,
+  FileText,
+  Calendar,
   Phone,
   BadgeInfo,
 } from "lucide-react";
@@ -409,7 +414,11 @@ export default function CartProjekt() {
     clearCart,
     closeCart,
     updateItem,
+    projectDetails, // 👈 wird verwendet
   } = useCart();
+
+
+
 
   const cart = (
     (getItems("projekt") as (CartItem | undefined)[]) || []
@@ -441,7 +450,17 @@ export default function CartProjekt() {
   const [dealerReference, setDealerReference] = useState("");
 
   // Projekt-Stammdaten
-  const [details, setDetails] = useState({
+  // Projekt-Stammdaten
+  const [details, setDetails] = useState<{
+    type: string;
+    name: string;
+    customer: string;
+    location: string;
+    start: string;
+    end: string;
+    comment: string;
+    files: File[];
+  }>({
     type: "",
     name: "",
     customer: "",
@@ -449,10 +468,29 @@ export default function CartProjekt() {
     start: "",
     end: "",
     comment: "",
+    files: [],
   });
 
-  const patchDetails = (patch: Partial<typeof details>) =>
+  // 📎 Projekt-Dateien (CSV, PDF, etc.)
+  const projectFiles: File[] =
+    projectDetails?.files?.length
+      ? projectDetails.files
+      : details.files;
+
+  const patchDetails = (
+    patch: Partial<{
+      type: string;
+      name: string;
+      customer: string;
+      location: string;
+      start: string;
+      end: string;
+      comment: string;
+      files: File[];
+    }>
+  ) =>
     setDetails((prev) => ({ ...prev, ...patch }));
+
 
   /* ------------------------------------------------------------------
      👤 DEALER DATA MEMO
@@ -539,9 +577,23 @@ export default function CartProjekt() {
     return m;
   }, [distis]);
 
+
+  
   /* ------------------------------------------------------------------
      🔄 EFFECTS
   ------------------------------------------------------------------- */
+  useEffect(() => {
+    if (projectDetails && Object.keys(projectDetails).length > 0) {
+      setDetails((prev) => ({
+        ...prev,
+        ...projectDetails,
+        files: projectDetails.files ?? prev.files,
+      }));
+    }
+  }, [projectDetails]);
+
+
+
 
   useEffect(() => {
     if (cart.length > 0) setSuccess(false);
@@ -599,7 +651,6 @@ export default function CartProjekt() {
   /* ------------------------------------------------------------------
      SUBMISSION LOGIC (Projekt)
   ------------------------------------------------------------------- */
-
   const submitProject = async () => {
     if (!(dealer as any)?.dealer_id) {
       toast.error("❌ Kein Händler gefunden – bitte neu einloggen.");
@@ -611,15 +662,14 @@ export default function CartProjekt() {
       return;
     }
 
-    // Pflichtfelder Projekt
+    // ℹ️ KEINE Pflichtfelder mehr – nur Hinweis
     if (
-      !details.type.trim() ||
-      !details.name.trim() ||
-      !details.customer.trim() ||
+      !details.type.trim() &&
+      !details.name.trim() &&
+      !details.customer.trim() &&
       !details.location.trim()
     ) {
-      toast.error("Bitte alle Pflichtfelder im Projektformular ausfüllen.");
-      return;
+      toast.message("ℹ️ Projekt wird ohne detaillierte Angaben gespeichert.");
     }
 
     const hasNormal = cart.some(
@@ -641,7 +691,7 @@ export default function CartProjekt() {
       setDeliveryDate("");
     }
 
-    // Item-Validierung
+    // 🔎 Produkt-Validierung bleibt
     for (const item of cart as any[]) {
       if (!item.quantity || item.quantity <= 0) {
         toast.error("Ungültige Eingabe", {
@@ -682,6 +732,7 @@ export default function CartProjekt() {
         : distributor;
       if (code) allCodes.add(code.toLowerCase());
     }
+
     for (const code of allCodes) {
       if (!codeToId.get(code)) {
         toast.error("❌ Unbekannter Distributor-Code", {
@@ -694,16 +745,17 @@ export default function CartProjekt() {
     setLoading(true);
 
     try {
-      // 1) Projekt-Stammdaten in project_requests speichern
+      // 1️⃣ Projekt-Stammdaten
       const res = await fetch("/api/projects", {
         method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           dealer_id: (dealer as any).dealer_id,
           login_nr: (dealer as any).login_nr,
-          project_type: details.type,
-          project_name: details.name,
-          customer: details.customer,
-          location: details.location,
+          project_type: details.type || null,
+          project_name: details.name || null,
+          customer: details.customer || null,
+          location: details.location || null,
           start_date: details.start || null,
           end_date: details.end || null,
           comment: details.comment || null,
@@ -711,24 +763,39 @@ export default function CartProjekt() {
       });
 
       if (!res.ok) {
-        let msg = "Fehler beim Speichern des Projekts.";
-        try {
-          const e = await res.json();
-          msg = e.error || msg;
-        } catch {
-          // ignore JSON parse error
-        }
-        throw new Error(msg);
+        const e = await res.json().catch(() => ({}));
+        throw new Error(e.error || "Fehler beim Speichern des Projekts.");
       }
 
-      const { id: project_id } = await res.json();
+      const { project_id } = await res.json();
+      // 📎 DATEI-UPLOADS (CSV / Anhänge)
+      for (const file of projectFiles) {
+        const fd = new FormData();
+        fd.append("file", file);
+        fd.append("project_id", project_id);
+        fd.append("dealer_id", String((dealer as any).dealer_id));
+        fd.append("login_nr", String((dealer as any).login_nr ?? ""));
 
-      // 2) Items pro Distributor gruppieren und in submissions + submission_items speichern
+        const uploadRes = await fetch("/api/project-files/upload", {
+          method: "POST",
+          body: fd,
+        });
+
+        if (!uploadRes.ok) {
+          const e = await uploadRes.json().catch(() => ({}));
+          throw new Error(
+            `Datei-Upload fehlgeschlagen (${file.name}): ${e.error ?? "Unbekannt"}`
+          );
+        }
+      }
+
+
+      // 2️⃣ Items gruppieren & speichern
       const itemsByCode: Record<string, CartItem[]> = {};
 
       for (const item of cart as any[]) {
         const code = item.allowedDistis?.length
-          ? (item.overrideDistributor as string)
+          ? item.overrideDistributor
           : distributor;
         const key = (code || "").toLowerCase();
         if (!itemsByCode[key]) itemsByCode[key] = [];
@@ -737,166 +804,43 @@ export default function CartProjekt() {
 
       for (const [codeLower, items] of Object.entries(itemsByCode)) {
         const distiUuid = codeToId.get(codeLower);
-        if (!distiUuid)
-          throw new Error(`Distributor-Code "${codeLower}" nicht gefunden.`);
-
-        // 2.1) Submission speichern
-        const submissionPayload: SubmissionInsert = {
-          dealer_id: (dealer as any).dealer_id,
-          typ: "projekt",
-          distributor: codeLower,
-          project_id,
-
-          requested_delivery: mapRequestedDelivery(deliveryMode),
-          requested_delivery_date:
-            deliveryMode === "termin" ? (requestedDate as any) : null,
-
-          // Kommentar: Projekt-Kommentar + optional Bestell-/Projekt-Kommentar
-          order_comment:
-            orderComment || details.comment
-              ? [details.comment, orderComment]
-                  .filter((v) => !!v && v.trim().length > 0)
-                  .join("\n\n")
-              : null,
-          dealer_reference: dealerReference || null,
-
-          customer_number: dealerLoginNr || null,
-          customer_contact: dealerContact || null,
-          customer_phone: dealerPhone || null,
-          customer_name: dealerDisplayName || null,
-
-          delivery_name: hasAltDelivery ? deliveryName || null : null,
-          delivery_street: hasAltDelivery ? deliveryStreet || null : null,
-          delivery_zip: hasAltDelivery ? deliveryZip || null : null,
-          delivery_city: hasAltDelivery ? deliveryCity || null : null,
-          delivery_country: hasAltDelivery ? deliveryCountry || null : null,
-          delivery_phone: hasAltDelivery ? deliveryPhone || null : null,
-          delivery_email: hasAltDelivery ? deliveryEmail || null : null,
-
-          status: "pending",
-        };
+        if (!distiUuid) throw new Error(`Distributor "${codeLower}" nicht gefunden`);
 
         const { data: subData, error: subErr } = await supabase
           .from("submissions")
-          .insert(submissionPayload)
+          .insert({
+            dealer_id: (dealer as any).dealer_id,
+            typ: "projekt",
+            distributor: codeLower,
+            project_id,
+            status: "pending",
+          })
           .select("submission_id")
           .single();
 
         if (subErr || !subData) throw subErr;
+
         const submissionId = subData.submission_id;
 
-        // 2.2) Produktdetails laden (für korrektes Invest / POI_alt)
-        const { data: fullProducts, error: prodErr } = await supabase
-          .from("products")
-          .select("product_id, price_on_invoice, dealer_invoice_price")
-          .in(
-            "product_id",
-            items.map((i: any) => Number(i.product_id))
-          );
-
-        if (prodErr) {
-          console.error("❌ Fehler beim Laden der Produktdaten", prodErr);
-          throw prodErr;
-        }
-
-        const productMap = new Map(
-          (fullProducts || []).map((p: any) => [p.product_id, p])
-        );
-
-        const distiRow = distis.find(
-          (d) => d.code.toLowerCase() === codeLower.toLowerCase()
-        );
-        const rule = (distiRow as any)?.invest_rule ?? "default";
-
-        // 2.3) Items bauen
-        const itemPayloads: SubmissionItemInsert[] = items.map((i: any) => {
-          const productId = Number(i.product_id);
-          const prod = productMap.get(productId);
-
-          const brutto =
-            typeof i.lowest_price_brutto === "number"
-              ? safeNum(i.lowest_price_brutto)
-              : null;
-
-          const vrg = typeof i.vrg === "number" ? i.vrg : 0;
-
-          const netto =
-            brutto !== null && brutto > 0
-              ? safeNum(brutto / 1.081 - vrg)
-              : null;
-
-          const poiAlt = safeNum(
-            prod?.price_on_invoice ?? prod?.dealer_invoice_price ?? 0
-          );
-
-          const dealerPrice = safeNum(
-            i.price != null && i.price > 0 ? i.price : poiAlt
-          );
-
-          let investVal = 0;
-          try {
-            investVal = safeNum(calcInvestByRule(rule, dealerPrice, poiAlt));
-          } catch (err) {
-            console.warn("⚠️ Invest-Berechnung fehlgeschlagen:", err);
-            investVal = 0;
-          }
-
-          return {
-            submission_id: submissionId,
-            product_id: productId,
-            ean: i.ean || null,
-            product_name: i.product_name || i.sony_article || null,
-            sony_article: i.sony_article || null,
-
-            menge: toInt(i.quantity),
-            preis: dealerPrice,
-
-            lowest_price_brutto: brutto,
-            lowest_price_netto: netto,
-            lowest_price_source: i.lowest_price_source?.trim() || null,
-            lowest_price_source_custom:
-              i.lowest_price_source === "Andere"
-                ? i.lowest_price_source_custom?.trim() || null
-                : null,
-
-            margin_street:
-              netto !== null && dealerPrice > 0
-                ? safeNum(((netto - dealerPrice) / netto) * 100)
-                : null,
-
-            invest: investVal,
-            distributor_id: distiUuid,
-            project_id,
-
-            calc_price_on_invoice:
-              i.calc_price_on_invoice != null
-                ? safeNum(i.calc_price_on_invoice)
-                : null,
-            netto_retail:
-              i.netto_retail != null ? safeNum(i.netto_retail) : null,
-            marge_alt:
-              i.marge_alt != null ? safeNum(i.marge_alt) : null,
-            marge_neu:
-              i.marge_neu != null ? safeNum(i.marge_neu) : null,
-
-            serial: i.serial || null,
-            comment: i.comment || null,
-          };
-        });
+        const itemPayloads = items.map((i: any) => ({
+          submission_id: submissionId,
+          product_id: Number(i.product_id),
+          ean: i.ean || null,
+          product_name: i.product_name || i.sony_article || null,
+          menge: toInt(i.quantity),
+          preis: toInt(i.price),
+          distributor_id: distiUuid,
+          project_id,
+        }));
 
         const { error: itemsErr } = await supabase
           .from("submission_items")
           .insert(itemPayloads);
 
-        if (itemsErr) {
-          console.error("❌ Fehler beim Speichern der Items", itemsErr);
-          throw itemsErr;
-        }
-
-        // Optionale Notification kannst du später hier ergänzen (z.B. /api/projects/notify)
+        if (itemsErr) throw itemsErr;
       }
 
-      // Cleanup
+      // 🧹 Cleanup
       clearCart("projekt");
       setSuccess(true);
       setDistributor("ep");
@@ -904,15 +848,7 @@ export default function CartProjekt() {
       setDeliveryDate("");
       setOrderComment("");
       setDealerReference("");
-
       setHasAltDelivery(false);
-      setDeliveryName("");
-      setDeliveryStreet("");
-      setDeliveryZip("");
-      setDeliveryCity("");
-      setDeliveryCountry("Schweiz");
-      setDeliveryEmail("");
-      setDeliveryPhone("");
 
       setDetails({
         type: "",
@@ -922,11 +858,11 @@ export default function CartProjekt() {
         start: "",
         end: "",
         comment: "",
+        files: [], // 👈 WICHTIG
       });
 
-      toast.success("✅ Projekt erfolgreich gespeichert", {
-        description: "Projektanfrage wurde erfasst und übermittelt.",
-      });
+
+      toast.success("✅ Projekt erfolgreich gespeichert");
     } catch (err: any) {
       console.error("Projekt API Error:", err);
       toast.error("❌ Fehler beim Speichern", {
@@ -936,6 +872,7 @@ export default function CartProjekt() {
       setLoading(false);
     }
   };
+
 
   /* ------------------------------------------------------------------
      RENDER
@@ -1050,112 +987,60 @@ export default function CartProjekt() {
             {/* 2-Spalten Layout */}
             <div className="flex-1 grid grid-cols-1 lg:grid-cols-2 gap-4 mt-2 min-h-0">
               {/* Linke Spalte */}
-              <div className="space-y-4">
+              <div className="space-y-4 overflow-y-auto pr-1">
                 {/* Projektangaben */}
                 <div className="border rounded-xl p-3 space-y-3 bg-purple-50/40">
-                  <p className="text-sm font-semibold">Projektangaben</p>
+                  <p className="text-sm font-semibold flex items-center gap-2 text-purple-700">
+                    <FolderKanban className="w-4 h-4" />
+                    Projektangaben
+                  </p>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <div>
-                      <label className="block text-[11px] text-gray-600 mb-1">
-                        Projekttyp *
-                      </label>
-                      <Input
-                        value={details.type}
-                        onChange={(e) =>
-                          patchDetails({ type: e.target.value })
-                        }
-                        className="h-8 text-xs"
-                        placeholder="z. B. Umbau, Neubau…"
-                      />
-                    </div>
+                  <div className="space-y-2 text-sm">
+                    {projectDetails?.name && (
+                      <div className="flex items-center gap-2">
+                        <FolderKanban className="w-4 h-4 text-gray-500" />
+                        <span>{projectDetails.name}</span>
+                      </div>
+                    )}
 
-                    <div>
-                      <label className="block text-[11px] text-gray-600 mb-1">
-                        Projektname *
-                      </label>
-                      <Input
-                        value={details.name}
-                        onChange={(e) =>
-                          patchDetails({ name: e.target.value })
-                        }
-                        className="h-8 text-xs"
-                        placeholder="z. B. Hotel Alpenblick"
-                      />
-                    </div>
+                    {projectDetails?.customer && (
+                      <div className="flex items-center gap-2">
+                        <User className="w-4 h-4 text-gray-500" />
+                        <span>{projectDetails.customer}</span>
+                      </div>
+                    )}
 
-                    <div>
-                      <label className="block text-[11px] text-gray-600 mb-1">
-                        Endkunde *
-                      </label>
-                      <Input
-                        value={details.customer}
-                        onChange={(e) =>
-                          patchDetails({ customer: e.target.value })
-                        }
-                        className="h-8 text-xs"
-                        placeholder="Name des Endkunden"
-                      />
-                    </div>
+                    {projectDetails?.location && (
+                      <div className="flex items-center gap-2">
+                        <MapPin className="w-4 h-4 text-gray-500" />
+                        <span>{projectDetails.location}</span>
+                      </div>
+                    )}
 
-                    <div>
-                      <label className="block text-[11px] text-gray-600 mb-1">
-                        Projektort *
-                      </label>
-                      <Input
-                        value={details.location}
-                        onChange={(e) =>
-                          patchDetails({ location: e.target.value })
-                        }
-                        className="h-8 text-xs"
-                        placeholder="Ort / Objekt"
-                      />
-                    </div>
+                    {projectDetails?.type && (
+                      <div className="flex items-center gap-2">
+                        <FileText className="w-4 h-4 text-gray-500" />
+                        <span>{projectDetails.type}</span>
+                      </div>
+                    )}
 
-                    <div>
-                      <label className="block text-[11px] text-gray-600 mb-1">
-                        Startdatum
-                      </label>
-                      <Input
-                        type="date"
-                        value={details.start}
-                        onChange={(e) =>
-                          patchDetails({ start: e.target.value })
-                        }
-                        className="h-8 text-xs"
-                      />
-                    </div>
+                    {(projectDetails?.start || projectDetails?.end) && (
+                      <div className="flex items-center gap-2">
+                        <Calendar className="w-4 h-4 text-gray-500" />
+                        <span>
+                          {projectDetails.start || "–"} → {projectDetails.end || "–"}
+                        </span>
+                      </div>
+                    )}
 
-                    <div>
-                      <label className="block text-[11px] text-gray-600 mb-1">
-                        Enddatum
-                      </label>
-                      <Input
-                        type="date"
-                        value={details.end}
-                        onChange={(e) =>
-                          patchDetails({ end: e.target.value })
-                        }
-                        className="h-8 text-xs"
-                      />
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="block text-[11px] text-gray-600 mb-1">
-                      Projektbeschreibung / Kommentar
-                    </label>
-                    <textarea
-                      value={details.comment}
-                      onChange={(e) =>
-                        patchDetails({ comment: e.target.value })
-                      }
-                      className="w-full rounded-md border border-gray-300 p-2 text-xs"
-                      rows={3}
-                      placeholder="Kurze Beschreibung des Projekts…"
-                    />
+                    {projectDetails?.comment && (
+                      <div className="text-xs italic text-gray-600 mt-2">
+                        {projectDetails.comment}
+                      </div>
+                    )}
                   </div>
                 </div>
+
 
                 {/* Haupt-Distributor */}
                 {hasNormalProducts && (
@@ -1385,6 +1270,18 @@ export default function CartProjekt() {
                   />
 
                   {/* Sticky Footer */}
+                  {projectFiles.length > 0 && (
+                    <div className="text-xs text-gray-600 space-y-1">
+                      <p className="font-semibold">Angehängte Dateien:</p>
+                      {projectFiles.map((f, i) => (
+                        <div key={i} className="flex items-center gap-2">
+                          <FileText className="w-3 h-3" />
+                          {f.name}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
                   {cart.length > 0 && (
                     <div className="sticky bottom-0 left-0 right-0 bg-white/90 backdrop-blur border-t mt-2 p-3 space-y-2">
                       <div className="flex items-center justify-between text-sm">

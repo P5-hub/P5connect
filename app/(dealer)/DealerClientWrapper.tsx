@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { DealerProvider, Dealer } from "./DealerContext";
+import { DealerProvider } from "./DealerContext";
+import type { Dealer } from "@/types/Dealer";
 
 export default function DealerClientWrapper({
   dealer,
@@ -10,11 +11,10 @@ export default function DealerClientWrapper({
   dealer: Dealer | null;
   children: React.ReactNode;
 }) {
-  // setDealer entsteht IM CLIENT → Next.js erlaubt das
-  const [currentDealer, setCurrentDealer] = useState<Dealer | null>(dealer);
+  const [currentDealer] = useState<Dealer | null>(dealer);
 
   return (
-    <DealerProvider dealer={currentDealer} setDealer={setCurrentDealer}>
+    <DealerProvider dealer={currentDealer}>
       {children}
     </DealerProvider>
   );

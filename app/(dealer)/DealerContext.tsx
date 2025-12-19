@@ -1,59 +1,52 @@
-"use client";
+  "use client";
 
-import {
-  createContext,
-  useContext,
-  ReactNode,
-} from "react";
+  import { createContext, useContext } from "react";
 
-export type Dealer = {
-  dealer_id: number;
-  login_nr: string;
-  store_name?: string | null;
-  company_name?: string | null;
-  address?: string | null;
-  zip?: string | null;
-  city?: string | null;
-  email?: string | null;
-  phone?: string | null;
-};
+  type DealerContextType = {
+    dealer: any | null;
+    isAdmin: boolean;
+    impersonating: boolean;
+  };
 
-type DealerContextState = {
-  dealer: Dealer | null;
-  setDealer: (d: Dealer | null) => void;
-};
+  /* ✅ Default Context (wichtig!) */
+  const DealerContext = createContext<DealerContextType>({
+    dealer: null,
+    isAdmin: false,
+    impersonating: false,
+  });
 
-const DealerContext = createContext<DealerContextState | null>(null);
+  /** ✅ Provider mit OPTIONALEN Props */
+  export function DealerProvider({
+    dealer,
+    isAdmin = false,
+    impersonating = false,
+    children,
+  }: {
+    dealer: any | null;
+    isAdmin?: boolean;
+    impersonating?: boolean;
+    children: React.ReactNode;
+  }) {
+    return (
+      <DealerContext.Provider value={{ dealer, isAdmin, impersonating }}>
+        {children}
+      </DealerContext.Provider>
+    );
+  }
 
-export function DealerProvider({
-  children,
-  dealer,
-  setDealer,
-}: {
-  children: ReactNode;
-  dealer: Dealer | null;
-  setDealer: (d: Dealer | null) => void;
-}) {
-  return (
-    <DealerContext.Provider
-      value={{
-        dealer,
-        setDealer,
-      }}
-    >
-      {children}
-    </DealerContext.Provider>
-  );
-}
+  /** Hooks */
+  export function useDealer() {
+    return useContext(DealerContext).dealer;
+  }
 
-export function useDealer() {
-  const ctx = useContext(DealerContext);
-  if (!ctx) throw new Error("useDealer must be used inside DealerProvider");
-  return ctx.dealer;
-}
+  export function useActiveDealer() {
+    return useContext(DealerContext).dealer;
+  }
 
-export function useDealerSetter() {
-  const ctx = useContext(DealerContext);
-  if (!ctx) throw new Error("useDealerSetter must be used inside DealerProvider");
-  return ctx.setDealer;
-}
+  export function useDealerMeta() {
+    const ctx = useContext(DealerContext);
+    return {
+      isAdmin: ctx.isAdmin,
+      impersonating: ctx.impersonating,
+    };
+  }

@@ -1,64 +1,110 @@
 // @ts-nocheck
 import { NextResponse } from "next/server";
-import supabase from "@/lib/supabaseClient";
-import { getISOWeek } from "@/utils/date";
-import { Database } from "@/types/supabase";
+import { cookies } from "next/headers";
+import { createServerClient } from "@supabase/ssr";
 
 // POST /api/projects
 export async function POST(req: Request) {
   try {
-    const { dealer_id, items, kommentar } = await req.json();
+    const body = await req.json();
 
-    if (!dealer_id || !items || items.length === 0) {
+    const {
+      dealer_id,
+      login_nr,
+      project_type,
+      project_name,
+      customer,
+      location,
+      start_date,
+      end_date,
+      comment,
+    } = body;
+
+    // 🔒 Pflichtfelder gemäss Schema
+    if (!dealer_id || !project_type || !project_name) {
       return NextResponse.json(
         { error: "Ungültige Projektanfrage" },
         { status: 400 }
       );
     }
 
-    const now = new Date();
+    // ✅ cookies korrekt holen
+    const cookieStore = await cookies();
 
-    // ✅ Supabase-Client direkt verwenden
-    const { data: submission, error: submissionError } = await supabase
-      .from("submissions")
+    const supabase = createServerClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      {
+        cookies: {
+          get: (name: string) => cookieStore.get(name)?.value,
+        },
+      }
+    );
+
+    const dealerId = Number(dealer_id);
+
+    // 🔥 1️⃣ store_name SERVERSEITIG aus dealers laden
+    const { data: dealer, error: dealerError } = await supabase
+      .from("dealers")
+      .select("store_name")
+      .eq("dealer_id", dealerId)
+      .single();
+
+    if (dealerError || !dealer) {
+      console.error("❌ Dealer nicht gefunden:", dealerError);
+      return NextResponse.json(
+        { error: "Händler nicht gefunden" },
+        { status: 400 }
+      );
+    }
+
+    // 🔥 2️⃣ Projekt speichern (mit store_name)
+    const { data: project, error } = await supabase
+      .from("project_requests")
       .insert([
         {
-          dealer_id,
-          typ: "projekt",
-          datum: now.toISOString().slice(0, 10),
-          kw: getISOWeek(now),
-          kommentar: kommentar || null,
-          bestellweg: "online",
-          created_at: now.toISOString(),
+          dealer_id: dealerId,
+          login_nr: login_nr ?? null,
+          store_name: dealer.store_name ?? null, // ✅ HIER
+          project_type,
+          project_name,
+          customer: customer ?? null,
+          location: location ?? null,
+          start_date: start_date ?? null,
+          end_date: end_date ?? null,
+          comment: comment ?? null,
         },
       ])
       .select()
       .single();
 
-    if (submissionError) throw submissionError;
+    if (error) {
+      console.error("❌ Supabase insert error:", error);
+      throw error;
+    }
 
-    const itemsToInsert = items.map(
-      (item: any): Database["public"]["Tables"]["submission_items"]["Insert"] => ({
-        submission_id: (submission as any).submission_id,
-        product_id: item.product_id,
-        ean: item.ean,
-        menge: item.quantity,
-        preis: item.price,
-        created_at: now.toISOString(),
-      })
-    );
+    // 🔥 3️⃣ Projekt-Log
+    await supabase.from("project_logs").insert([
+      {
+        project_id: project.id,
+        dealer_id: dealerId,
+        action: "created",
+        payload: body,
+      },
+    ]);
 
-    const { error: itemsError } = await supabase
-      .from("submission_items")
-      .insert(itemsToInsert);
-
-    if (itemsError) throw itemsError;
-
-    return NextResponse.json({ success: true });
+    return NextResponse.json({
+      success: true,
+      project_id: project.id,
+    });
   } catch (err: any) {
     console.error("❌ Project API Error:", err);
+
     return NextResponse.json(
-      { error: "Serverfehler", details: err.message },
+      {
+        error: "Serverfehler",
+        details: err?.message ?? "Unbekannter Fehler",
+      },
       { status: 500 }
     );
   }

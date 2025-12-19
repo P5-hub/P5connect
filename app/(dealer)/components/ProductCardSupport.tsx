@@ -12,16 +12,27 @@ export default function ProductCardSupport({ product, onAddToCart }: any) {
   const [quantity, setQuantity] = useState(1);
   const [supportAmount, setSupportAmount] = useState(0);
 
-  const toInt = (v: any) => (Number.isFinite(+v) ? Math.max(0, Math.round(+v)) : 0);
+  const toInt = (v: any) =>
+    Number.isFinite(+v) ? Math.max(0, Math.round(+v)) : 0;
 
   const handleAdd = () => {
     if (typeof onAddToCart !== "function") return;
+
+    const qty = toInt(quantity);
+    const amount = toInt(supportAmount);
+
     onAddToCart({
       ...product,
-      quantity: toInt(quantity),
-      supportbetrag: toInt(supportAmount),
+      quantity: qty,
+
+      // ✅ SUPPORT
+      supportbetrag: amount,
+
+      // ✅ WICHTIG: UnifiedCart braucht price
+      price: amount,
     });
-    // Reset Felder nach Hinzufügen
+
+    // Reset
     setQuantity(1);
     setSupportAmount(0);
   };
@@ -31,7 +42,9 @@ export default function ProductCardSupport({ product, onAddToCart }: any) {
       <CardHeader className="pb-2">
         <div className="flex justify-between items-start">
           <h3 className="text-base font-semibold text-gray-800 leading-tight">
-            {product?.product_name || product?.sony_article || t("support.product.unknown")}
+            {product?.product_name ||
+              product?.sony_article ||
+              t("support.product.unknown")}
           </h3>
           <div className="text-xs text-gray-500 text-right">
             {product?.sony_article && <p>SKU: {product.sony_article}</p>}
@@ -54,6 +67,7 @@ export default function ProductCardSupport({ product, onAddToCart }: any) {
               className="text-center"
             />
           </div>
+
           <div>
             <label className="block text-xs text-gray-600 mb-1">
               {t("support.amountperunit")} (CHF)

@@ -16,25 +16,27 @@ export default function ProductCardVerkauf({
 }) {
   const [quantity, setQuantity] = useState(1);
   const [price, setPrice] = useState<number | undefined>(undefined);
-  const [serial, setSerial] = useState("");
+  const [seriennummer, setSeriennummer] = useState("");
   const [added, setAdded] = useState(false);
 
   const handleReport = () => {
     onReportSale({
       ...product,
+
+      // ✅ EINDEUTIGE FELDNAMEN (Cart-kompatibel)
       quantity,
       price,
-      serial,
+      seriennummer,
     });
 
-    // ✅ Kurzzeit-Bestätigung in der Karte
+    // Kurzzeit-Feedback
     setAdded(true);
     setTimeout(() => setAdded(false), 2000);
 
-    // Eingaben zurücksetzen
+    // Reset
     setQuantity(1);
     setPrice(undefined);
-    setSerial("");
+    setSeriennummer("");
   };
 
   return (
@@ -46,42 +48,61 @@ export default function ProductCardVerkauf({
         <CardContent className="space-y-3">
           <div>
             <h3 className="text-sm font-semibold text-gray-900">
-              {product.product_name || product.sony_article || "Unbekanntes Modell"}
+              {product.product_name ||
+                product.sony_article ||
+                "Unbekanntes Modell"}
             </h3>
             <p className="text-xs text-gray-500">{product.brand}</p>
-            <p className="text-xs text-gray-400">EAN: {product.ean || "-"}</p>
+            <p className="text-xs text-gray-400">
+              EAN: {product.ean || "-"}
+            </p>
           </div>
 
           <div className="grid grid-cols-3 gap-3">
+            {/* MENGE */}
             <div>
-              <label className="block text-xs text-gray-500 mb-1">Anzahl</label>
+              <label className="block text-xs text-gray-500 mb-1">
+                Anzahl
+              </label>
               <Input
                 type="number"
                 min={1}
                 value={quantity}
-                onChange={(e) => setQuantity(parseInt(e.target.value) || 1)}
-                className="text-center text-sm font-medium"
-              />
-            </div>
-
-            <div>
-              <label className="block text-xs text-gray-500 mb-1">Preis (CHF)</label>
-              <Input
-                type="number"
-                value={price ?? ""}
                 onChange={(e) =>
-                  setPrice(e.target.value ? parseFloat(e.target.value) : undefined)
+                  setQuantity(parseInt(e.target.value) || 1)
                 }
                 className="text-center text-sm font-medium"
               />
             </div>
 
+            {/* PREIS */}
             <div>
-              <label className="block text-xs text-gray-500 mb-1">Seriennr.</label>
+              <label className="block text-xs text-gray-500 mb-1">
+                Preis (CHF)
+              </label>
+              <Input
+                type="number"
+                value={price ?? ""}
+                onChange={(e) =>
+                  setPrice(
+                    e.target.value
+                      ? parseFloat(e.target.value)
+                      : undefined
+                  )
+                }
+                className="text-center text-sm font-medium"
+              />
+            </div>
+
+            {/* SERIENNUMMER */}
+            <div>
+              <label className="block text-xs text-gray-500 mb-1">
+                Seriennr.
+              </label>
               <Input
                 type="text"
-                value={serial}
-                onChange={(e) => setSerial(e.target.value)}
+                value={seriennummer}
+                onChange={(e) => setSeriennummer(e.target.value)}
                 placeholder="SN..."
                 className="text-sm font-medium"
               />
@@ -112,7 +133,8 @@ export default function ProductCardVerkauf({
                   className="absolute inset-0"
                 >
                   <Button
-                    className="w-full h-9 rounded-lg bg-green-600 text-white text-sm font-medium hover:bg-green-700 transition-all"
+                    className="w-full h-9 rounded-lg bg-green-600 text-white 
+                               text-sm font-medium hover:bg-green-700 transition-all"
                     onClick={handleReport}
                   >
                     📊 Melden

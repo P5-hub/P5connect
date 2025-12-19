@@ -9,32 +9,79 @@ import {
 } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import DealerInfoCompact from "@/app/(dealer)/components/DealerInfoCompact";
 import { useCart } from "@/app/(dealer)/GlobalCartProvider";
-import { useDealer } from "@/app/(dealer)/DealerContext";
 import { toast } from "sonner";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { BarChart3 } from "lucide-react";
+import { useSearchParams } from "next/navigation";
+import { createClient } from "@/utils/supabase/client";
 
 export default function CartVerkauf() {
-  const dealer = useDealer();
-  const { state, getItems, removeItem, clearCart, closeCart } = useCart();
+  const supabase = createClient();
+  const searchParams = useSearchParams();
+  const dealerIdFromUrl = searchParams.get("dealer_id");
+
+  const { state, getItems, clearCart, closeCart } = useCart();
 
   const items = getItems("verkauf");
   const open = state.open && state.currentForm === "verkauf";
 
-  const [loading, setLoading] = useState(false);
+  const [dealer, setDealer] = useState<any>(null);
+  const [loadingDealer, setLoadingDealer] = useState(true);
+
+  const [loadingSubmit, setLoadingSubmit] = useState(false);
   const [success, setSuccess] = useState(false);
 
-  // Pflichtfelder
-  const [inhouseShare, setInhouseShare] = useState<number>(100);
-  const [calendarWeek, setCalendarWeek] = useState<number>(() => {
+  /* ----------------------------------------------------
+     🔥 DEALER AUS URL LADEN
+  ---------------------------------------------------- */
+  useEffect(() => {
+    const loadDealer = async () => {
+      if (!dealerIdFromUrl) {
+        setLoadingDealer(false);
+        return;
+      }
+
+      const { data, error } = await supabase
+        .from("dealers")
+        .select("*")
+        .eq("dealer_id", dealerIdFromUrl)
+        .single();
+
+      if (error || !data) {
+        toast.error("Händler konnte nicht geladen werden.");
+        setLoadingDealer(false);
+        return;
+      }
+
+      setDealer(data);
+      setLoadingDealer(false);
+    };
+
+    loadDealer();
+  }, [dealerIdFromUrl, supabase]);
+
+  /* ----------------------------------------------------
+     Pflichtfelder
+  ---------------------------------------------------- */
+
+  // 🔥 NEU: getrennte Sony-Anteile
+  const [sonyShareQty, setSonyShareQty] = useState<number>(30);
+  const [sonyShareRevenue, setSonyShareRevenue] = useState<number>(30);
+
+  const [calendarWeek] = useState<number>(() => {
     const now = new Date();
     const onejan = new Date(now.getFullYear(), 0, 1);
     return Math.ceil(
-      ((now.getTime() - onejan.getTime()) / 86400000 + onejan.getDay() + 1) / 7
+      ((now.getTime() - onejan.getTime()) / 86400000 +
+        onejan.getDay() +
+        1) / 7
     );
   });
+
+  /* ----------------------------------------------------
+     SUBMIT
+  ---------------------------------------------------- */
 
   const submitSales = async () => {
     if (!dealer?.dealer_id) {
@@ -47,64 +94,55 @@ export default function CartVerkauf() {
       return;
     }
 
-    if (!inhouseShare || inhouseShare <= 0) {
-      toast.error("Bitte gültigen Inhouse-Share eingeben.");
-      return;
-    }
+    setLoadingSubmit(true);
 
-    if (!calendarWeek || calendarWeek < 1 || calendarWeek > 53) {
-      toast.error("Bitte gültige Kalenderwoche eingeben.");
-      return;
-    }
-
-    for (const it of items) {
-      if (!it.quantity || it.quantity <= 0) {
-        toast.error("Ungültige Menge.", {
-          description: `${it.product_name}`,
-        });
-        return;
-      }
-    }
-
-    setLoading(true);
     try {
+      console.log("📤 SEND TO API", {
+        sonyShareQty,
+        sonyShareRevenue,
+      });
+
       const res = await fetch("/api/verkauf-upload", {
         method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
         body: JSON.stringify({
           dealer_id: dealer.dealer_id,
           items,
-          sony_share: inhouseShare,
           calendar_week: calendarWeek,
+
+          // 🔥 ENTSCHEIDEND – GENAU DIESE KEYS
+          sony_share_qty: sonyShareQty,
+          sony_share_revenue: sonyShareRevenue,
         }),
       });
 
-      if (!res.ok) {
-        const e = await res.json();
-        throw new Error(e.error || "Undefinierter Serverfehler");
-      }
+      if (!res.ok) throw new Error("Serverfehler");
 
       setSuccess(true);
       toast.success("Verkaufsdaten gespeichert");
-
       clearCart("verkauf");
     } catch (err: any) {
       toast.error("Fehler beim Speichern", {
         description: err.message,
       });
+    } finally {
+      setLoadingSubmit(false);
     }
-    setLoading(false);
   };
 
-  const totalQty = items.reduce((s, i) => s + (i.quantity || 0), 0);
-  const totalAmount = items.reduce(
-    (s, i) => s + (i.quantity || 0) * (i.price || 0),
-    0
-  );
+  /* ----------------------------------------------------
+     RENDER
+  ---------------------------------------------------- */
+
+  if (loadingDealer) {
+    return <p className="p-4 text-gray-500">⏳ Händler wird geladen…</p>;
+  }
 
   return (
     <Sheet open={open} onOpenChange={closeCart}>
       <SheetContent side="right" className="w-full sm:w-[600px] flex flex-col">
-
         <SheetHeader>
           <SheetTitle className="flex items-center gap-2">
             <BarChart3 className="w-5 h-5 text-green-600" />
@@ -112,146 +150,81 @@ export default function CartVerkauf() {
           </SheetTitle>
         </SheetHeader>
 
+        {/* 🔥 HÄNDLER */}
         {dealer && (
-          <div className="mb-4">
-            <DealerInfoCompact dealer={dealer} />
+          <div className="mb-4 text-xs">
+            <div className="font-semibold text-gray-800">
+              {dealer.store_name ??
+                dealer.company_name ??
+                dealer.name}
+            </div>
+
+            <div className="mt-1 grid grid-cols-2 gap-x-4 gap-y-1 text-gray-600">
+              <div>Kd-Nr.: <b>{dealer.login_nr}</b></div>
+              <div>AP: <b>{dealer.contact_person}</b></div>
+              <div>Tel.: <b>{dealer.phone}</b></div>
+              <div>E-Mail: <b>{dealer.mail_dealer}</b></div>
+              <div>
+                Ort:{" "}
+                <b>
+                  {[dealer.zip, dealer.city]
+                    .filter(Boolean)
+                    .join(" ")}
+                </b>
+              </div>
+              <div>KAM: <b>{dealer.kam_name}</b></div>
+            </div>
           </div>
         )}
 
-        {success ? (
-          <div className="flex-1 flex flex-col justify-center items-center gap-4">
-            <p className="text-green-600 font-semibold text-lg">
-              Verkaufsdaten erfolgreich gespeichert!
-            </p>
-
-            <SheetClose asChild>
-              <Button className="bg-green-600 hover:bg-green-700 text-white">
-                Schließen
-              </Button>
-            </SheetClose>
+        {/* 🔥 SONY ANTEILE */}
+        <div className="grid grid-cols-2 gap-4 mb-4">
+          <div>
+            <label className="text-xs text-gray-600">
+              SONY Anteil Stück (%)
+            </label>
+            <Input
+              type="number"
+              min={0}
+              max={100}
+              value={sonyShareQty}
+              onChange={(e) =>
+                setSonyShareQty(Number(e.target.value))
+              }
+            />
           </div>
-        ) : (
-          <>
-            {/* PRODUKTE */}
-            <div className="flex-1 overflow-y-auto py-4 space-y-4">
-              {items.length === 0 ? (
-                <p className="text-gray-500 text-center">
-                  Noch keine Produkte ausgewählt.
-                </p>
-              ) : (
-                items.map((item, index) => (
-                  <div
-                    key={index}
-                    className="border rounded-xl p-3 space-y-2 bg-white shadow-sm"
-                  >
-                    <div className="flex justify-between items-center">
-                      <div>
-                        <p className="font-semibold">
-                          {item.product_name || item.sony_article}
-                        </p>
-                        <p className="text-xs text-gray-500">EAN: {item.ean}</p>
-                      </div>
 
-                      <button
-                        onClick={() => removeItem("verkauf", index)}
-                        className="text-red-500 hover:text-red-700 font-bold"
-                      >
-                        ✕
-                      </button>
-                    </div>
+          <div>
+            <label className="text-xs text-gray-600">
+              SONY Anteil Umsatz (%)
+            </label>
+            <Input
+              type="number"
+              min={0}
+              max={100}
+              value={sonyShareRevenue}
+              onChange={(e) =>
+                setSonyShareRevenue(Number(e.target.value))
+              }
+            />
+          </div>
+        </div>
 
-                    {/* Menge, Preis, Datum */}
-                    <div className="grid grid-cols-3 gap-2">
-                      <Input
-                        type="number"
-                        min={1}
-                        value={item.quantity ?? 1}
-                        onChange={(e) => {
-                          item.quantity = Math.max(1, Number(e.target.value));
-                        }}
-                        className="text-center"
-                      />
+        {/* 🔥 SUBMIT */}
+        <Button
+          className="mt-auto bg-green-600 text-white"
+          onClick={submitSales}
+          disabled={loadingSubmit}
+        >
+          {loadingSubmit ? "Speichern…" : "Verkauf melden"}
+        </Button>
 
-                      <Input
-                        type="number"
-                        value={item.price ?? ""}
-                        onChange={(e) => {
-                          item.price = Math.max(0, Number(e.target.value));
-                        }}
-                        className="text-center"
-                      />
-
-                      <Input
-                        type="date"
-                        value={
-                          item.date ??
-                          new Date().toISOString().split("T")[0]
-                        }
-                        onChange={(e) => {
-                          item.date = e.target.value;
-                        }}
-                        className="text-center"
-                      />
-                    </div>
-                  </div>
-                ))
-              )}
-            </div>
-
-            {/* FOOTER */}
-            {items.length > 0 && (
-              <div className="border-t pt-4 space-y-3">
-                {/* Pflichtfelder */}
-                <div className="flex flex-wrap gap-4">
-                  <div>
-                    <label className="text-xs font-semibold">Inhouse-Share (%)</label>
-                    <Input
-                      type="number"
-                      min={0}
-                      max={100}
-                      className="w-24 text-center"
-                      value={inhouseShare}
-                      onChange={(e) =>
-                        setInhouseShare(Number(e.target.value) || 0)
-                      }
-                    />
-                  </div>
-
-                  <div>
-                    <label className="text-xs font-semibold">Kalenderwoche</label>
-                    <Input
-                      type="number"
-                      min={1}
-                      max={53}
-                      className="w-24 text-center"
-                      value={calendarWeek}
-                      onChange={(e) => setCalendarWeek(Number(e.target.value))}
-                    />
-                  </div>
-                </div>
-
-                <p className="text-sm">
-                  <b>Menge:</b> {totalQty} Stück
-                </p>
-
-                <p className="text-sm">
-                  <b>Umsatz:</b>{" "}
-                  {totalAmount.toLocaleString("de-CH", {
-                    style: "currency",
-                    currency: "CHF",
-                  })}
-                </p>
-
-                <Button
-                  onClick={submitSales}
-                  disabled={loading}
-                  className="w-full bg-green-600 hover:bg-green-700 text-white font-semibold"
-                >
-                  {loading ? "⏳ Wird gesendet…" : "Verkäufe melden"}
-                </Button>
-              </div>
-            )}
-          </>
+        {success && (
+          <SheetClose asChild>
+            <Button className="mt-4 w-full bg-green-700 text-white">
+              Schließen
+            </Button>
+          </SheetClose>
         )}
       </SheetContent>
     </Sheet>

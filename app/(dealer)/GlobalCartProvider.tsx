@@ -21,7 +21,23 @@ export type FormName =
   | "cashback";
 
 /* ---------------------------------------------------------
-   Warenkorb-Typ
+   Projekt-Stammdaten (NEU, sauber typisiert)
+--------------------------------------------------------- */
+type ProjectDetails = {
+  type: string;
+  name: string;
+  customer: string;
+  location: string;
+  start: string;
+  end: string;
+  comment: string;
+
+  // 📎 Datei-Uploads (CSV, PDF, etc.)
+  files?: File[];
+};
+
+/* ---------------------------------------------------------
+   Warenkorb-Typ (bewusst OHNE projectDetails)
 --------------------------------------------------------- */
 export type CartState = {
   verkauf: any[];
@@ -49,9 +65,9 @@ export type CartContextType = {
   updateItem: (form: FormName, index: number, updates: Partial<any>) => void;
   replaceItem: (form: FormName, index: number, newItem: any) => void;
 
-  // 🔥 NEU für ProjectForm → CartProjekt
-  projectDetails: any;
-  setProjectDetails: (d: any) => void;
+  /* 🔥 Projekt-Metadaten */
+  projectDetails: ProjectDetails | null;
+  setProjectDetails: (d: ProjectDetails | null) => void;
 };
 
 const CartContext = createContext<CartContextType | undefined>(undefined);
@@ -77,8 +93,9 @@ export function GlobalCartProvider({ children }: { children: ReactNode }) {
 
   const [state, setState] = useState<CartState>(emptyState);
 
-  // 🔥 NEU: Projekt-Details Speicher
-  const [projectDetails, setProjectDetails] = useState<any>({});
+  /* 🔥 Projekt-Details separat (NICHT Teil von CartState) */
+  const [projectDetails, setProjectDetails] =
+    useState<ProjectDetails | null>(null);
 
   /* ---------------------------------------------------------
      Laden aus localStorage
@@ -91,32 +108,34 @@ export function GlobalCartProvider({ children }: { children: ReactNode }) {
         const parsed = JSON.parse(raw);
 
         const sanitize = (arr: any[]) =>
-          arr.filter((item) => item && item.product_id);
+          Array.isArray(arr)
+            ? arr.filter((item) => item && item.product_id)
+            : [];
 
         setState({
           ...emptyState,
           ...parsed,
-          verkauf: sanitize(parsed.verkauf ?? []),
-          bestellung: sanitize(parsed.bestellung ?? []),
-          projekt: sanitize(parsed.projekt ?? []),
-          support: sanitize(parsed.support ?? []),
-          sofortrabatt: sanitize(parsed.sofortrabatt ?? []),
-          cashback: sanitize(parsed.cashback ?? []),
+          verkauf: sanitize(parsed.verkauf),
+          bestellung: sanitize(parsed.bestellung),
+          projekt: sanitize(parsed.projekt),
+          support: sanitize(parsed.support),
+          sofortrabatt: sanitize(parsed.sofortrabatt),
+          cashback: sanitize(parsed.cashback),
         });
 
-        // 🔥 NEU: falls vorhanden → Projekt-Details laden
         if (parsed.projectDetails) {
           setProjectDetails(parsed.projectDetails);
+        } else {
+          setProjectDetails(null);
         }
-
       } else {
         setState(emptyState);
-        setProjectDetails({});
+        setProjectDetails(null);
       }
     } catch (e) {
       console.error("Fehler beim Laden des Warenkorbs:", e);
       setState(emptyState);
-      setProjectDetails({});
+      setProjectDetails(null);
     }
   }, [dealerId]);
 
@@ -129,7 +148,7 @@ export function GlobalCartProvider({ children }: { children: ReactNode }) {
         STORAGE_KEY,
         JSON.stringify({
           ...state,
-          projectDetails, // 🔥 NEU speichern
+          projectDetails,
         })
       );
     } catch (e) {
@@ -252,7 +271,7 @@ export function GlobalCartProvider({ children }: { children: ReactNode }) {
         updateItem,
         replaceItem,
 
-        // 🔥 NEU
+        /* 🔥 Projekt-Metadaten */
         projectDetails,
         setProjectDetails,
       }}
