@@ -115,10 +115,16 @@ export default function VerkaufForm() {
 
   const submitCsvSales = async () => {
     try {
+      if (!dealer?.dealer_id) {
+        toast.error("Händler nicht gefunden.");
+        return;
+      }
+
       const res = await fetch("/api/verkauf/csv", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          dealer_id: dealer.dealer_id, // ✅ FIX: dealer_id mitsenden (Impersonation-fähig)
           calendar_week: calendarWeek,
           inhouse_share_qty: inhouseQtyShare,
           inhouse_share_revenue: inhouseRevenueShare,
@@ -153,7 +159,6 @@ export default function VerkaufForm() {
   return (
     <div className="p-4">
       <AnimatePresence mode="wait">
-
         {/* ================= STEP CHOOSE ================= */}
 
         {step === "choose" && (
@@ -317,8 +322,7 @@ export default function VerkaufForm() {
                     <p>Gesamtstückzahl Händler: {Math.round(totalQty)}</p>
                     <p>Sony Umsatz: CHF {sonyRevenue.toFixed(2)}</p>
                     <p>
-                      Gesamtumsatz Händler: CHF{" "}
-                      {totalRevenue.toFixed(2)}
+                      Gesamtumsatz Händler: CHF {totalRevenue.toFixed(2)}
                     </p>
                   </div>
 
@@ -333,7 +337,6 @@ export default function VerkaufForm() {
             </div>
           </motion.div>
         )}
-
       </AnimatePresence>
     </div>
   );

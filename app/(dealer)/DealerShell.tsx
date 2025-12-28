@@ -7,6 +7,8 @@ import { useSearchParams, usePathname, useRouter } from "next/navigation";
 import DealerNav from "@/app/(dealer)/components/DealerNav";
 import CartContainer from "@/app/(dealer)/components/CartContainer";
 import RecentActivityPanel from "@/app/(dealer)/components/RecentActivityPanel";
+import SofortrabattActivityPanel from "@/app/(dealer)/components/SofortrabattActivityPanel";
+
 
 import { useI18n } from "@/lib/i18n/I18nProvider";
 
@@ -178,8 +180,9 @@ export default function DealerShell({ children }: { children: ReactNode }) {
               <p className="text-gray-500">{t("dealer.loading")}</p>
             ) : dealer ? (
               <>
-                {/* Händlerkarte + Verlauf */}
+                {/* Händlerkarte + Activities */}
                 <div className="flex flex-col lg:flex-row gap-6 mb-6">
+
                   {/* Händlerkarte */}
                   <div className="flex-1 min-w-[320px]">
                     <div className="h-full flex flex-col bg-white border border-gray-200 rounded-lg shadow-sm p-3 text-[14px] leading-snug">
@@ -210,17 +213,27 @@ export default function DealerShell({ children }: { children: ReactNode }) {
                     </div>
                   </div>
 
-                  {/* Recent Activities */}
-                  {detectedFormType && (
-                    <div className="w-full lg:max-w-[520px]">
+                  {/* Realtime Panels */}
+                  <div className="w-full lg:max-w-[520px] flex flex-col gap-6">
+
+                    {/* Normale Aktivitäten (alles ausser Sofortrabatt) */}
+                    {detectedFormType && detectedFormType !== "sofortrabatt" && (
                       <RecentActivityPanel
                         dealerId={dealer.dealer_id}
                         formType={detectedFormType}
                         limit={2}
                         excelLast={100}
                       />
-                    </div>
-                  )}
+                    )}
+
+                    {/* Sofortrabatt nur auf Sofortrabatt-Seite */}
+                    {detectedFormType === "sofortrabatt" && (
+                      <SofortrabattActivityPanel
+                        dealerId={dealer.dealer_id}
+                        limit={2}
+                      />
+                    )}
+                  </div>
                 </div>
 
                 {/* FORMULAR / KINDER */}
@@ -230,6 +243,8 @@ export default function DealerShell({ children }: { children: ReactNode }) {
               <p className="text-red-500">{t("dealer.notfound")}</p>
             )}
           </main>
+
+
         </div>
       </GlobalCartProvider>
     </DealerProvider>

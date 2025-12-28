@@ -90,8 +90,11 @@ export default function UnifiedDashboard({ submissionType }: Props) {
                 status,
                 sony_share,
                 dealer_id,
+                order_comment,
+                project_file_path,
                 dealers ( name, email )
               `)
+
               .eq("submission_id", Number(id))
               .eq("typ", submissionType)
               .maybeSingle();
@@ -235,6 +238,24 @@ export default function UnifiedDashboard({ submissionType }: Props) {
         : "rejected"
       : "pending");
 
+  const hasSupportFile =
+    submissionType === "support" && !!data?.project_file_path;
+
+  const fileUrl = hasSupportFile
+    ? supabase.storage
+        .from("support-documents")
+        .getPublicUrl(data.project_file_path).data.publicUrl
+    : null;
+
+
+    console.log("DEBUG support file:", {
+    submissionType,
+    project_file_path: data?.project_file_path,
+    fileUrl,
+  });
+
+    
+
   return (
     <div className="p-6 space-y-6">
       {/* 🔹 Header mit Buttons */}
@@ -314,6 +335,30 @@ export default function UnifiedDashboard({ submissionType }: Props) {
                   Gesamt-Support: {totalSupport.toFixed(2)} CHF
                 </p>
               )}
+              {submissionType === "support" && (
+                hasSupportFile ? (
+                  <div className="mt-2">
+                    <a
+                      href={fileUrl!}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1 text-blue-600 hover:underline text-sm"
+                    >
+                      📎 Beleg anzeigen
+                    </a>
+                  </div>
+                ) : (
+                  <p className="text-sm text-gray-400">Kein Beleg hochgeladen.</p>
+                )
+              )}
+
+
+
+
+
+
+
+
             </>
           )}
 
@@ -352,10 +397,15 @@ export default function UnifiedDashboard({ submissionType }: Props) {
                 ))}
               </tbody>
             </table>
+          ) : submissionType === "support" ? (
+            <div className="text-sm text-gray-600 italic">
+              Kein Sell-Out Support – Werbe-/Event-/Sonstiger Support.
+            </div>
           ) : (
             <p className="text-sm text-gray-500">Keine Positionen gefunden.</p>
           )}
         </CardContent>
+
       </Card>
     </div>
   );

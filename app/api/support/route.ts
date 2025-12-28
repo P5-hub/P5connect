@@ -1,54 +1,83 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 
+/**
+ * ⚠️ Service-Role Client
+ * - notwendig für Storage Upload
+ * - umgeht RLS sauber
+ */
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
+const SUPPORT_BUCKET = "support-documents";
+
+/**
+ * Hilfsfunktion für saubere Zahlen
+ */
 function num(v: any) {
-  const n = typeof v === "string" ? Number(v.replace(",", ".")) : Number(v);
+  const n =
+    typeof v === "string"
+      ? Number(v.replace(",", "."))
+      : Number(v);
   return Number.isFinite(n) ? n : 0;
 }
 
-async function uploadToSupportBucket(file: File, dealerId: string) {
+/**
+ * 📤 Upload eines Support-Belegs
+ * Rückgabe: Storage-Pfad (wird in DB gespeichert)
+ */
+async function uploadSupportFile(
+  file: File,
+  dealerId: number
+): Promise<string> {
   const ext = (file.name.split(".").pop() || "bin").toLowerCase();
-  const filePath = `support/${dealerId}/${Date.now()}.${ext}`;
+  const path = `support/${dealerId}/${Date.now()}-${file.name}`;
 
-  const arrayBuffer = await file.arrayBuffer();
-  const buffer = Buffer.from(arrayBuffer);
+  const buffer = Buffer.from(await file.arrayBuffer());
 
   const { error } = await supabase.storage
-    .from("support-documents")
-    .upload(filePath, buffer, {
-      contentType: file.type || "application/octet-stream",
+    .from(SUPPORT_BUCKET)
+    .upload(path, buffer, {
+      contentType: file.type,
       upsert: false,
     });
 
-  if (error) throw new Error(`Upload fehlgeschlagen: ${error.message}`);
-  return filePath;
+  if (error) {
+    throw new Error(`Storage Upload fehlgeschlagen: ${error.message}`);
+  }
+
+  return path;
 }
 
+/**
+ * ======================================================
+ * POST /api/support
+ * ======================================================
+ */
 export async function POST(req: Request) {
   try {
     const contentType = req.headers.get("content-type") || "";
 
-    // -------------------------------------------------------
-    // 1) Payload lesen (JSON oder multipart/form-data)
-    // -------------------------------------------------------
     let payload: any = null;
     let file: File | null = null;
 
+    // ---------------------------------------------
+    // 1️⃣ Payload lesen (JSON oder multipart)
+    // ---------------------------------------------
     if (contentType.includes("multipart/form-data")) {
       const form = await req.formData();
-      const payloadStr = form.get("payload");
-      if (!payloadStr || typeof payloadStr !== "string") {
+
+      const rawPayload = form.get("payload");
+      if (!rawPayload || typeof rawPayload !== "string") {
         return NextResponse.json(
-          { error: "payload fehlt (FormData)" },
+          { error: "payload fehlt" },
           { status: 400 }
         );
       }
-      payload = JSON.parse(payloadStr);
+
+      payload = JSON.parse(rawPayload);
 
       const maybeFile = form.get("file");
       if (maybeFile && typeof maybeFile !== "string") {
@@ -58,131 +87,120 @@ export async function POST(req: Request) {
       payload = await req.json();
     }
 
-    const {
-      dealer_id,
-      items = [],
-      type, // "sellout" | "marketing" | "event" | "other"
-      comment,
-      totalCost,
-      sonyShare,
-      sonyAmount,
-      document_path, // optional, wenn du schon einen Pfad hast
-    } = payload ?? {};
-
+    // ---------------------------------------------
+    // 2️⃣ Pflichtfelder
+    // ---------------------------------------------
+    const dealer_id = Number(payload.dealer_id);
     if (!dealer_id) {
-      return NextResponse.json({ error: "dealer_id fehlt" }, { status: 400 });
+      return NextResponse.json(
+        { error: "dealer_id fehlt oder ungültig" },
+        { status: 400 }
+      );
     }
 
-    if (!Array.isArray(items)) {
-      return NextResponse.json({ error: "items muss ein Array sein" }, { status: 400 });
-    }
+    const items = Array.isArray(payload.items) ? payload.items : [];
+    const comment = payload.comment ?? null;
+    const support_type = payload.type ?? null;
+    const totalCost = payload.totalCost ?? null;
+    const sonyShare = payload.sonyShare ?? null;
+    const sonyAmount = payload.sonyAmount ?? null;
 
-    // -------------------------------------------------------
-    // 2) Optional: File serverseitig hochladen
-    // -------------------------------------------------------
-    let finalDocumentPath: string | null = document_path ?? null;
+    // ---------------------------------------------
+    // 3️⃣ Optional: Beleg hochladen
+    // ---------------------------------------------
+    let documentPath: string | null = null;
 
     if (file) {
-      finalDocumentPath = await uploadToSupportBucket(file, String(dealer_id));
+      documentPath = await uploadSupportFile(file, dealer_id);
     }
 
-    // -------------------------------------------------------
-    // 3) submission anlegen (typ = 'support')
-    // -------------------------------------------------------
-    // NOTE: submission_type enum MUSS 'support' enthalten.
-    // Falls dein Enum anders heisst: hier anpassen.
+    // ---------------------------------------------
+    // 4️⃣ Submission anlegen
+    // ---------------------------------------------
     const { data: submission, error: subErr } = await supabase
       .from("submissions")
       .insert({
-        dealer_id: dealer_id,
+        dealer_id,
         typ: "support",
-        kommentar: comment ?? null,
-        sony_share: sonyShare != null ? num(sonyShare) : null,
+        kommentar: comment,
         status: "pending",
-        // wir speichern den Document-Pfad in order_comment (weil es kein eigenes Feld gibt)
-        order_comment: finalDocumentPath ? `document_path=${finalDocumentPath}` : null,
+        project_file_path: documentPath, // ✅ EINZIGE WAHRHEIT
       })
       .select("submission_id")
       .single();
 
-    if (subErr || !submission?.submission_id) {
-      console.error("SUBMISSIONS INSERT ERROR:", subErr);
-      return NextResponse.json(
-        { error: subErr?.message || "submissions insert failed" },
-        { status: 500 }
-      );
+    if (subErr || !submission) {
+      throw new Error(subErr?.message || "Submission konnte nicht erstellt werden");
     }
 
-    const submission_id = submission.submission_id as number;
+    const submission_id = submission.submission_id;
 
-    // -------------------------------------------------------
-    // 4) items speichern (Sell-Out Support)
-    // -------------------------------------------------------
+    // ---------------------------------------------
+    // 5️⃣ Items (Sell-Out Support)
+    // ---------------------------------------------
     if (items.length > 0) {
-      const mapped = items.map((i: any) => ({
+      const mappedItems = items.map((i: any) => ({
         submission_id,
         product_id: i.product_id ?? null,
         ean: i.ean ?? null,
         product_name: i.product_name ?? null,
         sony_article: i.sony_article ?? null,
-        menge: i.quantity ?? i.menge ?? 1,
-        // Bei Support nutzen wir "preis" als Supportbetrag pro Stück (weil es kein extra Feld gibt)
+        menge: Number(i.quantity ?? i.menge ?? 1),
         preis: i.supportbetrag != null ? num(i.supportbetrag) : null,
         comment: i.comment ?? null,
-        serial: i.seriennummer ?? i.serial ?? null,
+        created_at: new Date().toISOString(),
+        datum: new Date().toISOString().slice(0, 10),
       }));
 
       const { error: itemErr } = await supabase
         .from("submission_items")
-        .insert(mapped);
+        .insert(mappedItems);
 
       if (itemErr) {
-        console.error("SUBMISSION_ITEMS INSERT ERROR:", itemErr);
+        // Rollback Submission
+        await supabase
+          .from("submissions")
+          .delete()
+          .eq("submission_id", submission_id);
 
-        // rollback (optional): submission löschen, damit keine "leere" submission übrig bleibt
-        await supabase.from("submissions").delete().eq("submission_id", submission_id);
-
-        return NextResponse.json({ error: itemErr.message }, { status: 500 });
+        throw new Error(itemErr.message);
       }
     }
 
-    // -------------------------------------------------------
-    // 5) support_details (für Non-Sellout / Meta)
-    // -------------------------------------------------------
-    // In deiner DB gibt es kein total_cost Feld.
-    // Wir speichern sonyAmount (Gutschrift) als betrag
-    // und hängen totalCost/sonyShare als Text in support_typ an (damit nichts verloren geht).
-    if (type && (num(sonyAmount) > 0 || num(totalCost) > 0 || num(sonyShare) > 0)) {
+    // ---------------------------------------------
+    // 6️⃣ Non-Sellout Meta (optional)
+    // ---------------------------------------------
+    if (
+      support_type &&
+      (num(totalCost) > 0 || num(sonyShare) > 0 || num(sonyAmount) > 0)
+    ) {
       const supportTypText = [
-        String(type),
+        support_type,
         totalCost != null ? `totalCost=${num(totalCost)}` : null,
         sonyShare != null ? `sonyShare=${num(sonyShare)}` : null,
-        finalDocumentPath ? `doc=${finalDocumentPath}` : null,
       ]
         .filter(Boolean)
         .join(" | ");
 
-      const { error: detErr } = await supabase.from("support_details").insert({
+      await supabase.from("support_details").insert({
         submission_id,
         support_typ: supportTypText,
         betrag: num(sonyAmount) > 0 ? num(sonyAmount) : null,
       });
-
-      if (detErr) {
-        console.error("SUPPORT_DETAILS INSERT ERROR:", detErr);
-        // Kein harter Fail nötig – Submission & Items sind schon da.
-      }
     }
 
+    // ---------------------------------------------
+    // ✅ ERFOLG
+    // ---------------------------------------------
     return NextResponse.json({
       success: true,
       submission_id,
-      document_path: finalDocumentPath,
+      document_path: documentPath,
     });
   } catch (err: any) {
-    console.error("SUPPORT API FATAL ERROR:", err);
+    console.error("❌ SUPPORT API ERROR:", err);
     return NextResponse.json(
-      { error: err?.message || "Unbekannter Fehler" },
+      { error: err.message || "Serverfehler" },
       { status: 500 }
     );
   }

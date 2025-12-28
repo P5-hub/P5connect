@@ -14,7 +14,7 @@ import {
 } from "lucide-react";
 
 type HistoryEntry = {
-  submission_id: number;
+  submission_id: string | null; // ✅ FIX
   typ: string;
   datum: string;
   kw: number;

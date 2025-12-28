@@ -10,8 +10,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
-import { useEffect, useMemo, useState } from "react";
-import { useDealer } from "@/app/(dealer)/DealerContext";
+import { useMemo, useState } from "react";
 import { useCart } from "@/app/(dealer)/GlobalCartProvider";
 
 type SupportItem = {
@@ -24,7 +23,6 @@ type SupportItem = {
 };
 
 export default function CartSupport() {
-  const dealer = useDealer();
   const { state, getItems, updateItem, clearCart, closeCart } = useCart();
 
   const cart = getItems("support") as SupportItem[];
@@ -50,11 +48,6 @@ export default function CartSupport() {
   );
 
   const handleSubmit = async () => {
-    if (!dealer?.dealer_id) {
-      toast.error("Kein Händler gefunden.");
-      return;
-    }
-
     if (!details.type) {
       toast.error("Bitte Support-Typ auswählen.");
       return;
@@ -85,7 +78,7 @@ export default function CartSupport() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          dealer,
+          // ❗ dealer_id kommt NUR aus dem Cookie (acting_dealer_id)
           items: cart.map((i) => ({
             ...i,
             quantity: Number(i.quantity) || 1,

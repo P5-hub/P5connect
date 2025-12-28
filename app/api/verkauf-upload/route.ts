@@ -1,193 +1,193 @@
-﻿import { NextResponse } from "next/server";
-import { getSupabaseServer } from "@/utils/supabase/server";
-import type { Database } from "@/types/supabase";
+﻿  import { NextResponse } from "next/server";
+  import { getSupabaseServer } from "@/utils/supabase/server";
+  import type { Database } from "@/types/supabase";
 
-type SubmissionInsert =
-  Database["public"]["Tables"]["submissions"]["Insert"];
-type SubmissionItemInsert =
-  Database["public"]["Tables"]["submission_items"]["Insert"];
+  type SubmissionInsert =
+    Database["public"]["Tables"]["submissions"]["Insert"];
+  type SubmissionItemInsert =
+    Database["public"]["Tables"]["submission_items"]["Insert"];
 
-// 🧩 Hilfsfunktion: Start- und Enddatum einer Kalenderwoche bestimmen
-function getWeekDateRange(year: number, week: number) {
-  const simple = new Date(year, 0, 1 + (week - 1) * 7);
-  const dow = simple.getDay();
-  const ISOweekStart = new Date(simple);
+  // 🧩 Hilfsfunktion: Start- und Enddatum einer Kalenderwoche bestimmen
+  function getWeekDateRange(year: number, week: number) {
+    const simple = new Date(year, 0, 1 + (week - 1) * 7);
+    const dow = simple.getDay();
+    const ISOweekStart = new Date(simple);
 
-  if (dow <= 4) {
-    ISOweekStart.setDate(simple.getDate() - simple.getDay() + 1);
-  } else {
-    ISOweekStart.setDate(simple.getDate() + 8 - simple.getDay());
+    if (dow <= 4) {
+      ISOweekStart.setDate(simple.getDate() - simple.getDay() + 1);
+    } else {
+      ISOweekStart.setDate(simple.getDate() + 8 - simple.getDay());
+    }
+
+    const ISOweekEnd = new Date(ISOweekStart);
+    ISOweekEnd.setDate(ISOweekStart.getDate() + 6);
+
+    return { start: ISOweekStart, end: ISOweekEnd };
   }
 
-  const ISOweekEnd = new Date(ISOweekStart);
-  ISOweekEnd.setDate(ISOweekStart.getDate() + 6);
+  export async function POST(req: Request) {
+    const supabase = await getSupabaseServer();
 
-  return { start: ISOweekStart, end: ISOweekEnd };
-}
+    try {
+      const body = await req.json();
+  console.log("📥 RAW PAYLOAD");
+  console.log(JSON.stringify(body, null, 2));
 
-export async function POST(req: Request) {
-  const supabase = await getSupabaseServer();
+      // =====================================================
+      // ✅ ROBUSTES MAPPING (ALT + NEU)
+      // =====================================================
 
-  try {
-    const body = await req.json();
-console.log("📥 RAW PAYLOAD");
-console.log(JSON.stringify(body, null, 2));
+      const dealer_id =
+        body.dealer_id ??
+        body.dealer?.dealer_id ??
+        null;
 
-    // =====================================================
-    // ✅ ROBUSTES MAPPING (ALT + NEU)
-    // =====================================================
+      const items = body.items ?? [];
 
-    const dealer_id =
-      body.dealer_id ??
-      body.dealer?.dealer_id ??
-      null;
+      const calendar_week =
+        body.calendar_week ??
+        body.extra?.calendarWeek ??
+        null;
 
-    const items = body.items ?? [];
+      // 🔥 NEU: getrennte SONY-Anteile
+      const sony_share_qty =
+        body.sony_share_qty ??
+        body.extra?.sonyShareQty ??
+        body.extra?.inhouseQtyShare ??
+        null;
 
-    const calendar_week =
-      body.calendar_week ??
-      body.extra?.calendarWeek ??
-      null;
+      const sony_share_revenue =
+        body.sony_share_revenue ??
+        body.extra?.sonyShareRevenue ??
+        body.extra?.inhouseRevenueShare ??
+        null;
 
-    // 🔥 NEU: getrennte SONY-Anteile
-    const sony_share_qty =
-      body.sony_share_qty ??
-      body.extra?.sonyShareQty ??
-      body.extra?.inhouseQtyShare ??
-      null;
+      const kommentar =
+        body.kommentar ??
+        body.comment ??
+        null;
 
-    const sony_share_revenue =
-      body.sony_share_revenue ??
-      body.extra?.sonyShareRevenue ??
-      body.extra?.inhouseRevenueShare ??
-      null;
+      // =====================================================
+      // ❌ VALIDIERUNG
+      // =====================================================
 
-    const kommentar =
-      body.kommentar ??
-      body.comment ??
-      null;
+      if (!dealer_id) {
+        return NextResponse.json(
+          { error: "dealer_id fehlt" },
+          { status: 400 }
+        );
+      }
 
-    // =====================================================
-    // ❌ VALIDIERUNG
-    // =====================================================
+      if (!Array.isArray(items) || items.length === 0) {
+        return NextResponse.json(
+          { error: "Keine Verkaufsdaten erhalten" },
+          { status: 400 }
+        );
+      }
 
-    if (!dealer_id) {
-      return NextResponse.json(
-        { error: "dealer_id fehlt" },
-        { status: 400 }
-      );
-    }
+      // =====================================================
+      // 📅 KALENDERWOCHE BERECHNEN
+      // =====================================================
 
-    if (!Array.isArray(items) || items.length === 0) {
-      return NextResponse.json(
-        { error: "Keine Verkaufsdaten erhalten" },
-        { status: 400 }
-      );
-    }
+      const now = new Date();
+      const year = now.getFullYear();
 
-    // =====================================================
-    // 📅 KALENDERWOCHE BERECHNEN
-    // =====================================================
+      const kw =
+        calendar_week ??
+        Math.ceil(
+          ((now.getTime() - new Date(year, 0, 1).getTime()) /
+            86400000 +
+            new Date(year, 0, 1).getDay() +
+            1) / 7
+        );
 
-    const now = new Date();
-    const year = now.getFullYear();
+      const { start, end } = getWeekDateRange(year, kw);
 
-    const kw =
-      calendar_week ??
-      Math.ceil(
-        ((now.getTime() - new Date(year, 0, 1).getTime()) /
-          86400000 +
-          new Date(year, 0, 1).getDay() +
-          1) / 7
-      );
+      const week_start = start.toISOString().slice(0, 10);
+      const week_end = end.toISOString().slice(0, 10);
 
-    const { start, end } = getWeekDateRange(year, kw);
+      // =====================================================
+      // 1️⃣ SUBMISSION SPEICHERN
+      // =====================================================
 
-    const week_start = start.toISOString().slice(0, 10);
-    const week_end = end.toISOString().slice(0, 10);
+      const submissionInsert: SubmissionInsert = {
+        dealer_id,
+        typ: "verkauf",
+        kommentar,
+        calendar_week: kw,
+        week_start,
+        week_end,
 
-    // =====================================================
-    // 1️⃣ SUBMISSION SPEICHERN
-    // =====================================================
+        // 🔥 ENTSCHEIDEND
+        sony_share_qty,
+        sony_share_revenue,
 
-    const submissionInsert: SubmissionInsert = {
-      dealer_id,
-      typ: "verkauf",
-      kommentar,
-      calendar_week: kw,
-      week_start,
-      week_end,
-
-      // 🔥 ENTSCHEIDEND
-      sony_share_qty,
-      sony_share_revenue,
-
-      created_at: new Date().toISOString(),
-    };
-
-    const { data: submission, error: subErr } = await supabase
-      .from("submissions")
-      .insert(submissionInsert)
-      .select("submission_id")
-      .single();
-
-    if (subErr || !submission) {
-      console.error("❌ Submission-Fehler:", subErr);
-      return NextResponse.json(
-        { error: "Fehler beim Erstellen der Submission" },
-        { status: 500 }
-      );
-    }
-
-    const submission_id = submission.submission_id;
-
-    // =====================================================
-    // 2️⃣ ITEMS SPEICHERN
-    // =====================================================
-
-    const cleanedItems: SubmissionItemInsert[] = items.map(
-      (item: any) => ({
-        submission_id,
-        ean: item.ean ?? null,
-        product_name: item.product_name ?? null,
-        sony_article: item.sony_article ?? null,
-        menge: Number(item.quantity ?? item.menge ?? 1),
-        preis: item.price ?? item.preis ?? null,
-        serial: item.serial ?? item.seriennummer ?? null,
-        datum:
-          item.date ??
-          new Date().toISOString().slice(0, 10),
-        comment: item.comment ?? null,
         created_at: new Date().toISOString(),
-      })
-    );
+      };
 
-    const { error: itemErr } = await supabase
-      .from("submission_items")
-      .insert(cleanedItems);
+      const { data: submission, error: subErr } = await supabase
+        .from("submissions")
+        .insert(submissionInsert)
+        .select("submission_id")
+        .single();
 
-    if (itemErr) {
-      console.error("❌ Item-Fehler:", itemErr);
+      if (subErr || !submission) {
+        console.error("❌ Submission-Fehler:", subErr);
+        return NextResponse.json(
+          { error: "Fehler beim Erstellen der Submission" },
+          { status: 500 }
+        );
+      }
+
+      const submission_id = submission.submission_id;
+
+      // =====================================================
+      // 2️⃣ ITEMS SPEICHERN
+      // =====================================================
+
+      const cleanedItems: SubmissionItemInsert[] = items.map(
+        (item: any) => ({
+          submission_id,
+          ean: item.ean ?? null,
+          product_name: item.product_name ?? null,
+          sony_article: item.sony_article ?? null,
+          menge: Number(item.quantity ?? item.menge ?? 1),
+          preis: item.price ?? item.preis ?? null,
+          serial: item.serial ?? item.seriennummer ?? null,
+          datum:
+            item.date ??
+            new Date().toISOString().slice(0, 10),
+          comment: item.comment ?? null,
+          created_at: new Date().toISOString(),
+        })
+      );
+
+      const { error: itemErr } = await supabase
+        .from("submission_items")
+        .insert(cleanedItems);
+
+      if (itemErr) {
+        console.error("❌ Item-Fehler:", itemErr);
+        return NextResponse.json(
+          { error: "Fehler beim Speichern der Verkaufspositionen" },
+          { status: 500 }
+        );
+      }
+
+      // =====================================================
+      // ✅ ERFOLG
+      // =====================================================
+
+      return NextResponse.json({
+        success: true,
+        submission_id,
+        inserted: cleanedItems.length,
+      });
+    } catch (err: any) {
+      console.error("❌ Verkauf Upload Fehler:", err);
       return NextResponse.json(
-        { error: "Fehler beim Speichern der Verkaufspositionen" },
+        { error: err?.message || "Serverfehler" },
         { status: 500 }
       );
     }
-
-    // =====================================================
-    // ✅ ERFOLG
-    // =====================================================
-
-    return NextResponse.json({
-      success: true,
-      submission_id,
-      inserted: cleanedItems.length,
-    });
-  } catch (err: any) {
-    console.error("❌ Verkauf Upload Fehler:", err);
-    return NextResponse.json(
-      { error: err?.message || "Serverfehler" },
-      { status: 500 }
-    );
   }
-}

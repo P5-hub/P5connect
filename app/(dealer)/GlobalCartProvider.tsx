@@ -21,7 +21,7 @@ export type FormName =
   | "cashback";
 
 /* ---------------------------------------------------------
-   Projekt-Stammdaten (NEU, sauber typisiert)
+   Projekt-Stammdaten
 --------------------------------------------------------- */
 type ProjectDetails = {
   type: string;
@@ -31,13 +31,11 @@ type ProjectDetails = {
   start: string;
   end: string;
   comment: string;
-
-  // 📎 Datei-Uploads (CSV, PDF, etc.)
   files?: File[];
 };
 
 /* ---------------------------------------------------------
-   Warenkorb-Typ (bewusst OHNE projectDetails)
+   Warenkorb-Typ
 --------------------------------------------------------- */
 export type CartState = {
   verkauf: any[];
@@ -65,7 +63,6 @@ export type CartContextType = {
   updateItem: (form: FormName, index: number, updates: Partial<any>) => void;
   replaceItem: (form: FormName, index: number, newItem: any) => void;
 
-  /* 🔥 Projekt-Metadaten */
   projectDetails: ProjectDetails | null;
   setProjectDetails: (d: ProjectDetails | null) => void;
 };
@@ -73,12 +70,29 @@ export type CartContextType = {
 const CartContext = createContext<CartContextType | undefined>(undefined);
 
 /* ---------------------------------------------------------
+   🔑 Aktiven Händler aus Cookie lesen
+--------------------------------------------------------- */
+function getActingDealerIdFromCookie(): string | null {
+  if (typeof document === "undefined") return null;
+
+  const match = document.cookie
+    .split("; ")
+    .find((row) => row.startsWith("acting_dealer_id="));
+
+  return match ? match.split("=")[1] : null;
+}
+
+/* ---------------------------------------------------------
    Provider – händlerspezifischer Warenkorb
 --------------------------------------------------------- */
 export function GlobalCartProvider({ children }: { children: ReactNode }) {
   const dealer = useDealer();
-  const dealerId = dealer?.dealer_id ?? "none";
-  const STORAGE_KEY = `p5-cart-${dealerId}`;
+
+  // 🔑 aktiver Händler > eingeloggter Händler
+  const actingDealerId = getActingDealerIdFromCookie();
+  const effectiveDealerId = actingDealerId ?? dealer?.dealer_id ?? "none";
+
+  const STORAGE_KEY = `p5-cart-${effectiveDealerId}`;
 
   const emptyState: CartState = {
     verkauf: [],
@@ -92,8 +106,6 @@ export function GlobalCartProvider({ children }: { children: ReactNode }) {
   };
 
   const [state, setState] = useState<CartState>(emptyState);
-
-  /* 🔥 Projekt-Details separat (NICHT Teil von CartState) */
   const [projectDetails, setProjectDetails] =
     useState<ProjectDetails | null>(null);
 
@@ -123,11 +135,7 @@ export function GlobalCartProvider({ children }: { children: ReactNode }) {
           cashback: sanitize(parsed.cashback),
         });
 
-        if (parsed.projectDetails) {
-          setProjectDetails(parsed.projectDetails);
-        } else {
-          setProjectDetails(null);
-        }
+        setProjectDetails(parsed.projectDetails ?? null);
       } else {
         setState(emptyState);
         setProjectDetails(null);
@@ -137,7 +145,7 @@ export function GlobalCartProvider({ children }: { children: ReactNode }) {
       setState(emptyState);
       setProjectDetails(null);
     }
-  }, [dealerId]);
+  }, [effectiveDealerId]);
 
   /* ---------------------------------------------------------
      Speichern in localStorage
@@ -167,9 +175,6 @@ export function GlobalCartProvider({ children }: { children: ReactNode }) {
     }));
   };
 
-  /* ---------------------------------------------------------
-     Produkt entfernen
-  --------------------------------------------------------- */
   const removeItem = (form: FormName, index: number) => {
     setState((prev) => ({
       ...prev,
@@ -177,9 +182,6 @@ export function GlobalCartProvider({ children }: { children: ReactNode }) {
     }));
   };
 
-  /* ---------------------------------------------------------
-     Warenkorb leeren
-  --------------------------------------------------------- */
   const clearCart = (form: FormName) => {
     setState((prev) => ({
       ...prev,
@@ -187,14 +189,8 @@ export function GlobalCartProvider({ children }: { children: ReactNode }) {
     }));
   };
 
-  /* ---------------------------------------------------------
-     Items holen
-  --------------------------------------------------------- */
   const getItems = (form: FormName) => state[form];
 
-  /* ---------------------------------------------------------
-     Warenkorb öffnen
-  --------------------------------------------------------- */
   const openCart = (form: FormName) => {
     setState((prev) => ({
       ...prev,
@@ -203,9 +199,6 @@ export function GlobalCartProvider({ children }: { children: ReactNode }) {
     }));
   };
 
-  /* ---------------------------------------------------------
-     Warenkorb schließen
-  --------------------------------------------------------- */
   const closeCart = () => {
     setState((prev) => ({
       ...prev,
@@ -214,9 +207,6 @@ export function GlobalCartProvider({ children }: { children: ReactNode }) {
     }));
   };
 
-  /* ---------------------------------------------------------
-     Formular wechseln
-  --------------------------------------------------------- */
   const switchForm = (form: FormName) => {
     setState((prev) => ({
       ...prev,
@@ -225,9 +215,6 @@ export function GlobalCartProvider({ children }: { children: ReactNode }) {
     }));
   };
 
-  /* ---------------------------------------------------------
-     Item aktualisieren
-  --------------------------------------------------------- */
   const updateItem = (
     form: FormName,
     index: number,
@@ -244,9 +231,6 @@ export function GlobalCartProvider({ children }: { children: ReactNode }) {
     });
   };
 
-  /* ---------------------------------------------------------
-     Item ersetzen
-  --------------------------------------------------------- */
   const replaceItem = (form: FormName, index: number, newItem: any) => {
     if (!newItem || !newItem.product_id) return;
     setState((prev) => {
@@ -270,8 +254,6 @@ export function GlobalCartProvider({ children }: { children: ReactNode }) {
         switchForm,
         updateItem,
         replaceItem,
-
-        /* 🔥 Projekt-Metadaten */
         projectDetails,
         setProjectDetails,
       }}

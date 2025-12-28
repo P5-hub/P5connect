@@ -11,6 +11,10 @@ import { Button } from "@/components/ui/button";
 interface UnifiedDashboardListProps {
   type: string;
 }
+function hasDocument(projectFilePath?: string | null): boolean {
+  return !!projectFilePath;
+}
+
 
 export default function UnifiedDashboardList({ type }: UnifiedDashboardListProps) {
   const supabase = createClient();
@@ -85,6 +89,8 @@ export default function UnifiedDashboardList({ type }: UnifiedDashboardListProps
               datum,
               status,
               created_at,
+              order_comment,
+              project_file_path,
               dealers:dealers(*)
             `)
             .eq("typ", type)
@@ -183,12 +189,20 @@ export default function UnifiedDashboardList({ type }: UnifiedDashboardListProps
             return (
               <Link key={r.submission_id} href={`/admin/${pathMap[type]}/${r.submission_id}`}>
                 <Card className="p-4 border hover:shadow-md transition cursor-pointer">
-                  <div className="flex justify-between items-center">
+                  <div className="flex justify-between items-center gap-2">
                     <h3 className="font-semibold text-gray-800">
                       #{r.submission_id} – {r.dealers?.name ?? r.title ?? "Unbekannt"}
                     </h3>
-                    {icon}
+
+                    <div className="flex items-center gap-2">
+                      {type === "support" && hasDocument(r.project_file_path) && (
+                        <span title="Beleg vorhanden">📎</span>
+                      )}
+
+                      {icon}
+                    </div>
                   </div>
+
                   <p className="text-sm text-gray-500">
                     {r.datum ? new Date(r.datum).toLocaleDateString("de-CH") : "-"}
                   </p>

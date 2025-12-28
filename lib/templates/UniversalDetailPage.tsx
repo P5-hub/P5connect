@@ -2,13 +2,18 @@
 
 import { useParams, useRouter } from "next/navigation";
 import { createClient } from "@/utils/supabase/client";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Card, CardHeader, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft, Mail, Check, X, RotateCcw } from "lucide-react";
 import { toast } from "sonner";
 import { useTheme } from "@/lib/theme/ThemeContext";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { sendOrderNotification } from "@/lib/notifications/sendOrderNotification";
 import OrderDetailView from "@/components/admin/OrderDetailView";
 
@@ -25,26 +30,39 @@ type SubmissionRecord = {
   kommentar?: string;
   dealers?: Dealer | null;
 
+  // ✅ WICHTIG für Projekte
+  project_id?: string | null;
+
   // Sofortrabatt-spezifisch (optional)
   rabatt_level?: number | null;
   rabatt_betrag?: number | null;
   products?: any;
 };
 
+// Projekt-spezifisch
+type ProjectFile = {
+  id: number;
+  file_name: string;
+  path: string;
+  bucket: string;
+  created_at?: string;
+};
+
 type UniversalDetailProps = {
-  tableName: string;        // "submissions" oder "sofortrabatt_claims"
-  typeFilter?: string;      // z. B. "bestellung", "projekt", "support", "sofortrabatt"
+  tableName: string; // "submissions" oder "sofortrabatt_claims"
+  typeFilter?: string; // z. B. "bestellung", "projekt", "support", "sofortrabatt"
   title: string;
-  storageBucket?: string;
+  storageBucket?: string; // für Sofortrabatt invoice API
 };
 
 export default function UniversalDetailPage({
   tableName,
   typeFilter,
   title,
+  storageBucket = "sofortrabatt-invoices",
 }: UniversalDetailProps) {
   const params = useParams();
-  const rawId = params.claim_id || params.id;
+  const rawId = (params as any).claim_id || (params as any).id;
   const id = rawId ? Number(rawId) : null;
 
   const router = useRouter();
@@ -59,18 +77,80 @@ export default function UniversalDetailPage({
 
   const [activeTab, setActiveTab] = useState<"dealer" | "disti">("dealer");
 
+  // Sofortrabatt invoice
+  const [invoiceUrl, setInvoiceUrl] = useState<string | null>(null);
+  const [invoicePath, setInvoicePath] = useState<string | null>(null);
+
+  // Projekt files
+  const [projectFiles, setProjectFiles] = useState<ProjectFile[]>([]);
 
   // Sofortrabatt-Erkennung
-  const isSofort = tableName === "sofortrabatt_claims" || typeFilter === "sofortrabatt";
+  const isSofort =
+    tableName === "sofortrabatt_claims" || typeFilter === "sofortrabatt";
 
+  // -----------------------------
+  // Helpers: Signed URLs
+  // -----------------------------
+  const loadInvoiceUrl = async (path: string) => {
+    try {
+      const res = await fetch("/api/admin/sofortrabatt/invoice", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          path,
+          bucket: storageBucket,
+        }),
+      });
+
+      const text = await res.text();
+      if (!res.ok) {
+        console.error("Invoice API error:", text);
+        toast.error("Invoice-URL konnte nicht geladen werden.");
+        return null;
+      }
+
+      const json = JSON.parse(text);
+      return json?.url ?? null;
+    } catch (e) {
+      console.error("loadInvoiceUrl failed:", e);
+      toast.error("Fehler beim Laden der Rechnung.");
+      return null;
+    }
+  };
+
+  const loadProjectFileUrl = async (path: string, bucket: string) => {
+    try {
+      const res = await fetch("/api/admin/project/document", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ path, bucket }),
+      });
+
+      const text = await res.text();
+      if (!res.ok) {
+        console.error("Project document API error:", text);
+        toast.error("Projektdatei konnte nicht geladen werden.");
+        return null;
+      }
+
+      const json = JSON.parse(text);
+      return json?.url ?? null;
+    } catch (e) {
+      console.error("loadProjectFileUrl failed:", e);
+      toast.error("Fehler beim Laden der Projektdatei.");
+      return null;
+    }
+  };
+
+  // -----------------------------
   // Daten laden
+  // -----------------------------
   const fetchData = async () => {
     if (!id) return;
     setLoading(true);
 
     try {
       if (isSofort) {
-        // 🔸 Sofortrabatt: aus sofortrabatt_claims lesen, Dealer separat holen
         const { data, error } = await supabase
           .from("sofortrabatt_claims")
           .select("*")
@@ -84,9 +164,17 @@ export default function UniversalDetailPage({
           return;
         }
 
-        const anyData: any = data; // ParserError-Typing entschärfen
+        const anyData: any = data;
 
-        // Händler separat nachladen
+        // Invoice signed URL
+        setInvoiceUrl(null);
+        setInvoicePath(anyData.invoice_file_url ?? null);
+        if (anyData.invoice_file_url) {
+          const url = await loadInvoiceUrl(anyData.invoice_file_url);
+          if (url) setInvoiceUrl(url);
+        }
+
+        // Dealer nachladen
         let dealer: Dealer | null = null;
         if (anyData.dealer_id) {
           const { data: dealerRow } = await supabase
@@ -109,14 +197,18 @@ export default function UniversalDetailPage({
           rabatt_betrag: anyData.rabatt_betrag,
           products: anyData.products,
           dealers: dealer,
+          project_id: null,
         });
+
+        // Projekte sind hier nicht relevant
+        setProjectFiles([]);
       } else {
-        // 🔸 Standard: submissions (dein Originalcode)
+        // ✅ project_id MUSS mit-selectt werden
         let query = supabase
           .from("submissions")
           .select(
             `
-            submission_id, dealer_id, typ, datum, status, kommentar, created_at,
+            submission_id, dealer_id, typ, datum, status, kommentar, created_at, project_id,
             dealers ( name, email, mail_dealer )
           `
           )
@@ -133,12 +225,18 @@ export default function UniversalDetailPage({
           return;
         }
 
-        const anyData: any = data; // Typ-Parser entschärfen
+        const anyData: any = data;
 
         setRecord({
           ...anyData,
-          dealers: Array.isArray(anyData.dealers) ? anyData.dealers[0] : anyData.dealers || null,
+          dealers: Array.isArray(anyData.dealers)
+            ? anyData.dealers[0]
+            : anyData.dealers || null,
         });
+
+        // Sofortrabatt invoice states resetten, damit UI sauber bleibt
+        setInvoiceUrl(null);
+        setInvoicePath(null);
       }
     } catch (e) {
       console.error(e);
@@ -148,6 +246,7 @@ export default function UniversalDetailPage({
     }
   };
 
+  // Realtime Status refresh
   useEffect(() => {
     fetchData();
     if (!id) return;
@@ -171,18 +270,58 @@ export default function UniversalDetailPage({
       .subscribe();
 
     return () => void supabase.removeChannel(ch);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id, isSofort, tableName]);
 
-  const dealerName = record?.dealers?.name ?? "Unbekannt";
-  const dealerMail = record?.dealers?.mail_dealer || record?.dealers?.email || "-";
+  // -----------------------------
+  // Projekt-Dateien nachladen (nur wenn record geladen ist)
+  // -----------------------------
+  useEffect(() => {
+    const run = async () => {
+      if (!record) return;
 
-  // 🔸 Status-Update
-  const updateStatus = async (newStatus: "approved" | "rejected" | "pending") => {
+      if (record.typ === "projekt" && record.project_id) {
+        const { data, error } = await supabase
+          .from("project_files")
+          .select("id, file_name, path, bucket, created_at")
+          .eq("project_id", record.project_id)
+          .order("created_at", { ascending: true });
+
+        if (error) {
+          console.error("❌ project_files load error:", error);
+          setProjectFiles([]);
+          return;
+        }
+
+        setProjectFiles((data as ProjectFile[]) ?? []);
+      } else {
+        setProjectFiles([]);
+      }
+    };
+
+    run();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [record?.typ, record?.project_id]);
+
+  const dealerName = useMemo(
+    () => record?.dealers?.name ?? "Unbekannt",
+    [record?.dealers?.name]
+  );
+
+  const dealerMail = useMemo(
+    () => record?.dealers?.mail_dealer || record?.dealers?.email || "-",
+    [record?.dealers?.mail_dealer, record?.dealers?.email]
+  );
+
+  // Status-Update
+  const updateStatus = async (
+    newStatus: "approved" | "rejected" | "pending"
+  ) => {
     if (!record?.submission_id) return;
 
     const table = isSofort ? "sofortrabatt_claims" : "submissions";
     const idColumn = isSofort ? "claim_id" : "submission_id";
-    const idValue = record.submission_id; // für Sofortrabatt = claim_id gemappt
+    const idValue = record.submission_id;
 
     const { error } = await supabase
       .from(table)
@@ -194,8 +333,7 @@ export default function UniversalDetailPage({
     setRecord((r) => (r ? { ...r, status: newStatus } : r));
   };
 
-  // 🔸 Mail-Preview (nur für Bestellungen)
-  // 🔸 Mail-Preview (Bestellungen)
+  // Mail-Preview (Bestellungen)
   const handlePreviewMail = async () => {
     try {
       setSendingMail(true);
@@ -208,7 +346,6 @@ export default function UniversalDetailPage({
         preview: true,
       });
 
-      // ❗ Fehlerfall
       if (!res.ok) {
         setDealerPreview("<p>Keine Vorschau verfügbar.</p>");
         setDistiPreview("<p>Keine Vorschau verfügbar.</p>");
@@ -216,26 +353,20 @@ export default function UniversalDetailPage({
         return;
       }
 
-      // ❗ Preview-Modus → dealer & disti existieren garantiert
       if (res.preview === true) {
         setActiveTab("dealer");
 
-        const dealerHtml =
-          res.dealer?.html ?? "<p>Keine Händler-Mail vorhanden.</p>";
-        const distiHtml =
-          res.disti?.html ?? "<p>Keine Disti-Mail vorhanden.</p>";
+        const dealerHtml = res.dealer?.html ?? "<p>Keine Händler-Mail vorhanden.</p>";
+        const distiHtml = res.disti?.html ?? "<p>Keine Disti-Mail vorhanden.</p>";
 
         setDealerPreview(dealerHtml);
         setDistiPreview(distiHtml);
-
         return;
       }
 
-      // ❗ Falls aus irgendeinem Grund preview=false kam (soll nicht passieren)
       setDealerPreview("<p>Keine Vorschau verfügbar.</p>");
       setDistiPreview("<p>Keine Vorschau verfügbar.</p>");
       toast.warning("Keine Vorschau verfügbar.");
-
     } catch (e) {
       console.error(e);
       toast.error("Fehler bei der Vorschau.");
@@ -244,9 +375,7 @@ export default function UniversalDetailPage({
     }
   };
 
-
-
-  // 🔸 Bestätigen + Mail (nur für Bestellungen)
+  // Bestätigen + Mail (nur Bestellungen)
   const handleApproveWithMail = async () => {
     try {
       setSendingMail(true);
@@ -269,9 +398,9 @@ export default function UniversalDetailPage({
     }
   };
 
-
   if (loading) return <p className="p-6 text-sm text-gray-500">Lade Daten…</p>;
-  if (!record) return <p className="p-6 text-sm text-gray-500">Kein Datensatz gefunden.</p>;
+  if (!record)
+    return <p className="p-6 text-sm text-gray-500">Kein Datensatz gefunden.</p>;
 
   const statusColor =
     record?.status === "approved"
@@ -282,7 +411,7 @@ export default function UniversalDetailPage({
 
   return (
     <div className="p-6 space-y-8 max-w-5xl mx-auto">
-      {/* 🔹 Zurück */}
+      {/* Zurück */}
       <div className="flex items-center justify-between mb-2">
         <Button
           variant="outline"
@@ -293,7 +422,7 @@ export default function UniversalDetailPage({
         </Button>
       </div>
 
-      {/* 🔹 Kopfkarte */}
+      {/* Kopfkarte */}
       <Card className="rounded-2xl border bg-white shadow-[0_2px_12px_rgba(0,0,0,0.06)]">
         <CardHeader className="pb-4 border-b bg-white rounded-t-2xl">
           <h2 className="text-xl font-semibold">
@@ -323,7 +452,7 @@ export default function UniversalDetailPage({
             </p>
           </div>
 
-          {/* 🔹 EINZIGE Buttonleiste */}
+          {/* Buttonleiste */}
           <div className="flex flex-wrap items-center gap-2 mt-4">
             <Button
               size="sm"
@@ -375,7 +504,7 @@ export default function UniversalDetailPage({
           </div>
         </CardHeader>
 
-        {/* 🔹 Detailkarte */}
+        {/* Detailkarte */}
         <CardContent className="pt-4">
           {/* Bestellung → OrderDetailView wie bisher */}
           {record?.typ === "bestellung" && (
@@ -388,26 +517,83 @@ export default function UniversalDetailPage({
             />
           )}
 
-          {/* Sofortrabatt – optional einfache Anzeige (bricht nichts) */}
+          {/* Sofortrabatt Anzeige */}
           {record?.typ === "sofortrabatt" && (
-            <div className="mt-4 text-sm text-gray-700 space-y-1">
+            <div className="mt-4 text-sm text-gray-700 space-y-3">
               {record.rabatt_betrag != null && (
                 <p>
                   <strong>Rabattbetrag:</strong> {record.rabatt_betrag} CHF
                 </p>
               )}
+
               {record.rabatt_level != null && (
                 <p>
                   <strong>Rabatt-Level:</strong> {record.rabatt_level}
                 </p>
+              )}
+
+              {invoiceUrl ? (
+                <div className="pt-2">
+                  <Button
+                    variant="outline"
+                    onClick={() => window.open(invoiceUrl, "_blank")}
+                  >
+                    📎 Rechnung anzeigen
+                  </Button>
+                </div>
+              ) : invoicePath ? (
+                <div className="pt-2">
+                  <Button
+                    variant="outline"
+                    onClick={async () => {
+                      const url = await loadInvoiceUrl(invoicePath);
+                      if (url) {
+                        setInvoiceUrl(url);
+                        window.open(url, "_blank");
+                      }
+                    }}
+                  >
+                    📎 Rechnung laden
+                  </Button>
+                </div>
+              ) : (
+                <p className="text-xs text-gray-500">Keine Rechnung hinterlegt.</p>
+              )}
+            </div>
+          )}
+
+          {/* ✅ Projekt-Dateien */}
+          {record?.typ === "projekt" && (
+            <div className="mt-6 space-y-3">
+              <h4 className="text-sm font-semibold text-gray-700">
+                Projektdateien
+              </h4>
+
+              {projectFiles.length === 0 ? (
+                <p className="text-xs text-gray-500">Keine Dateien hochgeladen.</p>
+              ) : (
+                <div className="flex flex-col gap-2">
+                  {projectFiles.map((file) => (
+                    <Button
+                      key={file.id}
+                      variant="outline"
+                      className="justify-start"
+                      onClick={async () => {
+                        const url = await loadProjectFileUrl(file.path, file.bucket);
+                        if (url) window.open(url, "_blank");
+                      }}
+                    >
+                      📎 {file.file_name}
+                    </Button>
+                  ))}
+                </div>
               )}
             </div>
           )}
         </CardContent>
       </Card>
 
-      {/* 🔹 Mail Vorschau */}
-      {/* --- MAIL PREVIEW DIALOG --- */}
+      {/* Mail Vorschau Dialog */}
       <Dialog
         open={!!dealerPreview || !!distiPreview}
         onOpenChange={(o) => {

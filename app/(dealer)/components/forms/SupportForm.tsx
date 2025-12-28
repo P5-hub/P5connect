@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -44,6 +45,13 @@ export default function SupportForm() {
   const theme = useTheme();
   const dealer = useDealer();
 
+  /* 🔥 ENTSCHEIDEND: DEALER AUS URL */
+  const searchParams = useSearchParams();
+  const dealerIdFromUrl = searchParams.get("dealer_id");
+  const effectiveDealerId = dealerIdFromUrl
+    ? Number(dealerIdFromUrl)
+    : dealer?.dealer_id ?? null;
+
   const [details, setDetails] = useState({
     type: "sellout" as SupportType,
     comment: "",
@@ -62,16 +70,12 @@ export default function SupportForm() {
   const sonyAmount =
     (details.totalCost * details.sonyShare) / 100;
 
-  const sonySupportAmount =
-  (details.totalCost * details.sonyShare) / 100;
-  
-
   /* -------------------------------------------------------
      NON-SELLOUT SUBMIT
   ------------------------------------------------------- */
   const submitNonSelloutSupport = async () => {
-    if (!dealer?.dealer_id) {
-      alert("Kein Händler gefunden");
+    if (!effectiveDealerId) {
+      alert("Kein Händler gefunden (URL)");
       return;
     }
 
@@ -85,28 +89,26 @@ export default function SupportForm() {
     try {
       const formData = new FormData();
 
-      // 🔹 Payload (JSON!)
       formData.append(
         "payload",
         JSON.stringify({
-          dealer_id: dealer.dealer_id,
-          type: details.type,                 // marketing | event | other
+          dealer_id: effectiveDealerId, // ✅ IMMER AUS URL
+          type: details.type,
           comment: details.comment || null,
           totalCost: details.totalCost,
           sonyShare: details.sonyShare,
-          sonyAmount: (details.totalCost * details.sonyShare) / 100,
-          items: [],                           // Non-Sell-Out → keine Items
+          sonyAmount,
+          items: [],
         })
       );
 
-      // 🔹 FILE / CSV / PDF
       if (details.file) {
         formData.append("file", details.file);
       }
 
       const res = await fetch("/api/support", {
         method: "POST",
-        body: formData, // ❗️ KEIN Content-Type setzen
+        body: formData,
       });
 
       if (!res.ok) {
@@ -129,7 +131,6 @@ export default function SupportForm() {
       setLoading(false);
     }
   };
-
 
   return (
     <div className="mx-auto w-full max-w-[1600px] space-y-10 px-6">

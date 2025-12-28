@@ -28,7 +28,12 @@ export default function SupportDetailPage() {
     submission?: any;
     items?: Produkt[];
     claim?: any;
+    supportDetails?: {
+      support_typ?: string;
+      betrag?: number;
+    };
   } | null>(null);
+
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -45,11 +50,13 @@ export default function SupportDetailPage() {
             datum,
             status,
             kommentar,
+            project_file_path,
             dealers ( name, email, mail_dealer )
           `)
           .eq("submission_id", id)
           .eq("typ", "support")
           .maybeSingle();
+
 
         if (subError || !submission) {
           console.error("⚠️ Keine Submission:", subError);
@@ -74,7 +81,21 @@ export default function SupportDetailPage() {
           claim = claimData;
         }
 
-        setData({ submission, items: items ?? [], claim });
+        // 🔹 Non-Sell-Out Support (Marketing / Event / etc.)
+        const { data: supportDetails } = await supabase
+          .from("support_details")
+          .select("support_typ, betrag")
+          .eq("submission_id", id)
+          .maybeSingle();
+
+          setData({
+            submission,
+            items: items ?? [],
+            claim,
+            supportDetails: supportDetails ?? undefined,
+          });
+
+
       } catch (err: any) {
         console.error("💥 Fehler beim Laden:", err.message);
         toast.error("Ein unerwarteter Fehler ist aufgetreten.");
@@ -108,10 +129,10 @@ export default function SupportDetailPage() {
     "Keine Händler-E-Mail";
 
   const fileUrl =
-    claim?.invoice_file_url &&
-    `${SUPABASE_URL}/storage/v1/object/public/support-invoices/${encodeURIComponent(
-      claim.invoice_file_url
-    )}`;
+    submission?.project_file_path
+      ? `${SUPABASE_URL}/storage/v1/object/public/support-documents/${submission.project_file_path}`
+      : null;
+
 
   // 🔹 Status-Update
   const updateStatus = async (newStatus: "approved" | "rejected" | "pending") => {
@@ -254,6 +275,31 @@ export default function SupportDetailPage() {
               <strong>Kommentar:</strong> {submission.kommentar}
             </div>
           )}
+          {data?.supportDetails && (
+            <div className="mt-6 rounded-xl border border-blue-200 bg-blue-50/60 p-4">
+              <h3 className="text-sm font-semibold text-blue-800 mb-2">
+                Marketing / Non-Sell-Out Support
+              </h3>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
+                <div>
+                  <p className="text-gray-500">Support-Typ</p>
+                  <p className="font-medium text-gray-800">
+                    {data.supportDetails.support_typ}
+                  </p>
+                </div>
+
+                <div>
+                  <p className="text-gray-500">Sony Kostenanteil</p>
+                  <p className="text-lg font-semibold text-blue-700">
+                    {Number(data.supportDetails.betrag).toFixed(2)} CHF
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+
+
 
           {fileUrl ? (
             <div className="mt-5">

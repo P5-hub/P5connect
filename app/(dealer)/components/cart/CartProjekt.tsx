@@ -472,10 +472,9 @@ export default function CartProjekt() {
   });
 
   // 📎 Projekt-Dateien (CSV, PDF, etc.)
-  const projectFiles: File[] =
-    projectDetails?.files?.length
-      ? projectDetails.files
-      : details.files;
+const projectFiles: File[] = details.files;
+
+
 
   const patchDetails = (
     patch: Partial<{
@@ -768,8 +767,18 @@ export default function CartProjekt() {
       }
 
       const { project_id } = await res.json();
+
       // 📎 DATEI-UPLOADS (CSV / Anhänge)
       for (const file of projectFiles) {
+
+        // 🔒 SCHRITT 3 – SICHERHEITSCHECK (HIER!)
+        if (!(file instanceof File)) {
+          console.error("Ungültiges File-Objekt:", file);
+          throw new Error(
+            `Ungültige Datei erkannt (${(file as any)?.name ?? "unbekannt"})`
+          );
+        }
+
         const fd = new FormData();
         fd.append("file", file);
         fd.append("project_id", project_id);
@@ -788,6 +797,7 @@ export default function CartProjekt() {
           );
         }
       }
+
 
 
       // 2️⃣ Items gruppieren & speichern

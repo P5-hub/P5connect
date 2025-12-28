@@ -26,8 +26,7 @@ export default function BestellungForm() {
             // Produkt in den Slot "bestellung" speichern
             addItem("bestellung", {
               ...product,
-              quantity: 1,
-            });
+               });
 
 
           },

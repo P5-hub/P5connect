@@ -15,7 +15,7 @@ import {
 import { cn } from "@/lib/utils";
 
 type HistoryEntry = {
-  submission_id: number;
+  submission_id: string | null; // ✅ FIX
   typ: string;
   created_at: string;
   menge?: number;

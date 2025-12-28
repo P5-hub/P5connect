@@ -48,7 +48,6 @@ export async function POST(req: Request) {
     // 🧾 DB INSERT
     const { error: dbError } = await supabase.from("project_files").insert({
       project_id: projectId,
-      file_url: urlData.publicUrl,
       file_name: file.name,
       dealer_id: Number(dealerId),
       login_nr: loginNr ?? null,
@@ -57,6 +56,7 @@ export async function POST(req: Request) {
       file_size: file.size,
       mime_type: file.type,
     });
+
 
     if (dbError) throw dbError;
 

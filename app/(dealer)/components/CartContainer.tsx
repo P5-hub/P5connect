@@ -2,11 +2,12 @@
 
 import { useCart } from "@/app/(dealer)/GlobalCartProvider";
 
-// Die 4 Warenkorb-Komponenten:
+// Warenkorb-Komponenten
 import CartBestellung from "@/app/(dealer)/components/cart/CartBestellung";
 import CartProjekt from "@/app/(dealer)/components/cart/CartProjekt";
 import CartSupport from "@/app/(dealer)/components/cart/CartSupport";
 import CartVerkauf from "@/app/(dealer)/components/cart/CartVerkauf";
+import CartSofortrabatt from "@/app/(dealer)/components/cart/CartSofortrabatt";
 
 export default function CartContainer() {
   const { state } = useCart();
@@ -14,7 +15,7 @@ export default function CartContainer() {
   // Wenn kein Warenkorb geöffnet ist → nichts anzeigen
   if (!state.open) return null;
 
-  // Rendert den richtigen Warenkorb je nach Formular
+  // Richtigen Warenkorb je nach Formular rendern
   switch (state.currentForm) {
     case "bestellung":
       return <CartBestellung />;
@@ -27,6 +28,9 @@ export default function CartContainer() {
 
     case "verkauf":
       return <CartVerkauf />;
+
+    case "sofortrabatt":
+      return <CartSofortrabatt />;
 
     default:
       return null;
