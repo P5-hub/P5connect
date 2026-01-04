@@ -80,7 +80,12 @@ export default function ProjectForm() {
     if (!canProceed) return;
 
     // ✅ Projekt-Details inkl. Dateien in GLOBALEN Cart speichern
-    setProjectDetails(details);
+    setProjectDetails({
+      submission_id: Date.now(), // oder echte ID, wenn vorhanden
+      project_name: details.name || null,
+      customer: details.customer || null,
+    });
+
 
     setStep("products");
   };

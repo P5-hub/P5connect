@@ -31,6 +31,71 @@ type CsvRow = {
 };
 
 /* ------------------------------------------------------------------ */
+function getCurrentIsoCalendarWeek(): number {
+  const d = new Date();
+  const date = new Date(Date.UTC(
+    d.getFullYear(),
+    d.getMonth(),
+    d.getDate()
+  ));
+
+  date.setUTCDate(date.getUTCDate() + 4 - (date.getUTCDay() || 7));
+  const yearStart = new Date(Date.UTC(date.getUTCFullYear(), 0, 1));
+
+  return Math.ceil(
+    (((date.getTime() - yearStart.getTime()) / 86400000) + 1) / 7
+  );
+}
+
+function getLastCalendarWeek(): number {
+  const now = new Date();
+  const d = new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()));
+  d.setUTCDate(d.getUTCDate() - ((d.getUTCDay() + 6) % 7) - 7);
+  const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+  return Math.ceil(
+    (((d.getTime() - yearStart.getTime()) / 86400000) + 1) / 7
+  );
+}
+function getCalendarWeekFromDate(dateStr: string): number | null {
+  if (!dateStr) return null;
+
+  let date: Date | null = null;
+
+  // Fall 1: deutsches Format DD.MM.YYYY
+  if (dateStr.includes(".")) {
+    const parts = dateStr.split(".");
+    if (parts.length === 3) {
+      const day = Number(parts[0]);
+      const month = Number(parts[1]) - 1;
+      const year = Number(parts[2]);
+      date = new Date(Date.UTC(year, month, day));
+    }
+  }
+
+  // Fall 2: ISO-Format YYYY-MM-DD
+  if (!date && dateStr.includes("-")) {
+    const parsed = new Date(dateStr);
+    if (!isNaN(parsed.getTime())) {
+      date = new Date(
+        Date.UTC(
+          parsed.getFullYear(),
+          parsed.getMonth(),
+          parsed.getDate()
+        )
+      );
+    }
+  }
+
+  if (!date || isNaN(date.getTime())) return null;
+
+  // ISO-Kalenderwoche
+  date.setUTCDate(date.getUTCDate() + 4 - (date.getUTCDay() || 7));
+  const yearStart = new Date(Date.UTC(date.getUTCFullYear(), 0, 1));
+  return Math.ceil(
+    (((date.getTime() - yearStart.getTime()) / 86400000) + 1) / 7
+  );
+}
+
 
 export default function VerkaufForm() {
   const { dealer, loading } = useActiveDealer();
@@ -46,9 +111,16 @@ export default function VerkaufForm() {
 
   const [rows, setRows] = useState<CsvRow[]>([]);
 
-  const [calendarWeek, setCalendarWeek] = useState<number>(51);
+  // ✅ Erweiterung: letzte abgeschlossene KW
+  const [calendarWeek, setCalendarWeek] = useState<number>(
+    getLastCalendarWeek()
+  );
+
+  // ❗ bewusst number lassen (damit Manual NICHT kaputt geht)
   const [inhouseQtyShare, setInhouseQtyShare] = useState<number>(50);
   const [inhouseRevenueShare, setInhouseRevenueShare] = useState<number>(50);
+  // CSV Bestätigung (Stufe 3)
+  const [confirmSonyShareCsv, setConfirmSonyShareCsv] = useState(false);
 
   /* ------------------------------------------------------------------ */
   /* CSV PARSER */
@@ -72,15 +144,45 @@ export default function VerkaufForm() {
           header: true,
           skipEmptyLines: true,
           complete: (res) => {
-            setRows(normalize(res.data as any[]));
+            const normalized = normalize(res.data as any[]);
+            setRows(normalized);
+            setConfirmSonyShareCsv(false);
+
+
+            // ⬇️⬇️⬇️ SCHRITT 2: HIER ⬇️⬇️⬇️
+            const firstDate = normalized.find(r => r.date)?.date;
+            const kw = firstDate
+              ? getCalendarWeekFromDate(firstDate)
+              : null;
+
+
+            if (kw) {
+              setCalendarWeek(kw);
+            }
           },
+
         });
       } else {
         const buf = await file.arrayBuffer();
         const wb = XLSX.read(buf);
         const ws = wb.Sheets[wb.SheetNames[0]];
         const data = XLSX.utils.sheet_to_json(ws);
-        setRows(normalize(data as any[]));
+        const normalized = normalize(data as any[]);
+        setRows(normalized);
+        setConfirmSonyShareCsv(false);
+
+
+        // ⬇️⬇️⬇️ SCHRITT 2: HIER ⬇️⬇️⬇️
+        const firstDate = normalized.find(r => r.date)?.date;
+        const kw = firstDate
+          ? getCalendarWeekFromDate(firstDate)
+          : null;
+
+
+        if (kw) {
+          setCalendarWeek(kw);
+        }
+
       }
     } catch {
       toast.error("Fehler beim Lesen der Datei");
@@ -114,6 +216,18 @@ export default function VerkaufForm() {
   /* ------------------------------------------------------------------ */
 
   const submitCsvSales = async () => {
+    // ✅ Erweiterung: bewusste Bestätigung erzwingen
+    if (
+      inhouseQtyShare <= 0 ||
+      inhouseRevenueShare <= 0
+    ) {
+      toast.error(
+        "Bitte bestätigen Sie den SONY-Anteil für Stück und Umsatz."
+      );
+      return;
+    }
+
+
     try {
       if (!dealer?.dealer_id) {
         toast.error("Händler nicht gefunden.");
@@ -124,7 +238,7 @@ export default function VerkaufForm() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          dealer_id: dealer.dealer_id, // ✅ FIX: dealer_id mitsenden (Impersonation-fähig)
+          dealer_id: dealer.dealer_id,
           calendar_week: calendarWeek,
           inhouse_share_qty: inhouseQtyShare,
           inhouse_share_revenue: inhouseRevenueShare,
@@ -166,7 +280,15 @@ export default function VerkaufForm() {
             <div className="grid md:grid-cols-2 gap-4">
               <div className="border p-5 rounded-xl">
                 <h2 className="font-semibold mb-2">Manuell melden</h2>
-                <Button onClick={() => setStep("manual")}>Weiter</Button>
+                <Button
+                  onClick={() => {
+                    setCalendarWeek(getCurrentIsoCalendarWeek());
+                    setStep("manual");
+                  }}
+                >
+                  Weiter
+                </Button>
+
               </div>
 
               <div className="border p-5 rounded-xl">
@@ -325,13 +447,29 @@ export default function VerkaufForm() {
                       Gesamtumsatz Händler: CHF {totalRevenue.toFixed(2)}
                     </p>
                   </div>
+                  <div className="border-t pt-3">
+                    <label className="flex items-start gap-2 text-xs text-gray-700">
+                      <input
+                        type="checkbox"
+                        checked={confirmSonyShareCsv}
+                        onChange={(e) => setConfirmSonyShareCsv(e.target.checked)}
+                        className="mt-0.5"
+                      />
+                      <span>
+                        Ich bestätige, dass die gemeldeten <b>SONY-Anteile (Stück & Umsatz)</b>
+                        den tatsächlichen Verkaufsverhältnissen dieser Kalenderwoche entsprechen.
+                      </span>
+                    </label>
+                  </div>
 
                   <Button
                     className="bg-green-600 text-white"
+                    disabled={!confirmSonyShareCsv}
                     onClick={submitCsvSales}
                   >
                     Verkaufsdaten melden
                   </Button>
+
                 </>
               )}
             </div>

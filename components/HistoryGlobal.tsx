@@ -232,7 +232,7 @@ export default function HistoryGlobal({ dealer }: { dealer: any }) {
           {headerTitle}
         </h2>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 shrink-0">
           <button
             onClick={downloadExcel}
             title="Verlauf als Excel herunterladen"
@@ -243,12 +243,13 @@ export default function HistoryGlobal({ dealer }: { dealer: any }) {
           </button>
 
           <Link
-            href="/verlauf"
+            href={`/verlauf${activeTyp ? `?typ=${activeTyp}` : ""}`}
             className="text-sm text-blue-600 hover:underline"
           >
             Gesamten Verlauf →
           </Link>
         </div>
+
       </div>
 
       {rows.length === 0 ? (
@@ -273,7 +274,7 @@ export default function HistoryGlobal({ dealer }: { dealer: any }) {
                   </span>
                 </div>
 
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 shrink-0">
                   <span className="text-sm text-gray-600">{r.mengeSum} Pos.</span>
 
                   <button

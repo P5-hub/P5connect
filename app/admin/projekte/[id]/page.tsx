@@ -16,6 +16,23 @@ type Produkt = {
   preis?: number;
 };
 
+type Dealer = {
+  dealer_id: number;
+  store_name?: string;
+  street?: string;
+  zip?: string;
+  city?: string;
+  country?: string;
+  login_nr?: string;
+  email?: string;
+  phone?: string;
+};
+
+type ProjectLog = {
+  action?: string;
+  created_at?: string;
+};
+
 export default function ProjektDetailPage() {
   const params = useParams();
   const router = useRouter();
@@ -24,7 +41,15 @@ export default function ProjektDetailPage() {
 
   const id = params.id as string;
 
-  const [data, setData] = useState<any>(null);
+  const [data, setData] = useState<{
+    projekt: any;
+    submission: any;
+    produkte: Produkt[];
+    dealer: Dealer | null;
+    projectFiles: any[];
+    projectLogs: ProjectLog[];
+  } | null>(null);
+
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
 
@@ -34,13 +59,11 @@ export default function ProjektDetailPage() {
     (async () => {
       setLoading(true);
       try {
-        // 🔍 UUID prüfen
         const isUUID =
           /^[0-9a-fA-F-]{8}-[0-9a-fA-F-]{4}-[0-9a-fA-F-]{4}-[0-9a-fA-F-]{4}-[0-9a-fA-F-]{12}$/.test(
             id
           );
 
-        // 1️⃣ Submission laden
         let submissionQuery = supabase
           .from("submissions")
           .select(
@@ -50,32 +73,23 @@ export default function ProjektDetailPage() {
           .order("datum", { ascending: false })
           .limit(1);
 
-        if (isUUID) {
-          submissionQuery = submissionQuery.eq("project_id", id);
-        } else {
-          submissionQuery = submissionQuery.eq(
-            "submission_id",
-            Number(id)
-          );
-        }
+        submissionQuery = isUUID
+          ? submissionQuery.eq("project_id", id)
+          : submissionQuery.eq("submission_id", Number(id));
 
-        const { data: submission, error: subError } =
+        const { data: submission } =
           await submissionQuery.maybeSingle();
 
-        if (subError || !submission) {
+        if (!submission) {
           toast.error("Projektanfrage nicht gefunden.");
-          setLoading(false);
           return;
         }
 
-        // 2️⃣ Projekt laden
         const { data: projekt } = await supabase
           .from("project_requests")
-          .select(
-            `
+          .select(`
             id,
             dealer_id,
-            store_name,
             project_type,
             project_name,
             customer,
@@ -84,36 +98,47 @@ export default function ProjektDetailPage() {
             end_date,
             comment,
             created_at
-          `
-          )
+          `)
           .eq("id", submission.project_id)
           .maybeSingle();
 
         if (!projekt) {
           toast.error("Projekt nicht gefunden.");
-          setLoading(false);
           return;
         }
 
-        // 3️⃣ Händler laden
         const { data: dealer } = await supabase
           .from("dealers")
-          .select("name, email, mail_dealer")
+          .select(`
+            dealer_id,
+            store_name,
+            street,
+            zip,
+            city,
+            country,
+            login_nr,
+            email,
+            phone
+          `)
           .eq("dealer_id", projekt.dealer_id)
           .maybeSingle();
 
-        // 4️⃣ Produkte laden
         const { data: produkte } = await supabase
           .from("submission_items")
           .select("product_name, menge, preis")
           .eq("submission_id", submission.submission_id);
 
-        // 5️⃣ Projekt-Dateien laden
         const { data: projectFiles } = await supabase
           .from("project_files")
           .select("id, file_name, bucket, path, uploaded_at")
           .eq("project_id", projekt.id)
           .order("uploaded_at", { ascending: false });
+
+        const { data: projectLogs } = await supabase
+          .from("project_logs")
+          .select("action, created_at")
+          .eq("project_id", projekt.id)
+          .order("created_at", { ascending: true });
 
         setData({
           projekt,
@@ -121,8 +146,9 @@ export default function ProjektDetailPage() {
           produkte: produkte ?? [],
           dealer,
           projectFiles: projectFiles ?? [],
+          projectLogs: projectLogs ?? [],
         });
-      } catch (err: any) {
+      } catch (err) {
         console.error(err);
         toast.error("Fehler beim Laden der Projektdaten.");
       } finally {
@@ -136,22 +162,24 @@ export default function ProjektDetailPage() {
   }
 
   if (!data) {
-    return (
-      <p className="p-6 text-sm text-gray-500">
-        Kein Datensatz gefunden.
-      </p>
-    );
+    return <p className="p-6 text-sm text-gray-500">Kein Datensatz gefunden.</p>;
   }
 
-  const { projekt, submission, produkte, dealer, projectFiles } = data;
+  const {
+    projekt,
+    submission,
+    produkte,
+    dealer,
+    projectFiles,
+    projectLogs,
+  } = data;
 
   const total = produkte.reduce(
-    (sum: number, p: Produkt) =>
+    (sum, p) =>
       sum + (Number(p.preis) || 0) * (Number(p.menge) || 1),
     0
   );
 
-  // 📤 Upload
   const handleUpload = async (
     event: React.ChangeEvent<HTMLInputElement>
   ) => {
@@ -163,11 +191,9 @@ export default function ProjektDetailPage() {
 
       const filePath = `${projekt.id}/${file.name}`;
 
-      const { error: uploadError } = await supabase.storage
+      await supabase.storage
         .from("project-documents")
         .upload(filePath, file, { upsert: true });
-
-      if (uploadError) throw uploadError;
 
       await supabase.from("project_files").insert({
         project_id: projekt.id,
@@ -179,41 +205,55 @@ export default function ProjektDetailPage() {
         dealer_id: submission.dealer_id,
       });
 
-      toast.success("Datei erfolgreich hochgeladen.");
-
-      // Reload Dateien
       const { data: refreshedFiles } = await supabase
         .from("project_files")
         .select("id, file_name, bucket, path, uploaded_at")
         .eq("project_id", projekt.id)
         .order("uploaded_at", { ascending: false });
 
-      setData((prev: any) => ({
-        ...prev,
-        projectFiles: refreshedFiles ?? [],
-      }));
-    } catch (err: any) {
-      console.error(err);
-      toast.error("Fehler beim Datei-Upload.");
+      setData((prev) =>
+        prev
+          ? { ...prev, projectFiles: refreshedFiles ?? [] }
+          : prev
+      );
+
+      toast.success("Datei erfolgreich hochgeladen.");
     } finally {
       setUploading(false);
     }
   };
-
   const updateStatus = async (
     newStatus: "approved" | "rejected" | "pending"
   ) => {
-    await supabase
-      .from("submissions")
-      .update({ status: newStatus })
-      .eq("submission_id", submission.submission_id);
+    try {
+      await supabase
+        .from("submissions")
+        .update({ status: newStatus })
+        .eq("submission_id", submission.submission_id);
 
-    setData((prev: any) => ({
-      ...prev,
-      submission: { ...prev.submission, status: newStatus },
-    }));
+      setData((prev) =>
+        prev
+          ? {
+              ...prev,
+              submission: {
+                ...prev.submission,
+                status: newStatus,
+              },
+            }
+          : prev
+      );
 
-    toast.success(`Status geändert: ${newStatus}`);
+      toast.success(
+        newStatus === "approved"
+          ? "Projekt bestätigt"
+          : newStatus === "rejected"
+          ? "Projekt abgelehnt"
+          : "Status zurückgesetzt"
+      );
+    } catch (e) {
+      console.error(e);
+      toast.error("Status konnte nicht aktualisiert werden.");
+    }
   };
 
   return (
@@ -227,37 +267,50 @@ export default function ProjektDetailPage() {
       </Button>
 
       <Card className={`rounded-2xl border ${theme.border}`}>
-        <CardHeader className="space-y-2">
-          <div className="flex justify-between items-center">
-            <h2 className="text-xl font-semibold">
-              Projektanfrage – {projekt.project_name || "(ohne Titel)"}
-            </h2>
+        <CardHeader className="space-y-4">
+          <h2 className="text-xl font-semibold">
+            Projektanfrage – {projekt.project_name || "(ohne Titel)"}
+          </h2>
 
-            <label className="flex items-center gap-2 cursor-pointer text-sm">
-              <Upload className="w-4 h-4" />
-              {uploading ? "Upload…" : "Datei hochladen"}
-              <input
-                type="file"
-                className="hidden"
-                accept=".pdf,.jpg,.png,.jpeg"
-                onChange={handleUpload}
-                disabled={uploading}
-              />
-            </label>
+          {/* HÄNDLER */}
+          <div className="text-sm space-y-1">
+            <p className="font-semibold">Händler</p>
+            <p>{dealer?.store_name || "-"}</p>
+            <p>
+              {[dealer?.street, dealer?.zip, dealer?.city, dealer?.country]
+                .filter(Boolean)
+                .join(" ")}
+            </p>
+            <p>Kd.-Nr.: {dealer?.login_nr || "-"}</p>
           </div>
 
-          <p>
-            <strong>Händler:</strong> {dealer?.name ?? "–"}
-          </p>
+          {/* PROJEKTINFOS (aus PDF) */}
+          <div className="text-sm space-y-1 border rounded p-3">
+            <p className="font-semibold">Projektinformationen</p>
+            <p>Projekt-Nr.: #{submission.submission_id}</p>
+            <p>Typ: {projekt.project_type || "-"}</p>
+            <p>Kunde: {projekt.customer || "-"}</p>
+            <p>Ort: {projekt.location || "-"}</p>
+            <p>
+              Zeitraum: {projekt.start_date || "-"} –{" "}
+              {projekt.end_date || "-"}
+            </p>
+            <p className="text-sm">
+              Status:{" "}
+              {submission.status === "approved"
+                ? "✅ Bestätigt"
+                : submission.status === "rejected"
+                ? "❌ Abgelehnt"
+                : "⏳ Offen"}
+            </p>
 
-          <p>
-            Status:{" "}
-            {submission.status === "approved"
-              ? "✅ Bestätigt"
-              : submission.status === "rejected"
-              ? "❌ Abgelehnt"
-              : "⏳ Offen"}
-          </p>
+            {(projekt.comment || submission.kommentar) && (
+              <>
+                <p className="font-semibold mt-2">Kommentar</p>
+                <p>{projekt.comment || submission.kommentar}</p>
+              </>
+            )}
+          </div>
 
           <ThemedActionButtons
             onApprove={() => updateStatus("approved")}
@@ -267,7 +320,8 @@ export default function ProjektDetailPage() {
         </CardHeader>
 
         <CardContent className="space-y-6">
-          {projectFiles.length > 0 && (
+          {/* DATEIEN */}
+          {projectFiles?.length > 0 && (
             <div>
               <h3 className="font-semibold flex items-center gap-2 mb-2">
                 <FileDown className="w-4 h-4" />
@@ -275,11 +329,8 @@ export default function ProjektDetailPage() {
               </h3>
 
               <ul className="space-y-2">
-                {projectFiles.map((f: any) => (
-                  <li
-                    key={f.id}
-                    className="flex justify-between text-sm"
-                  >
+                {projectFiles.map((f) => (
+                  <li key={f.id} className="flex justify-between text-sm">
                     <span>{f.file_name}</span>
                     <a
                       href={
@@ -299,17 +350,11 @@ export default function ProjektDetailPage() {
             </div>
           )}
 
+          {/* PRODUKTE */}
           <div className="border rounded">
             <table className="w-full text-sm">
-              <thead className="bg-gray-100">
-                <tr>
-                  <th className="p-2 text-left">Produkt</th>
-                  <th className="p-2 text-right">Menge</th>
-                  <th className="p-2 text-right">Preis</th>
-                </tr>
-              </thead>
               <tbody>
-                {produkte.map((p: Produkt, i: number) => (
+                {produkte.map((p, i) => (
                   <tr key={i} className="border-t">
                     <td className="p-2">{p.product_name}</td>
                     <td className="p-2 text-right">{p.menge}</td>
@@ -319,18 +364,21 @@ export default function ProjektDetailPage() {
                   </tr>
                 ))}
               </tbody>
-              <tfoot>
-                <tr className="border-t font-semibold">
-                  <td colSpan={2} className="p-2 text-right">
-                    Total:
-                  </td>
-                  <td className="p-2 text-right">
-                    {total.toFixed(2)} CHF
-                  </td>
-                </tr>
-              </tfoot>
             </table>
           </div>
+
+          {/* VERLAUF */}
+          {projectLogs?.length > 0 && (
+            <div className="text-sm space-y-2 border rounded p-3">
+              <p className="font-semibold">Projektverlauf</p>
+              {projectLogs.map((l, i) => (
+                <p key={i}>
+                  {new Date(l.created_at || "").toLocaleString("de-CH")} –{" "}
+                  {l.action || "created"}
+                </p>
+              ))}
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>

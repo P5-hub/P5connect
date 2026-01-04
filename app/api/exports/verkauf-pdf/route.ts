@@ -208,16 +208,26 @@ export async function GET(req: Request) {
 
     const col = {
       name: 42,
-      ean: 270,
-      qty: 430,
-      price: 500,
+      ean: 260,
+      qty: 410,
+      price: 480,
     };
+
 
     doc.font(font).fontSize(10).fillColor("#555");
     doc.text("Produkt", col.name, tableTop);
     doc.text("EAN", col.ean, tableTop);
-    doc.text("Menge", col.qty, tableTop, { align: "right" });
-    doc.text("Preis (CHF)", col.price, tableTop, { align: "right" });
+
+    doc.text("Menge", col.qty, tableTop, {
+      width: 50,
+      align: "right",
+    });
+
+    doc.text("Preis (CHF)", col.price, tableTop, {
+      width: 70,
+      align: "right",
+    });
+
 
     doc
       .moveTo(42, tableTop + 14)
@@ -234,13 +244,21 @@ export async function GET(req: Request) {
         width: 220,
       });
       doc.text(i.ean ?? "-", col.ean, rowY);
-      doc.text(String(i.menge ?? 0), col.qty, rowY, { align: "right" });
+      doc.text(String(i.menge ?? 0), col.qty, rowY, {
+        width: 50,
+        align: "right",
+      });
+
       doc.text(
         toCHF(Number(i.preis) || 0),
         col.price,
         rowY,
-        { align: "right" }
+        {
+          width: 70,
+          align: "right",
+        }
       );
+
 
       rowY += 20;
     });

@@ -70,14 +70,20 @@ export default function CartVerkauf() {
   const [sonyShareRevenue, setSonyShareRevenue] = useState<number>(30);
 
   const [calendarWeek] = useState<number>(() => {
-    const now = new Date();
-    const onejan = new Date(now.getFullYear(), 0, 1);
+    const date = new Date();
+    const d = new Date(Date.UTC(
+      date.getFullYear(),
+      date.getMonth(),
+      date.getDate()
+    ));
+
+    d.setUTCDate(d.getUTCDate() + 4 - (d.getUTCDay() || 7));
+    const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
     return Math.ceil(
-      ((now.getTime() - onejan.getTime()) / 86400000 +
-        onejan.getDay() +
-        1) / 7
+      (((d.getTime() - yearStart.getTime()) / 86400000) + 1) / 7
     );
   });
+
 
   /* ----------------------------------------------------
      SUBMIT

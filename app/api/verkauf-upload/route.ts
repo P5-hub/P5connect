@@ -8,6 +8,34 @@
     Database["public"]["Tables"]["submission_items"]["Insert"];
 
   // 🧩 Hilfsfunktion: Start- und Enddatum einer Kalenderwoche bestimmen
+  function normalizeEAN(value: any): string | null {
+    if (value === null || value === undefined) return null;
+
+    // Zahl (Excel → Scientific Notation)
+    if (typeof value === "number") {
+      return value.toFixed(0);
+    }
+
+    let s = String(value).trim();
+
+    // "4.54874E+12"
+    if (s.includes("e") || s.includes("E")) {
+      const n = Number(s);
+      if (!isNaN(n)) return n.toFixed(0);
+    }
+
+    // ".0" entfernen
+    if (s.endsWith(".0")) {
+      s = s.slice(0, -2);
+    }
+
+    // Nur Ziffern behalten
+    s = s.replace(/\D/g, "");
+
+    return s || null;
+  }
+
+
   function getWeekDateRange(year: number, week: number) {
     const simple = new Date(year, 0, 1 + (week - 1) * 7);
     const dow = simple.getDay();
@@ -122,6 +150,8 @@
         sony_share_qty,
         sony_share_revenue,
 
+        status: "approved", // ✅ CSV → direkt freigegeben
+
         created_at: new Date().toISOString(),
       };
 
@@ -148,7 +178,7 @@
       const cleanedItems: SubmissionItemInsert[] = items.map(
         (item: any) => ({
           submission_id,
-          ean: item.ean ?? null,
+          ean: normalizeEAN(item.ean),
           product_name: item.product_name ?? null,
           sony_article: item.sony_article ?? null,
           menge: Number(item.quantity ?? item.menge ?? 1),
@@ -161,6 +191,7 @@
           created_at: new Date().toISOString(),
         })
       );
+
 
       const { error: itemErr } = await supabase
         .from("submission_items")

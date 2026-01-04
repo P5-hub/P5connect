@@ -18,7 +18,17 @@ import { sendOrderNotification } from "@/lib/notifications/sendOrderNotification
 import OrderDetailView from "@/components/admin/OrderDetailView";
 
 // 🔹 Typen
-type Dealer = { name?: string; email?: string; mail_dealer?: string };
+type Dealer = {
+  name?: string;
+  email?: string;
+  mail_dealer?: string;
+};
+
+type SofortrabattProduct = {
+  product_name?: string;
+  category?: string;
+  ean?: string;
+};
 
 type SubmissionRecord = {
   submission_id?: number; // Für submissions & Sofortrabatt (gemappt von claim_id)
@@ -33,7 +43,7 @@ type SubmissionRecord = {
   // ✅ WICHTIG für Projekte
   project_id?: string | null;
 
-  // Sofortrabatt-spezifisch (optional)
+  // Sofortrabatt-spezifisch
   rabatt_level?: number | null;
   rabatt_betrag?: number | null;
   products?: any;
@@ -48,12 +58,22 @@ type ProjectFile = {
   created_at?: string;
 };
 
+type SubmissionFile = {
+  id: number;
+  file_name: string;
+  file_path: string;
+  bucket: string;
+  created_at?: string;
+};
+
+
 type UniversalDetailProps = {
   tableName: string; // "submissions" oder "sofortrabatt_claims"
   typeFilter?: string; // z. B. "bestellung", "projekt", "support", "sofortrabatt"
   title: string;
   storageBucket?: string; // für Sofortrabatt invoice API
 };
+
 
 export default function UniversalDetailPage({
   tableName,
@@ -67,6 +87,7 @@ export default function UniversalDetailPage({
 
   const router = useRouter();
   const supabase = createClient();
+  const [isAdmin, setIsAdmin] = useState(false);
   const theme = useTheme();
 
   const [record, setRecord] = useState<SubmissionRecord | null>(null);
@@ -83,6 +104,11 @@ export default function UniversalDetailPage({
 
   // Projekt files
   const [projectFiles, setProjectFiles] = useState<ProjectFile[]>([]);
+  // order files
+  const [orderFiles, setOrderFiles] = useState<SubmissionFile[]>([]);
+  const [uploading, setUploading] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
+
 
   // Sofortrabatt-Erkennung
   const isSofort =
@@ -273,6 +299,24 @@ export default function UniversalDetailPage({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id, isSofort, tableName]);
 
+  useEffect(() => {
+    const loadRole = async () => {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      const role =
+        user?.app_metadata?.role ||
+        user?.user_metadata?.role ||
+        null;
+
+      setIsAdmin(role === "admin");
+    };
+
+    loadRole();
+  }, [supabase]);
+
+
   // -----------------------------
   // Projekt-Dateien nachladen (nur wenn record geladen ist)
   // -----------------------------
@@ -312,6 +356,67 @@ export default function UniversalDetailPage({
     () => record?.dealers?.mail_dealer || record?.dealers?.email || "-",
     [record?.dealers?.mail_dealer, record?.dealers?.email]
   );
+
+  console.log("🧾 RECORD FULL", record);
+  // -----------------------------
+  // Bestell-Dateien nachladen
+  // -----------------------------
+  // -----------------------------
+  // Bestell-Dateien nachladen
+  // -----------------------------
+  useEffect(() => {
+    // ❗ Seite entscheidet, nicht der Record
+    if (typeFilter !== "bestellung") {
+      setOrderFiles([]);
+      return;
+    }
+
+    // ❗ Warten bis Submission-ID wirklich da ist
+    if (!record?.submission_id) return;
+
+    (async () => {
+      console.log("📎 LOADING ORDER FILES FOR", record.submission_id);
+
+      const { data, error } = await supabase
+        .from("submission_files")
+        .select("id, file_name, file_path, bucket, created_at")
+        .eq("submission_id", record.submission_id)
+        .order("created_at", { ascending: true });
+
+      if (error) {
+        console.error("❌ Fehler beim Laden der Bestell-Dateien:", error);
+        setOrderFiles([]);
+        return;
+      }
+
+      console.log("✅ ORDER FILES", data);
+      setOrderFiles(data ?? []);
+    })();
+  }, [record?.submission_id, typeFilter]);
+
+
+
+  // ===============================
+  // Sofortrabatt: Products normalisieren (String | Array)
+  // ===============================
+  // ===============================
+  // Sofortrabatt: Products normalisieren (robust)
+  // ===============================
+  const normalizedProducts = useMemo<SofortrabattProduct[]>(() => {
+    if (!record?.products) return [];
+
+    try {
+      const parsed =
+        typeof record.products === "string"
+          ? JSON.parse(record.products)
+          : record.products;
+
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
+  }, [record?.products]);
+
 
   // Status-Update
   const updateStatus = async (
@@ -397,6 +502,173 @@ export default function UniversalDetailPage({
       setSendingMail(false);
     }
   };
+  // -----------------------------
+  // Datei-Upload für Bestellung (ADMIN)
+  // -----------------------------
+  const handleOrderFileUpload = async (file: File) => {
+    if (!record?.submission_id) return;
+
+    try {
+      setUploading(true);
+
+      const path = `${record.submission_id}/${Date.now()}_${file.name}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from("order-documents")
+        .upload(path, file);
+
+      if (uploadError) throw uploadError;
+
+      const { error: insertError } = await supabase
+        .from("submission_files")
+        .insert({
+          submission_id: record.submission_id,
+          file_name: file.name,
+          file_path: path,
+          bucket: "order-documents",
+        });
+
+
+      if (insertError) throw insertError;
+
+      toast.success("Datei hochgeladen");
+
+      const { data } = await supabase
+        .from("submission_files")
+        .select("id, file_name, file_path, bucket, created_at")
+        .eq("submission_id", record.submission_id)
+        .order("created_at", { ascending: true });
+
+      setOrderFiles(data ?? []);
+    } catch (e) {
+      console.error(e);
+      toast.error("Upload fehlgeschlagen");
+    } finally {
+      setUploading(false);
+    }
+  };
+  const handleDragOver = (e: React.DragEvent) => {
+  e.preventDefault();
+  e.stopPropagation();
+  setIsDragging(true);
+};
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+  };
+
+  const handleDrop = async (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+
+    const files = Array.from(e.dataTransfer.files);
+    if (files.length === 0) return;
+
+    for (const file of files) {
+      await handleOrderFileUpload(file);
+    }
+  };
+
+  // -----------------------------
+  // Datei öffnen (Signed URL)
+  // -----------------------------
+  // -----------------------------
+  // Datei anzeigen (Browser / Office entscheidet)
+  // -----------------------------
+  const previewOrderFile = async (file: SubmissionFile) => {
+    try {
+      const res = await fetch("/api/admin/order/document", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          path: file.file_path,
+          bucket: file.bucket,
+          mode: "preview",
+        }),
+      });
+
+      if (!res.ok) throw new Error("API error");
+
+      const { url } = await res.json();
+      if (!url) throw new Error("Keine URL");
+
+      window.open(url, "_blank");
+    } catch (e) {
+      console.error(e);
+      toast.error("Datei konnte nicht angezeigt werden");
+    }
+  };
+
+
+  // -----------------------------
+  // Datei herunterladen (erzwingen)
+  // -----------------------------
+  const downloadOrderFile = async (file: SubmissionFile) => {
+    try {
+      const res = await fetch("/api/admin/order/document", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          path: file.file_path,
+          bucket: file.bucket,
+          mode: "download", // 👈 erzwingt attachment
+        }),
+      });
+
+      const { url } = await res.json();
+      if (!url) throw new Error("Keine URL");
+
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = file.file_name;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+    } catch (e) {
+      console.error(e);
+      toast.error("Download fehlgeschlagen");
+    }
+  };
+
+  // -----------------------------
+  // Datei löschen (ADMIN)
+  // -----------------------------
+  const deleteOrderFile = async (file: SubmissionFile) => {
+    const confirmed = confirm(
+      `Datei "${file.file_name}" wirklich löschen?`
+    );
+    if (!confirmed) return;
+
+    try {
+      // 1️⃣ Storage-Datei löschen
+      const { error: storageError } = await supabase.storage
+        .from(file.bucket)
+        .remove([file.file_path]);
+
+      if (storageError) throw storageError;
+
+      // 2️⃣ DB-Eintrag löschen
+      const { error: dbError } = await supabase
+        .from("submission_files")
+        .delete()
+        .eq("id", file.id);
+
+      if (dbError) throw dbError;
+
+      toast.success("Datei gelöscht");
+
+      // 3️⃣ UI sofort aktualisieren
+      setOrderFiles((prev) =>
+        prev.filter((f) => f.id !== file.id)
+      );
+    } catch (e) {
+      console.error(e);
+      toast.error("Datei konnte nicht gelöscht werden");
+    }
+  };
 
   if (loading) return <p className="p-6 text-sm text-gray-500">Lade Daten…</p>;
   if (!record)
@@ -479,7 +751,7 @@ export default function UniversalDetailPage({
               <RotateCcw className="w-4 h-4 mr-1" /> Reset
             </Button>
 
-            {record?.typ === "bestellung" && (
+            {typeFilter === "bestellung" && (
               <>
                 <Button
                   size="sm"
@@ -507,7 +779,8 @@ export default function UniversalDetailPage({
         {/* Detailkarte */}
         <CardContent className="pt-4">
           {/* Bestellung → OrderDetailView wie bisher */}
-          {record?.typ === "bestellung" && (
+          {typeFilter === "bestellung" && (
+            
             <OrderDetailView
               submission={{
                 submission_id: Number(record.submission_id),
@@ -516,33 +789,206 @@ export default function UniversalDetailPage({
               onStatusChange={fetchData}
             />
           )}
+          {/* 📎 Dateien zur Bestellung (Admin Upload) */}
+          {typeFilter === "bestellung" && (
+            <div className="mt-6 max-w-xl">
+              <div className="rounded-xl border border-blue-200 bg-blue-50/40 p-4">
+                <h4 className="text-sm font-semibold text-blue-700 mb-3">
+                  📎 Dateien zur Bestellung
+                </h4>
+
+                {/* Upload */}
+                {/* Upload */}
+                <div
+                  onDragOver={handleDragOver}
+                  onDragLeave={handleDragLeave}
+                  onDrop={handleDrop}
+                  className={`
+                    flex items-center justify-center
+                    border-2 border-dashed rounded-xl
+                    px-4 py-6 mb-3
+                    text-xs cursor-pointer transition
+                    ${
+                      isDragging
+                        ? "border-blue-500 bg-blue-100 text-blue-700"
+                        : "border-blue-300 bg-white hover:bg-blue-50"
+                    }
+                  `}
+                >
+                  <label className="cursor-pointer">
+                    <input
+                      type="file"
+                      multiple
+                      className="hidden"
+                      onChange={(e) => {
+                        const files = Array.from(e.target.files ?? []);
+                        files.forEach((file) => handleOrderFileUpload(file));
+                        e.currentTarget.value = "";
+                      }}
+                    />
+                    <div className="text-center space-y-1">
+                      <div className="text-sm font-medium">
+                        ➕ Datei hier ablegen oder klicken
+                      </div>
+                      <div className="text-[11px] text-gray-500">
+                        PDF, Excel, Word – mehrere Dateien möglich
+                      </div>
+                    </div>
+                  </label>
+                </div>
+
+
+                {/* Datei-Liste */}
+                {orderFiles.length === 0 ? (
+                  <p className="text-xs text-gray-500">
+                    Keine Dateien vorhanden.
+                  </p>
+                ) : (
+                  <div className="flex flex-col gap-2">
+                    {orderFiles.map((file) => (
+                      <div
+                        key={file.id}
+                        className="
+                          flex items-center justify-between gap-2
+                          text-sm px-3 py-2 rounded-lg
+                          border bg-white
+                          hover:bg-blue-50 hover:border-blue-300
+                          transition
+                        "
+                      >
+                        {/* Dateiname */}
+                        <span className="flex-1 truncate">
+                          📄 {file.file_name}
+                        </span>
+
+                        {/* Anzeigen */}
+                        <button
+                          type="button"
+                          onClick={() => previewOrderFile(file)}
+                          className="text-xs px-2 hover:text-blue-700"
+                          title="Im Browser anzeigen"
+                        >
+                          👁️
+                        </button>
+
+                        {/* Download */}
+                        <button
+                          type="button"
+                          onClick={() => downloadOrderFile(file)}
+                          className="text-xs px-2 hover:text-green-700"
+                          title="Herunterladen"
+                        >
+                          ⬇️
+                        </button>
+
+                        {/* Löschen (Admin) */}
+                        <button
+                          type="button"
+                          onClick={() => deleteOrderFile(file)}
+                          className="text-xs px-2 text-red-600 hover:text-red-800"
+                          title="Datei löschen"
+                        >
+                          🗑️
+                        </button>
+                      </div>
+
+
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
 
           {/* Sofortrabatt Anzeige */}
           {record?.typ === "sofortrabatt" && (
-            <div className="mt-4 text-sm text-gray-700 space-y-3">
-              {record.rabatt_betrag != null && (
-                <p>
-                  <strong>Rabattbetrag:</strong> {record.rabatt_betrag} CHF
-                </p>
+            <div className="mt-6 space-y-6 text-sm text-gray-700">
+
+              {/* ===================== */}
+              {/* ANTRAGSDETAILS */}
+              {/* ===================== */}
+              <div className="rounded-xl border p-4 bg-gray-50">
+                <h4 className="font-semibold mb-3">Antragsdetails</h4>
+
+                <div className="grid grid-cols-2 gap-x-6 gap-y-2">
+                  <p><strong>Claim-ID:</strong> #{record.submission_id}</p>
+                  <p><strong>Status:</strong> {record.status ?? "-"}</p>
+
+                  <p>
+                    <strong>Datum:</strong>{" "}
+                    {record.datum
+                      ? new Date(record.datum).toLocaleDateString("de-CH")
+                      : "-"}
+                  </p>
+
+                  <p>
+                    <strong>Rabatt-Level:</strong>{" "}
+                    {record.rabatt_level ?? "-"}
+                  </p>
+
+                  <p>
+                    <strong>Rabattbetrag:</strong>{" "}
+                    CHF {(Number(record.rabatt_betrag) || 0).toFixed(2)}
+                  </p>
+                </div>
+              </div>
+
+              {/* ===================== */}
+              {/* PRODUKTE */}
+              {/* ===================== */}
+              <div className="rounded-xl border p-4">
+                <h4 className="font-semibold mb-3">Produkte</h4>
+
+                {normalizedProducts.length === 0 ? (
+                  <p className="text-xs text-gray-500">Keine Produkte vorhanden.</p>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full border-collapse text-xs">
+                      <thead className="bg-gray-100">
+                        <tr>
+                          <th className="text-left p-2">Produkt</th>
+                          <th className="text-left p-2">Kategorie</th>
+                          <th className="text-left p-2">EAN</th>
+                          <th className="text-right p-2">Menge</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {normalizedProducts.map((p: any, idx: number) => (
+                          <tr key={idx} className="border-t">
+                            <td className="p-2">{p.product_name || "-"}</td>
+                            <td className="p-2">{p.category || "-"}</td>
+                            <td className="p-2">{p.ean || "-"}</td>
+                            <td className="p-2 text-right">1</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+
+              {/* ===================== */}
+              {/* KOMMENTAR */}
+              {/* ===================== */}
+              {record.kommentar && (
+                <div className="rounded-xl border p-4 bg-gray-50">
+                  <h4 className="font-semibold mb-2">Kommentar</h4>
+                  <p className="whitespace-pre-wrap">{record.kommentar}</p>
+                </div>
               )}
 
-              {record.rabatt_level != null && (
-                <p>
-                  <strong>Rabatt-Level:</strong> {record.rabatt_level}
-                </p>
-              )}
-
-              {invoiceUrl ? (
-                <div className="pt-2">
+              {/* ===================== */}
+              {/* RECHNUNG */}
+              {/* ===================== */}
+              <div>
+                {invoiceUrl ? (
                   <Button
                     variant="outline"
                     onClick={() => window.open(invoiceUrl, "_blank")}
                   >
                     📎 Rechnung anzeigen
                   </Button>
-                </div>
-              ) : invoicePath ? (
-                <div className="pt-2">
+                ) : invoicePath ? (
                   <Button
                     variant="outline"
                     onClick={async () => {
@@ -555,12 +1001,15 @@ export default function UniversalDetailPage({
                   >
                     📎 Rechnung laden
                   </Button>
-                </div>
-              ) : (
-                <p className="text-xs text-gray-500">Keine Rechnung hinterlegt.</p>
-              )}
+                ) : (
+                  <p className="text-xs text-gray-500">
+                    Keine Rechnung hinterlegt.
+                  </p>
+                )}
+              </div>
             </div>
           )}
+
 
           {/* ✅ Projekt-Dateien */}
           {record?.typ === "projekt" && (

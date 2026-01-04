@@ -96,6 +96,8 @@ type Bestellung = {
   created_at: string;
   status: "pending" | "approved" | "rejected" | null;
 
+  origin_project_submission_id?: number | null;
+
   dealer_name?: string | null;
   dealer_email?: string | null;
   dealer_login_nr?: string | null;
@@ -824,6 +826,41 @@ export default function BestellungenDashboard({
 
   const [rows, setRows] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
+  // 📎 Dateien zur Bestellung
+  type SubmissionFile = {
+    id: string;
+    file_name: string;
+    file_path: string;
+    created_at?: string;
+  };
+
+  const [orderFiles, setOrderFiles] = useState<SubmissionFile[]>([]);
+
+  /* ---------------------------------------------------------
+    📎 Dateien zur Bestellung laden (nur Detailansicht)
+  --------------------------------------------------------- */
+  useEffect(() => {
+    if (!submissionId) {
+      setOrderFiles([]);
+      return;
+    }
+
+    (async () => {
+      const { data, error } = await supabase
+        .from("submission_files")
+        .select("id, file_name, file_path, created_at")
+        .eq("submission_id", submissionId)
+        .order("created_at", { ascending: true });
+
+      if (error) {
+        console.error("❌ Fehler beim Laden der Bestell-Dateien:", error);
+        setOrderFiles([]);
+        return;
+      }
+
+      setOrderFiles(data ?? []);
+    })();
+  }, [submissionId, supabase]);
 
   const [editItemId, setEditItemId] =
     useState<number | null>(null);
@@ -1006,6 +1043,8 @@ export default function BestellungenDashboard({
           submission_id: sid,
           created_at: row.created_at,
           status: row.status,
+
+          origin_project_submission_id: row.origin_project_submission_id ?? null,
 
           dealer_name: row.dealer_name,
           dealer_email: row.dealer_email,
@@ -1326,6 +1365,12 @@ async function openPreview(b: Bestellung) {
                               #{b.submission_id} –{" "}
                               {b.dealer_name ?? "Unbekannter Händler"}
                             </h3>
+                            {b.origin_project_submission_id && (
+                              <div className="mt-1 inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full bg-purple-50 text-purple-700 border border-purple-200 w-fit">
+                                📁 Projekt P-{b.origin_project_submission_id}
+                              </div>
+                            )}
+
                             <p className="text-xs text-gray-500">
                               {b.dealer_email ?? "-"}
                             </p>
@@ -1360,6 +1405,46 @@ async function openPreview(b: Bestellung) {
                             </div>
                           </div>
                         </div>
+                        {/* ================================ */}
+                        {/* 📎 DATEIEN – NUR DETAILANSICHT */}
+                        {/* ================================ */}
+                        {submissionId && (
+                          <div className="mb-6 rounded-xl border border-blue-200 bg-blue-50/40 p-4">
+                            <h4 className="text-sm font-semibold text-blue-700 mb-2">
+                              📎 Dateien zur Bestellung
+                            </h4>
+
+                            {orderFiles.length === 0 ? (
+                              <p className="text-xs text-gray-500">Keine Dateien vorhanden.</p>
+                            ) : (
+                              <div className="flex flex-col gap-2">
+                                {orderFiles.map((file) => (
+                                  <button
+                                    key={file.id}
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation(); // 🔥 WICHTIG
+                                      console.log("🔥 FILE CLICK:", file.file_path);
+                                    }}
+                                    className="
+                                      text-left
+                                      text-sm
+                                      px-3 py-2
+                                      rounded-lg
+                                      border
+                                      bg-white
+                                      hover:bg-blue-50
+                                      hover:border-blue-300
+                                      transition
+                                    "
+                                  >
+                                    📄 {file.file_name}
+                                  </button>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        )}
 
                         {/* DISC + SUMMEN */}
                         <div className="absolute top-4 right-5 text-right">

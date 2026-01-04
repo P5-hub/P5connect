@@ -454,7 +454,7 @@ export default function CartProjekt() {
   const [details, setDetails] = useState<{
     type: string;
     name: string;
-    customer: string;
+    customer: string | null; // ✅ HIER
     location: string;
     start: string;
     end: string;
@@ -463,7 +463,7 @@ export default function CartProjekt() {
   }>({
     type: "",
     name: "",
-    customer: "",
+    customer: null,          // ✅ HIER
     location: "",
     start: "",
     end: "",
@@ -582,14 +582,17 @@ const projectFiles: File[] = details.files;
      🔄 EFFECTS
   ------------------------------------------------------------------- */
   useEffect(() => {
-    if (projectDetails && Object.keys(projectDetails).length > 0) {
-      setDetails((prev) => ({
-        ...prev,
-        ...projectDetails,
-        files: projectDetails.files ?? prev.files,
-      }));
-    }
+    if (!projectDetails) return;
+
+    setDetails((prev) => ({
+      ...prev,
+      name: projectDetails.project_name ?? "",
+      customer: projectDetails.customer ?? null,
+      // alles andere bleibt UI-intern
+      files: prev.files,
+    }));
   }, [projectDetails]);
+
 
 
 
@@ -665,9 +668,10 @@ const projectFiles: File[] = details.files;
     if (
       !details.type.trim() &&
       !details.name.trim() &&
-      !details.customer.trim() &&
+      !details.customer?.trim() &&
       !details.location.trim()
     ) {
+
       toast.message("ℹ️ Projekt wird ohne detaillierte Angaben gespeichert.");
     }
 
@@ -863,7 +867,7 @@ const projectFiles: File[] = details.files;
       setDetails({
         type: "",
         name: "",
-        customer: "",
+        customer: null, // ✅
         location: "",
         start: "",
         end: "",
@@ -982,7 +986,10 @@ const projectFiles: File[] = details.files;
             </p>
             <div className="text-sm text-gray-700 space-y-1">
               {details.name && <p>🏗️ {details.name}</p>}
-              {details.customer && <p>👤 {details.customer}</p>}
+              {details.customer?.trim() && (
+                <p>👤 {details.customer}</p>
+              )}
+
               {details.location && <p>📍 {details.location}</p>}
               {details.type && <p>📁 {details.type}</p>}
             </div>
@@ -1005,52 +1012,20 @@ const projectFiles: File[] = details.files;
                     Projektangaben
                   </p>
 
-                  <div className="space-y-2 text-sm">
-                    {projectDetails?.name && (
-                      <div className="flex items-center gap-2">
-                        <FolderKanban className="w-4 h-4 text-gray-500" />
-                        <span>{projectDetails.name}</span>
-                      </div>
-                    )}
+                  {projectDetails?.project_name && (
+                    <div className="flex items-center gap-2">
+                      <FolderKanban className="w-4 h-4 text-gray-500" />
+                      <span>{projectDetails.project_name}</span>
+                    </div>
+                  )}
 
-                    {projectDetails?.customer && (
-                      <div className="flex items-center gap-2">
-                        <User className="w-4 h-4 text-gray-500" />
-                        <span>{projectDetails.customer}</span>
-                      </div>
-                    )}
-
-                    {projectDetails?.location && (
-                      <div className="flex items-center gap-2">
-                        <MapPin className="w-4 h-4 text-gray-500" />
-                        <span>{projectDetails.location}</span>
-                      </div>
-                    )}
-
-                    {projectDetails?.type && (
-                      <div className="flex items-center gap-2">
-                        <FileText className="w-4 h-4 text-gray-500" />
-                        <span>{projectDetails.type}</span>
-                      </div>
-                    )}
-
-                    {(projectDetails?.start || projectDetails?.end) && (
-                      <div className="flex items-center gap-2">
-                        <Calendar className="w-4 h-4 text-gray-500" />
-                        <span>
-                          {projectDetails.start || "–"} → {projectDetails.end || "–"}
-                        </span>
-                      </div>
-                    )}
-
-                    {projectDetails?.comment && (
-                      <div className="text-xs italic text-gray-600 mt-2">
-                        {projectDetails.comment}
-                      </div>
-                    )}
-                  </div>
-                </div>
-
+                  {projectDetails?.customer && (
+                    <div className="flex items-center gap-2">
+                      <User className="w-4 h-4 text-gray-500" />
+                      <span>{projectDetails.customer}</span>
+                    </div>
+                  )}
+                </div>  {/* ✅ DAS HAT GEFEHLT */}
 
                 {/* Haupt-Distributor */}
                 {hasNormalProducts && (

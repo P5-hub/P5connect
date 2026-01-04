@@ -10,7 +10,7 @@ import React, {
 import { useDealer } from "@/app/(dealer)/DealerContext";
 
 /* ---------------------------------------------------------
-   Welche Formulare haben eigene Warenkörbe?
+   Typen
 --------------------------------------------------------- */
 export type FormName =
   | "verkauf"
@@ -20,23 +20,18 @@ export type FormName =
   | "sofortrabatt"
   | "cashback";
 
-/* ---------------------------------------------------------
-   Projekt-Stammdaten
---------------------------------------------------------- */
 type ProjectDetails = {
-  type: string;
-  name: string;
-  customer: string;
-  location: string;
-  start: string;
-  end: string;
-  comment: string;
-  files?: File[];
+  submission_id: number;      // 🔥 Projekt-ID (P-xxx)
+  project_id?: string;        // 🔒 UUID (nur für Navigation)
+  project_name?: string | null;
+  customer?: string | null;
 };
 
-/* ---------------------------------------------------------
-   Warenkorb-Typ
---------------------------------------------------------- */
+type OrderDetails = {
+  files: File[];
+};
+
+
 export type CartState = {
   verkauf: any[];
   bestellung: any[];
@@ -48,9 +43,6 @@ export type CartState = {
   open: boolean;
 };
 
-/* ---------------------------------------------------------
-   Context Type
---------------------------------------------------------- */
 export type CartContextType = {
   state: CartState;
   addItem: (form: FormName, item: any) => void;
@@ -65,12 +57,17 @@ export type CartContextType = {
 
   projectDetails: ProjectDetails | null;
   setProjectDetails: (d: ProjectDetails | null) => void;
+
+  // 🔥 HIER FEHLTE ES
+  orderDetails: OrderDetails;
+  setOrderDetails: React.Dispatch<React.SetStateAction<OrderDetails>>;
 };
+
 
 const CartContext = createContext<CartContextType | undefined>(undefined);
 
 /* ---------------------------------------------------------
-   🔑 Aktiven Händler aus Cookie lesen
+   Helper
 --------------------------------------------------------- */
 function getActingDealerIdFromCookie(): string | null {
   if (typeof document === "undefined") return null;
@@ -83,15 +80,13 @@ function getActingDealerIdFromCookie(): string | null {
 }
 
 /* ---------------------------------------------------------
-   Provider – händlerspezifischer Warenkorb
+   Provider
 --------------------------------------------------------- */
 export function GlobalCartProvider({ children }: { children: ReactNode }) {
-  const dealer = useDealer();
+  const dealer = useDealer(); // ✅ jetzt sicher Client ↔ Client
 
-  // 🔑 aktiver Händler > eingeloggter Händler
   const actingDealerId = getActingDealerIdFromCookie();
   const effectiveDealerId = actingDealerId ?? dealer?.dealer_id ?? "none";
-
   const STORAGE_KEY = `p5-cart-${effectiveDealerId}`;
 
   const emptyState: CartState = {
@@ -108,138 +103,76 @@ export function GlobalCartProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<CartState>(emptyState);
   const [projectDetails, setProjectDetails] =
     useState<ProjectDetails | null>(null);
+  const [orderDetails, setOrderDetails] = useState<OrderDetails>({
+    files: [],
+  });
+  
 
-  /* ---------------------------------------------------------
-     Laden aus localStorage
-  --------------------------------------------------------- */
   useEffect(() => {
     try {
       const raw = localStorage.getItem(STORAGE_KEY);
+      if (!raw) return;
 
-      if (raw) {
-        const parsed = JSON.parse(raw);
-
-        const sanitize = (arr: any[]) =>
-          Array.isArray(arr)
-            ? arr.filter((item) => item && item.product_id)
-            : [];
-
-        setState({
-          ...emptyState,
-          ...parsed,
-          verkauf: sanitize(parsed.verkauf),
-          bestellung: sanitize(parsed.bestellung),
-          projekt: sanitize(parsed.projekt),
-          support: sanitize(parsed.support),
-          sofortrabatt: sanitize(parsed.sofortrabatt),
-          cashback: sanitize(parsed.cashback),
-        });
-
-        setProjectDetails(parsed.projectDetails ?? null);
-      } else {
-        setState(emptyState);
-        setProjectDetails(null);
-      }
-    } catch (e) {
-      console.error("Fehler beim Laden des Warenkorbs:", e);
+      const parsed = JSON.parse(raw);
+      setState({ ...emptyState, ...parsed });
+      setProjectDetails(parsed.projectDetails ?? null);
+      setOrderDetails(parsed.orderDetails ?? { files: [] });
+    } catch {
       setState(emptyState);
       setProjectDetails(null);
     }
-  }, [effectiveDealerId]);
+  }, [STORAGE_KEY]);
 
-  /* ---------------------------------------------------------
-     Speichern in localStorage
-  --------------------------------------------------------- */
   useEffect(() => {
-    try {
-      localStorage.setItem(
-        STORAGE_KEY,
-        JSON.stringify({
-          ...state,
-          projectDetails,
-        })
-      );
-    } catch (e) {
-      console.error("Fehler beim Speichern des Warenkorbs:", e);
-    }
-  }, [state, projectDetails, STORAGE_KEY]);
+    localStorage.setItem(
+      STORAGE_KEY,
+      JSON.stringify({ ...state, projectDetails, orderDetails })
+    );
+  }, [state, projectDetails, orderDetails, STORAGE_KEY]);
 
-  /* ---------------------------------------------------------
-     Produkt hinzufügen
-  --------------------------------------------------------- */
-  const addItem = (form: FormName, item: any) => {
-    if (!item || !item.product_id) return;
-    setState((prev) => ({
-      ...prev,
-      [form]: [...prev[form], item],
-    }));
-  };
 
-  const removeItem = (form: FormName, index: number) => {
-    setState((prev) => ({
-      ...prev,
-      [form]: prev[form].filter((_, i) => i !== index),
-    }));
-  };
+  const addItem = (form: FormName, item: any) =>
+    setState((p) => ({ ...p, [form]: [...p[form], item] }));
 
-  const clearCart = (form: FormName) => {
-    setState((prev) => ({
-      ...prev,
-      [form]: [],
+  const removeItem = (form: FormName, index: number) =>
+    setState((p) => ({
+      ...p,
+      [form]: p[form].filter((_, i) => i !== index),
     }));
-  };
+
+  const clearCart = (form: FormName) =>
+    setState((p) => {
+      if (form === "bestellung") {
+        setOrderDetails({ files: [] });
+      }
+      return { ...p, [form]: [] };
+    });
+
+
+  const openCart = (form: FormName) =>
+    setState((p) => ({ ...p, currentForm: form, open: true }));
+
+  const closeCart = () =>
+    setState((p) => ({ ...p, currentForm: null, open: false }));
 
   const getItems = (form: FormName) => state[form];
 
-  const openCart = (form: FormName) => {
-    setState((prev) => ({
-      ...prev,
-      currentForm: form,
-      open: true,
-    }));
-  };
+  const switchForm = (form: FormName) =>
+    setState((p) => ({ ...p, currentForm: form, open: false }));
 
-  const closeCart = () => {
-    setState((prev) => ({
-      ...prev,
-      open: false,
-      currentForm: null,
-    }));
-  };
-
-  const switchForm = (form: FormName) => {
-    setState((prev) => ({
-      ...prev,
-      currentForm: form,
-      open: false,
-    }));
-  };
-
-  const updateItem = (
-    form: FormName,
-    index: number,
-    updates: Partial<any>
-  ) => {
-    setState((prev) => {
-      const newList = [...prev[form]];
-      if (!newList[index]) return prev;
-
-      newList[index] = { ...newList[index], ...updates };
-      if (!newList[index].product_id) return prev;
-
-      return { ...prev, [form]: newList };
+  const updateItem = (form: FormName, index: number, updates: any) =>
+    setState((p) => {
+      const copy = [...p[form]];
+      copy[index] = { ...copy[index], ...updates };
+      return { ...p, [form]: copy };
     });
-  };
 
-  const replaceItem = (form: FormName, index: number, newItem: any) => {
-    if (!newItem || !newItem.product_id) return;
-    setState((prev) => {
-      const newList = [...prev[form]];
-      if (!newList[index]) return prev;
-      newList[index] = newItem;
-      return { ...prev, [form]: newList };
+  const replaceItem = (form: FormName, index: number, newItem: any) =>
+    setState((p) => {
+      const copy = [...p[form]];
+      copy[index] = newItem;
+      return { ...p, [form]: copy };
     });
-  };
 
   return (
     <CartContext.Provider
@@ -256,8 +189,13 @@ export function GlobalCartProvider({ children }: { children: ReactNode }) {
         replaceItem,
         projectDetails,
         setProjectDetails,
+
+        // 🔥 HIER FEHLTE ES
+        orderDetails,
+        setOrderDetails,
       }}
     >
+
       {children}
     </CartContext.Provider>
   );

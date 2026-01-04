@@ -1,233 +1,325 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { getSupabaseBrowser } from "@/lib/supabaseClient";
-import { useDealer } from "@/app/(dealer)/DealerContext";
+import { useActiveDealer } from "@/app/(dealer)/hooks/useActiveDealer";
+import { cn } from "@/lib/utils";
 import {
   ShoppingCart,
-  Briefcase,
+  FileSpreadsheet,
   LifeBuoy,
+  Briefcase,
   Percent,
-  Clock,
-  BarChart3,
-  History as HistoryIcon,
 } from "lucide-react";
-import { cn } from "@/lib/utils";
 
-type HistoryEntry = {
-  submission_id: string | null; // ✅ FIX
+/* ======================================================
+   TYPES
+====================================================== */
+type HistoryRow = {
+  submission_id: string;
+  dealer_id: number;
   typ: string;
+  source: string;
+  status: string | null;
   created_at: string;
-  menge?: number;
-  preis?: number;
-  kommentar?: string;
-  status?: string;
-  product_name?: string;
-  brand?: string;
-  model?: string;
-  rabatt_level?: number;
-  rabatt_betrag?: number;
+
+  display_id: string;
+  position_count: number;
+  total_amount: number;
 };
 
+/* ======================================================
+   TYPE CONFIG
+====================================================== */
 const typeConfig: Record<
   string,
-  { label: string; color: string; icon: any }
+  { label: string; icon: any; color: string }
 > = {
-  verkauf: {
-    label: "Verkauf",
-    color: "text-green-700 bg-green-50 border-green-200",
-    icon: BarChart3,
-  },
   bestellung: {
     label: "Bestellung",
-    color: "text-blue-700 bg-blue-50 border-blue-200",
     icon: ShoppingCart,
+    color: "border-blue-200 bg-blue-50 text-blue-800",
+  },
+  verkauf: {
+    label: "Verkauf",
+    icon: FileSpreadsheet,
+    color: "border-green-200 bg-green-50 text-green-800",
   },
   projekt: {
     label: "Projekt",
-    color: "text-purple-700 bg-purple-50 border-purple-200",
     icon: Briefcase,
+    color: "border-purple-200 bg-purple-50 text-purple-800",
   },
   support: {
     label: "Support",
-    color: "text-teal-700 bg-teal-50 border-teal-200",
     icon: LifeBuoy,
+    color: "border-teal-200 bg-teal-50 text-teal-800",
   },
   sofortrabatt: {
     label: "Sofortrabatt",
-    color: "text-orange-700 bg-orange-50 border-orange-200",
     icon: Percent,
-  },
-  default: {
-    label: "Unbekannt",
-    color: "text-gray-600 bg-gray-50 border-gray-200",
-    icon: Clock,
+    color: "border-orange-200 bg-orange-50 text-orange-800",
   },
 };
 
-const tabs = [
-  { key: "alle", label: "Alle" },
-  { key: "verkauf", label: "Verkauf" },
-  { key: "bestellung", label: "Bestellung" },
-  { key: "projekt", label: "Projekt" },
-  { key: "support", label: "Support" },
-  { key: "sofortrabatt", label: "Sofortrabatt" },
-] as const;
+/* ======================================================
+   ROUTE MAP
+====================================================== */
+function getTargetRoute(
+  r: HistoryRow,
+  dealerQuery: string
+): string | null {
+  if (r.typ === "verkauf" && r.source === "csv") {
+    return `/verlauf/csv/${r.submission_id}${dealerQuery}`;
+  }
+  if (r.typ === "verkauf") {
+    return `/verlauf/verkauf/${r.submission_id}${dealerQuery}`;
+  }
+  if (r.typ === "bestellung") {
+    return `/verlauf/bestellung/${r.submission_id}${dealerQuery}`;
+  }
+  if (r.typ === "projekt") {
+    return `/verlauf/projekt/${r.submission_id}${dealerQuery}`;
+  }
+  if (r.typ === "support") {
+    return `/verlauf/support/${r.submission_id}${dealerQuery}`;
+  }
+  if (r.typ === "sofortrabatt") {
+    return `/verlauf/sofortrabatt/${r.submission_id}${dealerQuery}`;
+  }
+  return null;
+}
 
-type TabKey = typeof tabs[number]["key"];
+/* ======================================================
+   DATE GROUPING
+====================================================== */
+function getGroupLabel(dateStr: string) {
+  const d = new Date(dateStr);
+  const now = new Date();
 
-// 🔹 NEU: Mapping zwischen Tabs und DB-Werten
-const tabToDbType: Record<string, string> = {
-  verkauf: "verkauf",
-  bestellung: "bestellung",
-  projekt: "projekt",
-  support: "support",
-  sofortrabatt: "cashback", // <--- das ist der wichtige Fix
-};
+  if (d.toDateString() === now.toDateString()) {
+    return "Heute";
+  }
 
+  const diffDays =
+    (now.getTime() - d.getTime()) / (1000 * 60 * 60 * 24);
+
+  if (diffDays < 7) {
+    return "Diese Woche";
+  }
+
+  return d.toLocaleDateString("de-CH", {
+    month: "long",
+    year: "numeric",
+  });
+}
+
+/* ======================================================
+   COMPONENT
+====================================================== */
 export default function VerlaufPage() {
-  const dealer = useDealer();
-  const [activeTab, setActiveTab] = useState<TabKey>("alle");
-  const [entries, setEntries] = useState<HistoryEntry[]>([]);
-  const [loading, setLoading] = useState(true);
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const supabase = getSupabaseBrowser();
 
+  const { dealer, loading: dealerLoading, isImpersonated } =
+    useActiveDealer();
+
+  const typFilter = searchParams.get("typ");
+  const [search, setSearch] = useState("");
+
+  const [rows, setRows] = useState<HistoryRow[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  /* ================= LOAD DATA ================= */
   useEffect(() => {
-    if (!dealer?.dealer_id) return;
-    const load = async () => {
+    if (dealerLoading) return;
+
+    (async () => {
       setLoading(true);
+
       let query = supabase
-        .from("v_submission_history_full")
+        .from("v_submission_history_header")
         .select("*")
-        .eq("dealer_id", dealer.dealer_id)
         .order("created_at", { ascending: false })
-        .limit(50);
+        .limit(100);
 
-      // 🔹 Hier nutzt du das Mapping:
-      if (activeTab !== "alle")
-        query = query.eq(
-          "typ",
-          (tabToDbType[activeTab] || activeTab) as NonNullable<
-            "order" | "project" | "support" | "bestellung" | "verkauf" | "projekt" | "cashback"
-          >
-        );
+      if (dealer?.dealer_id) {
+        query = query.eq("dealer_id", dealer.dealer_id);
+      }
 
+      if (typFilter) {
+        query = query.eq("typ", typFilter);
+      }
 
       const { data, error } = await query;
-      if (!error && data) setEntries(data as HistoryEntry[]);
+
+      if (!error && data) {
+        setRows(data as HistoryRow[]);
+      } else {
+        console.error("Verlauf laden fehlgeschlagen:", error);
+      }
+
       setLoading(false);
-    };
-    load();
-  }, [dealer?.dealer_id, activeTab, supabase]);
+    })();
+  }, [dealer?.dealer_id, dealerLoading, supabase, typFilter]);
 
+  if (dealerLoading || loading) {
+    return <p className="text-gray-500">⏳ Verlauf wird geladen…</p>;
+  }
+
+  if (!rows.length) {
+    return <p className="text-gray-500">Keine Einträge gefunden.</p>;
+  }
+
+  const dealerQuery =
+    isImpersonated && dealer?.dealer_id
+      ? `?dealer_id=${dealer.dealer_id}`
+      : "";
+
+  /* ================= SEARCH ================= */
+  const filteredRows = rows.filter((r) => {
+    if (!search) return true;
+    const s = search.toLowerCase();
+
+    return (
+      r.display_id.toLowerCase().includes(s) ||
+      (r.status ?? "").toLowerCase().includes(s) ||
+      r.total_amount.toString().includes(s)
+    );
+  });
+
+  /* ================= GROUP ================= */
+  const grouped = filteredRows.reduce(
+    (acc: Record<string, HistoryRow[]>, r) => {
+      const label = getGroupLabel(r.created_at);
+      acc[label] = acc[label] || [];
+      acc[label].push(r);
+      return acc;
+    },
+    {}
+  );
+
+  /* ================= RENDER ================= */
   return (
-    <div className="space-y-6">
-      {/* 🔹 Titel */}
-      <div className="flex items-center gap-2">
-        <HistoryIcon className="w-6 h-6 text-gray-700" />
-        <h1 className="text-xl font-semibold">Gesamter Verlauf</h1>
+    <div className="space-y-4">
+      {/* SEARCH */}
+      <input
+        type="text"
+        value={search}
+        onChange={(e) => setSearch(e.target.value)}
+        placeholder="Suche (ID, Status, Betrag)…"
+        className="w-full md:w-80 px-3 py-1.5 border rounded-md text-sm"
+      />
+
+      {/* FILTER BAR */}
+      <div className="flex flex-wrap gap-2">
+        {[
+          { key: null, label: "Alle" },
+          { key: "bestellung", label: "Bestellung" },
+          { key: "verkauf", label: "Verkauf" },
+          { key: "projekt", label: "Projekt" },
+          { key: "support", label: "Support" },
+          { key: "sofortrabatt", label: "Sofortrabatt" },
+        ].map((f) => {
+          const active =
+            typFilter === f.key || (!typFilter && f.key === null);
+
+          const href =
+            f.key === null
+              ? isImpersonated && dealer?.dealer_id
+                ? `/verlauf?dealer_id=${dealer.dealer_id}`
+                : `/verlauf`
+              : isImpersonated && dealer?.dealer_id
+              ? `/verlauf?typ=${f.key}&dealer_id=${dealer.dealer_id}`
+              : `/verlauf?typ=${f.key}`;
+
+          return (
+            <button
+              key={f.label}
+              onClick={() => router.push(href)}
+              className={cn(
+                "px-3 py-1 rounded-full text-sm border transition",
+                active
+                  ? "bg-blue-600 text-white border-blue-600"
+                  : "bg-white text-gray-700 border-gray-300 hover:bg-gray-50"
+              )}
+            >
+              {f.label}
+            </button>
+          );
+        })}
       </div>
 
-      {/* 🔹 Tabs */}
-      <div className="flex flex-wrap gap-2 border-b pb-2">
-        {tabs.map((t) => (
-          <button
-            key={t.key}
-            onClick={() => setActiveTab(t.key)}
-            className={cn(
-              "px-4 py-1.5 rounded-t-lg text-sm font-medium border-b-2 transition-all",
-              activeTab === t.key
-                ? t.key === "verkauf"
-                  ? "border-green-600 text-green-700"
-                  : t.key === "bestellung"
-                  ? "border-blue-600 text-blue-700"
-                  : t.key === "projekt"
-                  ? "border-purple-600 text-purple-700"
-                  : t.key === "support"
-                  ? "border-teal-600 text-teal-700"
-                  : t.key === "sofortrabatt"
-                  ? "border-orange-600 text-orange-700"
-                  : "border-gray-400 text-gray-700"
-                : "border-transparent text-gray-500 hover:text-gray-700"
-            )}
-          >
-            {t.label}
-          </button>
-        ))}
-      </div>
+      {/* LIST */}
+      {Object.entries(grouped).map(([label, items]) => (
+        <div key={label} className="space-y-2">
+          <h3 className="text-sm font-semibold text-gray-600 mt-4">
+            {label}
+          </h3>
 
-      {/* 🔹 Liste */}
-      {loading ? (
-        <p className="text-gray-500">⏳ Verlauf wird geladen...</p>
-      ) : entries.length === 0 ? (
-        <p className="text-gray-500">Keine Einträge gefunden.</p>
-      ) : (
-        <div className="space-y-3">
-          {entries.map((h, i) => {
-            const cfg = typeConfig[h.typ] || typeConfig.default;
+          {items.map((r) => {
+            const cfg = typeConfig[r.typ];
+            if (!cfg) return null;
+
             const Icon = cfg.icon;
+            const target = getTargetRoute(r, dealerQuery);
+
             return (
               <div
-                key={`${h.submission_id}-${i}`}
-                className={`flex items-start gap-3 border rounded-md p-3 shadow-sm ${cfg.color}`}
+                key={`${r.typ}-${r.submission_id}`}
+                className={cn(
+                  "flex items-start gap-3 rounded-lg border p-3 shadow-sm cursor-pointer hover:shadow-md transition",
+                  cfg.color
+                )}
+                onClick={() => target && router.push(target)}
               >
-                <div
-                  className={`flex h-10 w-10 items-center justify-center rounded-full ${cfg.color}`}
-                >
-                  <Icon className="h-5 w-5" />
+                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-white border">
+                  <Icon className="w-5 h-5" />
                 </div>
 
                 <div className="flex-1">
                   <div className="flex justify-between items-center">
-                    <span className="font-medium text-sm">{cfg.label}</span>
+                    <span className="font-semibold text-sm">
+                      {cfg.label} {r.display_id}
+                    </span>
                     <span className="text-xs text-gray-500">
-                      {new Date(h.created_at).toLocaleDateString("de-CH", {
-                        day: "2-digit",
-                        month: "2-digit",
-                        year: "numeric",
-                        hour: "2-digit",
-                        minute: "2-digit",
-                      })}
+                      {new Date(r.created_at).toLocaleString("de-CH")}
                     </span>
                   </div>
 
-                  <p className="text-sm text-gray-700 mt-1">
-                    {h.product_name || h.model || "Unbekanntes Produkt"}{" "}
-                    {h.brand ? `(${h.brand})` : ""}
-                  </p>
+                  <div className="text-sm mt-1">
+                    {r.position_count} Position
+                    {r.position_count !== 1 ? "en" : ""} ·{" "}
+                    <strong>
+                      {r.total_amount.toLocaleString("de-CH", {
+                        style: "currency",
+                        currency: "CHF",
+                      })}
+                    </strong>
+                  </div>
 
-                  {h.menge && (
-                    <p className="text-xs text-gray-600">
-                      {h.menge} Stück
-                      {h.preis ? ` à ${h.preis.toFixed(2)} CHF` : ""}
-                    </p>
-                  )}
-
-                  {h.kommentar && (
-                    <p className="text-xs italic text-gray-500 mt-1">
-                      💬 {h.kommentar}
-                    </p>
-                  )}
-
-                  {h.status && (
+                  <div className="mt-1">
                     <span
-                      className={`inline-block mt-2 px-2 py-0.5 rounded-full text-xs font-medium ${
-                        h.status === "approved"
+                      className={cn(
+                        "inline-block text-xs px-2 py-0.5 rounded-full",
+                        r.status === "approved"
                           ? "bg-green-100 text-green-700"
-                          : h.status === "rejected"
+                          : r.status === "rejected"
                           ? "bg-red-100 text-red-700"
                           : "bg-gray-100 text-gray-600"
-                      }`}
+                      )}
                     >
-                      {h.status}
+                      {r.status ?? "—"}
                     </span>
-                  )}
+                  </div>
                 </div>
               </div>
             );
           })}
         </div>
-      )}
+      ))}
     </div>
   );
 }

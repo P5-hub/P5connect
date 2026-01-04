@@ -6,6 +6,13 @@ import { toast } from "sonner";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { calcInvestByRule } from "@/lib/helpers/calcHelpers";
+import Link from "next/link";
+import { Copy } from "lucide-react";
+import ProjectFileUpload from "@/app/(dealer)/components/project/ProjectFileUpload";
+import { useTheme } from "@/lib/theme/ThemeContext";
+
+
+
 
 
 import {
@@ -102,6 +109,9 @@ const pickPreferred = (item: CartItem, allowed: string[]) => {
   return allowed[0];
 };
 
+
+
+
 /* ------------------------------------------------------------------
    🧱 PRODUKTKARTE
 ------------------------------------------------------------------- */
@@ -139,10 +149,28 @@ function ProductCard({
 
   return (
     <div
-      className={`border rounded-xl p-3 space-y-2 mb-3 ${
-        allowed.length ? "border-amber-300" : "border-gray-200"
-      }`}
+      className={`
+        bg-white
+        border
+        ${allowed.length ? "border-amber-200 border-l-amber-400" : "border-blue-200 border-l-blue-600"}
+        border-l-[6px]
+        rounded-r-xl
+        p-3 sm:p-4
+        space-y-2 sm:space-y-3
+        mb-3 sm:mb-4
+        shadow-sm
+      `}
     >
+
+      {/* linker Akzentstreifen */}
+      <div
+        className={`
+          absolute left-0 top-0 h-full w-[3px] rounded-l-xl
+          ${allowed.length ? "bg-amber-400" : "bg-blue-600"}
+        `}
+      />
+
+
       {/* Header */}
       <div className="flex justify-between items-start gap-3">
         <div className="flex-1 min-w-0">
@@ -388,6 +416,8 @@ function ProductList({
 export default function CartBestellung() {
   const dealer = useDealer();
   const supabase = getSupabaseBrowser();
+  const theme = useTheme();
+
 
   // GLOBAL CART
   const {
@@ -397,6 +427,10 @@ export default function CartBestellung() {
     clearCart,
     closeCart,
     updateItem,
+    projectDetails,
+    setProjectDetails,
+    orderDetails,
+    setOrderDetails,
   } = useCart();
 
   const cart = (
@@ -704,7 +738,9 @@ export default function CartBestellung() {
           dealer_id: (dealer as any).dealer_id,
           typ: "bestellung",
           distributor: codeLower,
-         
+
+          // 🔥 HIER DER ENTSCHEIDENDE LINK
+          project_id: projectDetails?.project_id ?? null,
 
           requested_delivery: mapRequestedDelivery(deliveryMode),
           requested_delivery_date:
@@ -718,17 +754,9 @@ export default function CartBestellung() {
           customer_phone: dealerPhone || null,
           customer_name: dealerDisplayName || null,
 
-
-          delivery_name: hasAltDelivery ? deliveryName || null : null,
-          delivery_street: hasAltDelivery ? deliveryStreet || null : null,
-          delivery_zip: hasAltDelivery ? deliveryZip || null : null,
-          delivery_city: hasAltDelivery ? deliveryCity || null : null,
-          delivery_country: hasAltDelivery ? deliveryCountry || null : null,
-          delivery_phone: hasAltDelivery ? deliveryPhone || null : null,
-          delivery_email: hasAltDelivery ? deliveryEmail || null : null,
-
           status: "pending",
         };
+
 
         const { data: subData, error: subErr } = await supabase
           .from("submissions")
@@ -738,6 +766,26 @@ export default function CartBestellung() {
 
         if (subErr || !subData) throw subErr;
         const submissionId = subData.submission_id;
+        // ----------------------------------------------------
+        // 📎 DATEIEN HOCHLADEN (BESTELLUNG)
+        // ----------------------------------------------------
+        if (orderDetails?.files?.length) {
+          const formData = new FormData();
+          formData.append("submissionId", String(submissionId));
+
+          orderDetails.files.forEach((file: File) => {
+            formData.append("files", file);
+          });
+
+          const res = await fetch("/api/orders/upload", {
+            method: "POST",
+            body: formData,
+          });
+
+          if (!res.ok) {
+            throw new Error("Datei-Upload fehlgeschlagen");
+          }
+        }
 
 
         // ----------------------------------------------------
@@ -913,6 +961,7 @@ export default function CartBestellung() {
       setDeliveryCountry("Schweiz");
       setDeliveryEmail("");
       setDeliveryPhone("");
+      setOrderDetails({ files: [] });
 
       toast.success("✅ Bestellung gespeichert", {
         description: "Die Bestellung wurde erfolgreich übermittelt.",
@@ -961,6 +1010,80 @@ export default function CartBestellung() {
             Bestellung zum Bestpreis
           </SheetTitle>
         </SheetHeader>
+
+        {/* 🔥 PROJEKT-BANNER */}
+        {/* 🔥 PROJEKT-BANNER */}
+        {projectDetails && (
+          <div className="mx-3 mt-2 mb-2 rounded-xl border border-purple-300 bg-purple-50 p-3 text-sm">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <p className="font-semibold text-purple-700 flex items-center gap-2">
+                  📁 Projekt
+                </p>
+
+                <p className="mt-1 text-gray-800">
+                  {projectDetails.project_name || "–"}
+                </p>
+
+                {projectDetails.customer && (
+                  <p className="text-xs text-gray-600">
+                    Kunde: {projectDetails.customer}
+                  </p>
+                )}
+
+                {/* ✅ Projekt-ID = Submission-ID mit Prefix */}
+                {projectDetails.submission_id && (
+                  <div className="mt-1 flex items-center gap-2 text-[11px] text-gray-500">
+                    <span>Projekt:</span>
+
+                    {/* 🔗 Klick auf Projekt */}
+                    {projectDetails.project_id ? (
+                      <Link
+                        href={`/projekt-bestellung/${projectDetails.project_id}`}
+                        className="font-mono font-semibold text-purple-700 hover:underline"
+                        title="Projekt öffnen"
+                      >
+                        P-{projectDetails.submission_id}
+                      </Link>
+                    ) : (
+                      <span className="font-mono font-semibold text-purple-700">
+                        P-{projectDetails.submission_id}
+                      </span>
+                    )}
+
+                    {/* 📋 Copy-Button */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        navigator.clipboard.writeText(
+                          `P-${projectDetails.submission_id}`
+                        );
+                        toast.success("Projekt-ID kopiert");
+                      }}
+                      className="rounded p-0.5 text-gray-400 hover:text-gray-700 hover:bg-gray-200"
+                      title="Projekt-ID kopieren"
+                    >
+                      <Copy className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                )}
+
+              </div>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setProjectDetails(null);
+                  clearCart("bestellung");
+                }}
+                className="text-xs text-red-600 hover:underline"
+              >
+                Projekt entfernen
+              </button>
+            </div>
+          </div>
+        )}
+
 
 
         {/* Dealer-Infos */}
@@ -1035,11 +1158,20 @@ export default function CartBestellung() {
             {/* 2-Spalten Layout */}
             <div className="flex-1 grid grid-cols-1 lg:grid-cols-2 gap-4 mt-2 min-h-0">
               {/* Linke Spalte */}
-              <div className="space-y-4">
+              <div className="
+                space-y-4
+                order-2 lg:order-1
+                min-h-0
+                overflow-y-auto
+                pr-1
+              ">
+
+                
+                {/* Haupt-Distributor */}
                 {/* Haupt-Distributor */}
                 {hasNormalProducts && (
-                  <div className="border rounded-xl p-3 space-y-2 bg-blue-50/40">
-                    <label className="block text-xs font-semibold">
+                  <div className="bg-white border border-blue-200 border-l-[6px] border-l-blue-600 rounded-r-xl p-4 space-y-2 shadow-sm">
+                    <label className="block text-xs font-semibold text-gray-800">
                       Haupt-Distributor
                     </label>
 
@@ -1053,11 +1185,7 @@ export default function CartBestellung() {
 
                       <SelectContent>
                         {distis.map((d) => (
-                          <SelectItem
-                            key={d.code}
-                            value={d.code}
-                            className="text-sm"
-                          >
+                          <SelectItem key={d.code} value={d.code} className="text-sm">
                             {d.name}
                           </SelectItem>
                         ))}
@@ -1068,11 +1196,17 @@ export default function CartBestellung() {
                       Standardmäßig über ElectronicPartner Schweiz AG.
                     </p>
                   </div>
+
                 )}
 
-                {/* Bestellangaben */}
-                <div className="border rounded-xl p-3 space-y-3">
-                  <p className="text-sm font-semibold">Bestellangaben</p>
+
+
+                {/* Bestellangaben – Premium Focus Card */}
+                <div className="bg-white border border-blue-200 border-l-[6px] border-l-blue-600 rounded-r-xl p-4 space-y-4 shadow-sm">
+                  <p className="text-sm font-semibold text-gray-900">
+                    Bestellangaben
+                  </p>
+
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
@@ -1143,8 +1277,13 @@ export default function CartBestellung() {
                 </div>
 
                 {/* Abweichende Lieferadresse */}
-                <div className="mt-3 border rounded-xl p-3">
-                  <div className="flex items-center gap-2">
+                {/* Abweichende Lieferadresse / Direktlieferung */}
+                <div className="relative bg-white border border-blue-200 p-4 rounded-r-xl">
+                  
+                  {/* linker Akzentstreifen – gleich wie Bestellangaben */}
+                  <div className="absolute left-0 top-0 h-full w-[5.5px] bg-blue-600" />
+
+                  <div className="flex items-center gap-2 pl-2">
                     <input
                       id="altDelivery"
                       type="checkbox"
@@ -1155,7 +1294,7 @@ export default function CartBestellung() {
 
                     <label
                       htmlFor="altDelivery"
-                      className="text-sm font-medium"
+                      className="text-sm font-semibold text-gray-900"
                     >
                       Abweichende Lieferadresse / Direktlieferung
                     </label>
@@ -1249,57 +1388,100 @@ export default function CartBestellung() {
                     </div>
                   )}
                 </div>
+                {/* 📎 DATEIEN ZUR BESTELLUNG – OPTIONAL */}
+                <details className="mt-4 rounded-xl border border-blue-200 bg-blue-50/40 p-3">
+                  <summary className="cursor-pointer text-sm font-medium text-blue-700">
+                    📎 Dateien zur Bestellung (optional)
+                  </summary>
+
+                  <div className="mt-3">
+                    <ProjectFileUpload
+                      files={orderDetails.files}
+                      onChange={(files) =>
+                        setOrderDetails((prev: { files: File[] }) => ({ ...prev, files }))
+                      }
+                    />
+
+                    {orderDetails.files.length > 0 && (
+                      <p className="text-xs text-gray-500 mt-1">
+                        📎 {orderDetails.files.length} Datei(en) angehängt
+                      </p>
+                    )}
+                  </div>
+                </details>
+
               </div>
 
               {/* Rechte Spalte – PRODUKTLISTE */}
-              <div className="flex flex-col min-h-0">
-                <div className="flex-1 overflow-y-auto pr-1">
+              <div className="flex flex-col min-h-0 order-1 lg:order-2">
+                <div className="flex-1 overflow-y-auto pr-1 overscroll-contain">
                   <ProductList
                     cart={cart}
                     distis={distis}
                     updateItem={updateItem}
                     removeFromCart={removeFromCart}
                   />
-
+                  
                   {/* Sticky Footer */}
+                  {/* Sticky Footer – Checkout */}
                   {cart.length > 0 && (
-                    <div className="sticky bottom-0 left-0 right-0 bg-white/90 backdrop-blur border-t mt-2 p-3 space-y-2">
-                      <div className="flex items-center justify-between text-sm">
-                        <span className="font-semibold">Gesamt:</span>
-                        <span>{totalQuantity} Stück</span>
-                      </div>
-
-                      <div className="flex items-center justify-between text-sm">
-                        <span className="font-semibold">Gesamtpreis:</span>
-                        <span>{totalPrice.toFixed(0)} CHF</span>
-                      </div>
-
-                      {totalSaved > 0 && (
-                        <div className="flex items-center justify-center gap-1 bg-green-50 border border-green-200 text-green-700 text-sm font-medium rounded-lg py-1.5">
-                          <Tag className="w-4 h-4" />
-                          Gesamtersparnis: {totalSaved.toFixed(0)} CHF
+                    <div
+                      className="
+                        sticky bottom-0
+                        bg-white/95 backdrop-blur
+                        py-2
+                        -mx-2 sm:mx-0
+                        px-2 sm:px-0
+                      "
+                    >
+                      <div
+                        className="
+                          w-full
+                          bg-white
+                          border
+                          border-green-300
+                          border-l-[6px]
+                          border-l-green-400
+                          rounded-r-xl
+                          p-3 sm:p-4
+                          space-y-2 sm:space-y-3
+                          shadow-sm
+                        "
+                      >
+                        <div className="flex items-center justify-between text-sm">
+                          <span className="font-medium text-gray-700">Gesamt:</span>
+                          <span className="font-semibold">{totalQuantity} Stück</span>
                         </div>
-                      )}
 
-                      {/* Bestellung abschicken */}
-                      <Button
-                        onClick={handleSubmit}
-                        disabled={loading}
-                        className="w-full"
-                      >
-                        {loading ? "⏳ Sende…" : "✅ Bestellung absenden"}
-                      </Button>
+                        <div className="flex items-center justify-between text-sm">
+                          <span className="font-medium text-gray-700">Gesamtpreis:</span>
+                          <span className="text-lg font-bold text-gray-900">
+                            {totalPrice.toFixed(0)} CHF
+                          </span>
+                        </div>
 
-                      {/* ➕ NEU: Weiter einkaufen */}
-                      <Button
-                        variant="outline"
-                        className="w-full"
-                        onClick={closeCart}
-                      >
-                        Weiter einkaufen
-                      </Button>
+                        {totalSaved > 0 && (
+                          <div className="flex items-center justify-center gap-1 bg-green-50 border border-green-200 text-green-700 text-sm font-medium rounded-lg py-1.5">
+                            Gesamtersparnis: {totalSaved.toFixed(0)} CHF
+                          </div>
+                        )}
+
+                        <Button
+                          onClick={handleSubmit}
+                          disabled={loading}
+                          className="w-full h-11 mt-2 text-base"
+                        >
+                          {loading ? "⏳ Sende…" : "✅ Bestellung absenden"}
+                        </Button>
+
+                        <Button variant="outline" className="w-full" onClick={closeCart}>
+                          Weiter einkaufen
+                        </Button>
+                      </div>
                     </div>
                   )}
+
+
 
                 </div>
               </div>

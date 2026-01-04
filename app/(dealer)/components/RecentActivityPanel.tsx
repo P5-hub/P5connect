@@ -3,9 +3,41 @@
 import { useEffect, useMemo, useState } from "react";
 import { getSupabaseBrowser } from "@/lib/supabaseClient";
 import { useTheme } from "@/lib/theme/ThemeContext";
-import { FileSpreadsheet, Loader2, FileText } from "lucide-react";
+import { FileSpreadsheet, Loader2, FileText, ChevronRight } from "lucide-react";
 import { usePathname } from "next/navigation";
 import type { FormType } from "@/types/formTypes";
+import Link from "next/link";
+import { useSeedProjectCart } from "@/app/(dealer)/hooks/useSeedProjectCart";
+import { ProjectAlreadyOrderedDialog } from "@/app/(dealer)/components/dialogs/ProjectAlreadyOrderedDialog";
+
+
+
+
+
+function StatusBadge({ status }: { status: string | null }) {
+  if (status === "approved" || status === "csv") {
+    return (
+      <span className="px-2 py-0.5 rounded bg-green-100 text-green-700 text-xs font-medium">
+        approved
+      </span>
+    );
+  }
+
+  if (status === "rejected") {
+    return (
+      <span className="px-2 py-0.5 rounded bg-gray-200 text-gray-600 text-xs font-medium">
+        rejected
+      </span>
+    );
+  }
+
+  return (
+    <span className="px-2 py-0.5 rounded bg-blue-100 text-blue-700 text-xs font-medium">
+      pending
+    </span>
+  );
+}
+
 
 // --------------------------------------------
 // TYPES
@@ -16,6 +48,8 @@ type Row = {
   typ: FormType;
   status: string | null;
   created_at: string;
+  project_id?: string | null;
+  project_name?: string | null;
 };
 
 type Props = {
@@ -59,6 +93,12 @@ export default function RecentActivityPanel({
   const supabase = getSupabaseBrowser();
   const theme = useTheme();
   const pathname = usePathname();
+  const {
+    startFromProject,
+    dialogOpen,
+    confirmDuplicateOrder,
+    cancelDuplicateOrder,
+  } = useSeedProjectCart();
 
   const [rows, setRows] = useState<Row[]>([]);
   const [loading, setLoading] = useState(true);
@@ -75,7 +115,15 @@ export default function RecentActivityPanel({
 
     const { data, error } = await supabase
       .from("v_submission_history_header" as any)
-      .select("submission_id, dealer_id, typ, status, created_at")
+      .select(`
+        submission_id,
+        dealer_id,
+        typ,
+        status,
+        created_at,
+        project_id,
+        project_name
+      `)
       .eq("dealer_id", dealerId)
       .eq("typ", formType)
       .order("created_at", { ascending: false })
@@ -85,11 +133,13 @@ export default function RecentActivityPanel({
       console.error("❌ Verlauf Fehler:", error);
       setRows([]);
     } else {
-      setRows((data as unknown as Row[]) ?? []);
+      setRows((data ?? []) as unknown as Row[]);
+
     }
 
     setLoading(false);
   }
+
 
   // --------------------------------------------
   // Realtime Handling (DER ENTSCHEIDENDE TEIL)
@@ -250,19 +300,32 @@ export default function RecentActivityPanel({
           Letzte {formType === "verkauf" ? "Verkaufsmeldungen" : "Aktivitäten"}
         </h2>
 
-        <button
-          onClick={downloadExcel}
-          disabled={downloading}
-          className={`inline-flex items-center gap-1 text-xs px-2 py-1 border rounded hover:bg-gray-50 ${theme.color}`}
-        >
-          {downloading ? (
-            <Loader2 className="w-3.5 h-3.5 animate-spin" />
-          ) : (
-            <FileSpreadsheet className="w-3.5 h-3.5" />
-          )}
-          Excel
-        </button>
+        <div className="flex items-center gap-2 shrink-0">
+          <button
+            onClick={downloadExcel}
+            disabled={downloading}
+            className={`inline-flex items-center gap-1 text-xs px-2 py-1 border rounded hover:bg-gray-50 ${theme.color}`}
+          >
+            {downloading ? (
+              <Loader2 className="w-3.5 h-3.5 animate-spin" />
+            ) : (
+              <FileSpreadsheet className="w-3.5 h-3.5" />
+            )}
+            Excel
+          </button>
+
+          <Link
+            href={`/verlauf?typ=${formType}&dealer_id=${dealerId}`}
+            className={`inline-flex items-center gap-1 text-xs px-2 py-1 border rounded hover:bg-gray-50 ${theme.color}`}
+          >
+            <ChevronRight className="w-3.5 h-3.5" />
+            Verlauf
+          </Link>
+
+
+        </div>
       </div>
+
 
       {loading ? (
         <div className="py-4 text-sm text-gray-500 flex items-center gap-2">
@@ -282,13 +345,39 @@ export default function RecentActivityPanel({
               >
                 <div className="flex items-center justify-between text-[13px]">
                   <div>
-                    <span className="font-semibold text-sm">#{id}</span>{" "}
-                    <span className="text-gray-500">• {fmtDate(r.created_at)}</span>{" "}
-                    {r.status && (
-                      <span className="ml-2 px-1.5 py-0.5 rounded bg-gray-100 text-gray-700 text-xs">
-                        {r.status}
-                      </span>
+                    {r.typ === "projekt" && r.project_id ? (
+                      <Link
+                        href={`/projekt-bestellung/${r.project_id}?dealer_id=${r.dealer_id}`}
+                        className="flex items-center gap-1 font-semibold text-sm text-purple-700 hover:underline max-w-[260px]"
+                        title={r.project_name ?? `Projekt ${id}`}
+                      >
+                        <span className="shrink-0">#{id}</span>
+                        <span className="truncate text-gray-800">
+                          – {r.project_name || "Projekt"}
+                        </span>
+                      </Link>
+
+                    ) : (
+                      <span className="font-semibold text-sm">#{id}</span>
                     )}
+
+                    {" "}
+                    <span className="text-gray-500">• {fmtDate(r.created_at)}</span>
+
+                    <div className="flex items-center gap-2 ml-2">
+                      <StatusBadge status={r.status} />
+
+                      {r.typ === "projekt" && r.status === "approved" && r.project_id && (
+                      <button
+                        onClick={() => startFromProject(r.project_id!)}
+                        className="px-2 py-0.5 rounded border border-purple-300 text-purple-700 text-xs hover:bg-purple-50"
+                      >
+                        Projekt bestellen
+                      </button>
+
+                      )}
+                    </div>
+
                   </div>
 
                   {r.status !== "csv" && pdfRoutes[r.typ] && (
@@ -304,8 +393,16 @@ export default function RecentActivityPanel({
               </li>
             );
           })}
-        </ul>
+                </ul>
       )}
+
+      {/* 🔔 Dialog: Projekt wurde bereits bestellt */}
+      <ProjectAlreadyOrderedDialog
+        open={dialogOpen}
+        onConfirm={confirmDuplicateOrder}
+        onCancel={cancelDuplicateOrder}
+      />
+
     </div>
   );
 }

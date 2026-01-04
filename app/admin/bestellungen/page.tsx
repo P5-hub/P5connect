@@ -16,6 +16,10 @@ type Row = {
   dealers: { name: string | null; email: string | null } | null;
   items_count: number;
   total_sum: number;
+
+  origin_project_submission_id: number | null;
+
+  
 };
 
 export default function AdminBestellungenListPage() {
@@ -35,36 +39,49 @@ export default function AdminBestellungenListPage() {
     try {
       // Lade alle Bestellungen aus submissions (typ='bestellung')
       const { data, error } = await supabase
-        .from("submissions")
-        .select(
-          `
-          submission_id,
-          created_at,
-          status,
-          dealers:dealers(name, email),
-          submission_items:submission_items(*)
-        `
-        )
-        .eq("typ", "bestellung")
+      .from("bestellung_dashboard")
+      .select(`
+        submission_id,
+        created_at,
+        status,
+        origin_project_submission_id,
+        dealer_name,
+        dealer_email,
+        item_id,
+        preis,
+        menge
+      `)
+
+  
         .order("created_at", { ascending: false });
 
       if (error) throw error;
 
-      const normalized: Row[] =
-        (data || []).map((row: any) => {
-          const items = row.submission_items || [];
-          const total = items.reduce((s: number, it: any) => s + (Number(it.preis) || 0), 0);
-          return {
-            submission_id: row.submission_id,
-            created_at: row.created_at,
-            status: row.status,
-            dealers: row.dealers ?? null,
-            items_count: items.length,
-            total_sum: total,
-          };
-        }) ?? [];
+      const map = new Map<number, Row>();
 
-      setRows(normalized);
+      for (const r of data ?? []) {
+        if (!map.has(r.submission_id)) {
+          map.set(r.submission_id, {
+            submission_id: r.submission_id,
+            created_at: r.created_at,
+            status: r.status,
+            dealers: {
+              name: r.dealer_name,
+              email: r.dealer_email,
+            },
+            items_count: 0,
+            total_sum: 0,
+            origin_project_submission_id: r.origin_project_submission_id,
+          });
+        }
+
+        const row = map.get(r.submission_id)!;
+        row.items_count += r.menge ?? 1;
+        row.total_sum += (r.preis ?? 0) * (r.menge ?? 1);
+      }
+
+      setRows(Array.from(map.values()));
+
     } catch (e) {
       console.error("❌ Laden fehlgeschlagen:", e);
       setRows([]);
@@ -197,7 +214,14 @@ export default function AdminBestellungenListPage() {
                 <div className="min-w-0">
                   <h3 className="font-semibold text-sm text-gray-900">
                     #{r.submission_id} – {r.dealers?.name ?? "Unbekannter Händler"}
+
+                    {r.origin_project_submission_id && (
+                      <span className="ml-2 text-xs font-mono text-purple-600">
+                        aus Projekt P-{r.origin_project_submission_id}
+                      </span>
+                    )}
                   </h3>
+
                   <p className="text-xs text-gray-500">{r.dealers?.email ?? "-"}</p>
                   <p className="text-xs text-gray-400">
                     {new Date(r.created_at).toLocaleDateString("de-CH")}

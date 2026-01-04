@@ -113,6 +113,8 @@ export default function UnifiedCart({
   const [loadingDealer, setLoadingDealer] = useState(true);
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
+  const [confirmSonyShare, setConfirmSonyShare] = useState(false);
+
 
   const cfg = modeConfig[mode];
 
@@ -153,9 +155,25 @@ export default function UnifiedCart({
      VERKAUF META – Fallback-sicherer State
   ------------------------------------------------------- */
 
+  const getIsoCalendarWeek = () => {
+    const d = new Date();
+    const date = new Date(Date.UTC(
+      d.getFullYear(),
+      d.getMonth(),
+      d.getDate()
+    ));
+
+    date.setUTCDate(date.getUTCDate() + 4 - (date.getUTCDay() || 7));
+    const yearStart = new Date(Date.UTC(date.getUTCFullYear(), 0, 1));
+    return Math.ceil(
+      (((date.getTime() - yearStart.getTime()) / 86400000) + 1) / 7
+    );
+  };
+
   const [calendarWeekLocal, setCalendarWeekLocal] = useState<number>(
-    num(extra?.calendarWeek) || 51
+    num(extra?.calendarWeek) || getIsoCalendarWeek()
   );
+
   const [inhouseQtyShareLocal, setInhouseQtyShareLocal] = useState<number>(
     num(extra?.inhouseQtyShare) || 50
   );
@@ -165,9 +183,13 @@ export default function UnifiedCart({
   useEffect(() => {
     if (!open) return;
 
-    setCalendarWeekLocal(num(extra?.calendarWeek) || 51);
+    setCalendarWeekLocal(
+      num(extra?.calendarWeek) || getIsoCalendarWeek()
+    );
+
     setInhouseQtyShareLocal(num(extra?.inhouseQtyShare) || 50);
     setInhouseRevenueShareLocal(num(extra?.inhouseRevenueShare) || 50);
+    setConfirmSonyShare(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
@@ -230,6 +252,12 @@ export default function UnifiedCart({
 
     if (cart.length === 0) {
       toast.error("Keine Produkte im Warenkorb.");
+      return;
+    }
+    if (mode === "verkauf" && !confirmSonyShare) {
+      toast.error(
+        "Bitte bestätigen Sie die Korrektheit der SONY-Anteile."
+      );
       return;
     }
 
@@ -361,7 +389,7 @@ export default function UnifiedCart({
                   </span>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 items-end">
                   <div className="space-y-1">
                     <label className="text-xs text-gray-600">Kalenderwoche</label>
                     <Input
@@ -432,6 +460,20 @@ export default function UnifiedCart({
                 </div>
               </div>
             )}
+            <div className="border-t pt-3">
+              <label className="flex items-start gap-2 text-xs text-gray-700">
+                <input
+                  type="checkbox"
+                  checked={confirmSonyShare}
+                  onChange={(e) => setConfirmSonyShare(e.target.checked)}
+                  className="mt-0.5"
+                />
+                <span>
+                  Ich bestätige, dass die gemeldeten <b>SONY-Anteile (Stück & Umsatz)</b>
+                  den tatsächlichen Verkaufsverhältnissen dieser Kalenderwoche entsprechen.
+                </span>
+              </label>
+            </div>
 
             {/* ITEMS */}
             <div className="flex-1 overflow-y-auto py-4 space-y-4">
@@ -481,7 +523,7 @@ export default function UnifiedCart({
                         {/* PREIS / SUPPORTBETRAG – MODE-SPEZIFISCH */}
                         {mode !== "support" && (
                           <div className="space-y-1">
-                            <label className="text-xs text-gray-600">
+                            <label className="block text-xs font-medium text-gray-600 mb-1">
                               Preis (CHF)
                             </label>
                             <Input
@@ -537,9 +579,10 @@ export default function UnifiedCart({
             {cart.length > 0 && (
               <Button
                 onClick={handleSubmit}
-                disabled={loading}
+                disabled={loading || (mode === "verkauf" && !confirmSonyShare)}
                 className={`w-full ${cfg.bg} text-white font-semibold`}
               >
+
                 {loading ? "Bitte warten…" : cfg.title}
               </Button>
             )}

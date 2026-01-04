@@ -59,7 +59,9 @@ type Submission = {
   submission_items: SubmissionItem[] | null;
 };
 
-// Fallback empty objects to satisfy TS
+// -----------------------
+// 🧱 Fallback Objects
+// -----------------------
 const emptyDealer: Dealer = {
   login_nr: null,
   name: null,
@@ -90,10 +92,103 @@ export async function POST(req: NextRequest) {
     const { type, from, to, search } = await req.json();
     const supabase = await getSupabaseServer();
 
-    // -------------------------------
-    // 🔍 FILTERS + Query
-    // -------------------------------
-    const query = supabase
+    const searchKey =
+      typeof search === "string" ? search.trim() : "";
+
+    // ------------------------------------------
+    // 1) Header-Filter (identisch zur UI)
+    // ------------------------------------------
+    let headerQuery = supabase
+      .from("v_submission_history_header")
+      .select("submission_id, source, created_at, display_id")
+      .eq("typ", type);
+
+    if (from) {
+      headerQuery = headerQuery.gte("created_at", `${from}T00:00:00`);
+    }
+    if (to) {
+      headerQuery = headerQuery.lte("created_at", `${to}T23:59:59`);
+    }
+
+    if (searchKey) {
+      headerQuery = headerQuery.or(
+        `display_id.ilike.%${searchKey}%,dealer_name.ilike.%${searchKey}%,product_names.ilike.%${searchKey}%`
+      );
+    }
+
+    headerQuery = headerQuery.order("created_at", { ascending: false });
+
+    const { data: headerRows, error: headerError } = await headerQuery;
+    if (headerError) throw headerError;
+
+    // ------------------------------------------
+    // 2) Nur echte Submissions exportieren
+    // ------------------------------------------
+    const submissionIds: number[] = (headerRows ?? [])
+      .filter((r: any) => r?.source === "submission")
+      .map((r: any) => Number(r.submission_id))
+      .filter((n): n is number => Number.isFinite(n));
+
+    // ------------------------------------------
+    // 3) Leerer Export → leere Excel-Struktur
+    // ------------------------------------------
+    if (submissionIds.length === 0) {
+      const ws = XLSX.utils.json_to_sheet([
+        {
+          ID: "",
+          Datum: "",
+          Typ: "",
+          Status: "",
+          Kommentar: "",
+          Bestellweg: "",
+          Lieferdatum_gewuenscht: "",
+          Project_ID: "",
+          Händler: "",
+          Login: "",
+          Kontaktperson: "",
+          Mail: "",
+          Strasse: "",
+          PLZ: "",
+          Ort: "",
+          Land: "",
+          Produkt: "",
+          EAN: "",
+          Brand: "",
+          Gruppe: "",
+          Kategorie: "",
+          Menge: "",
+          Preis: "",
+          Zwischensumme: "",
+          Netto_Retail: "",
+          Invest: "",
+          Marge_Neu: "",
+          POI_Neu: "",
+          Seriennummer: "",
+          Kommentar_Item: "",
+        },
+      ]);
+
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, "Export");
+
+      const buffer = Buffer.from(
+        XLSX.write(wb, { type: "array", bookType: "xlsx" })
+      );
+
+      return new NextResponse(buffer, {
+        status: 200,
+        headers: {
+          "Content-Type":
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+          "Content-Disposition": `attachment; filename="${type}_export.xlsx"`,
+        },
+      });
+    }
+
+    // ------------------------------------------
+    // 4) Detail-Daten laden
+    // ------------------------------------------
+    const { data, error } = await supabase
       .from("submissions")
       .select(`
         submission_id,
@@ -140,53 +235,26 @@ export async function POST(req: NextRequest) {
           )
         )
       `)
-      .eq("typ", type)
+      .in("submission_id", submissionIds)
       .order("created_at", { ascending: false });
 
-    if (from) query.gte("created_at", `${from}T00:00:00`);
-    if (to) query.lte("created_at", `${to}T23:59:59`);
-
-    const { data, error } = await query;
     if (error) throw error;
 
-    let submissions: Submission[] = data ?? [];
+    const submissions = (data ?? []) as Submission[];
 
-    // -------------------------------
-    // 🔍 SEARCH
-    // -------------------------------
-    if (search && search.trim() !== "") {
-      const s = search.toLowerCase();
-
-      submissions = submissions.filter((sb) => {
-        const d = sb.dealers ?? emptyDealer;
-        const dealerName = d.store_name || d.name || "";
-
-        const matchesDealer = dealerName.toLowerCase().includes(s);
-
-        const matchesItem = sb.submission_items?.some((i) =>
-          (i.products?.product_name ?? "").toLowerCase().includes(s)
-        );
-
-        return matchesDealer || matchesItem;
-      });
-    }
-
-    // -------------------------------
-    // 🔄 BUILD EXCEL ROWS
-    // -------------------------------
+    // ------------------------------------------
+    // 5) Excel-Zeilen bauen (Item-flat)
+    // ------------------------------------------
     const rows: any[] = [];
 
     for (const s of submissions) {
       const dealer = s.dealers ?? emptyDealer;
       const dealerName =
         dealer.store_name || dealer.name || `Händler ${s.dealer_id ?? "-"}`;
-      const loginNr = dealer.login_nr ?? "-";
-
-      const excelDate = s.created_at ? new Date(s.created_at) : new Date();
 
       const header = {
         ID: s.submission_id,
-        Datum: excelDate,
+        Datum: s.created_at ? new Date(s.created_at) : "",
         Typ: s.typ ?? "",
         Status: s.status ?? "",
         Kommentar: s.kommentar ?? s.order_comment ?? "",
@@ -195,7 +263,7 @@ export async function POST(req: NextRequest) {
         Project_ID: s.project_id ?? "",
 
         Händler: dealerName,
-        Login: loginNr,
+        Login: dealer.login_nr ?? "",
         Kontaktperson: dealer.contact_person ?? "",
         Mail: dealer.email ?? "",
         Strasse: dealer.street ?? "",
@@ -229,66 +297,39 @@ export async function POST(req: NextRequest) {
 
       for (const item of items) {
         const p = item.products ?? emptyProduct;
-
         const qty = Number(item.menge ?? 0);
         const price = Number(item.preis ?? 0);
 
         rows.push({
           ...header,
-
           Produkt: p.product_name ?? "",
           EAN: p.ean ?? "",
           Brand: p.brand ?? "",
           Gruppe: p.gruppe ?? "",
           Kategorie: p.category ?? "",
-
           Menge: qty,
           Preis: price,
           Zwischensumme: +(qty * price).toFixed(2),
-
           Netto_Retail: item.netto_retail ?? "",
           Invest: item.invest ?? "",
           Marge_Neu: item.marge_neu ?? "",
           POI_Neu: item.calc_price_on_invoice ?? "",
-
           Seriennummer: item.serial ?? "",
           Kommentar_Item: item.comment ?? "",
         });
       }
     }
 
-    // -------------------------------
-    // 📘 BUILD EXCEL
-    // -------------------------------
+    // ------------------------------------------
+    // 6) Excel bauen
+    // ------------------------------------------
     const ws = XLSX.utils.json_to_sheet(rows);
-
-    if (rows.length > 0) {
-      ws["!cols"] = Object.keys(rows[0]).map((key) => ({
-        wch:
-          Math.max(
-            key.length,
-            ...rows.map((r) => String(r[key] ?? "").length)
-          ) + 2,
-      }));
-    }
-
-    rows.forEach((r, i) => {
-      const cell = ws[`B${i + 2}`];
-      if (cell && cell.v instanceof Date) {
-        cell.t = "d";
-        cell.z = "dd.mm.yyyy hh:mm";
-      }
-    });
-
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Export");
 
-    const arrayBuffer = XLSX.write(wb, {
-      type: "array",
-      bookType: "xlsx",
-    });
-
-    const buffer = Buffer.from(arrayBuffer);
+    const buffer = Buffer.from(
+      XLSX.write(wb, { type: "array", bookType: "xlsx" })
+    );
 
     return new NextResponse(buffer, {
       status: 200,
