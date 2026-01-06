@@ -9,16 +9,17 @@ import type { FormType } from "@/types/formTypes";
 import Link from "next/link";
 import { useSeedProjectCart } from "@/app/(dealer)/hooks/useSeedProjectCart";
 import { ProjectAlreadyOrderedDialog } from "@/app/(dealer)/components/dialogs/ProjectAlreadyOrderedDialog";
+import { useI18n } from "@/lib/i18n/I18nProvider";
 
 
 
 
 
-function StatusBadge({ status }: { status: string | null }) {
+function StatusBadge({ label, status }: { label: string; status: string | null }) {
   if (status === "approved" || status === "csv") {
     return (
       <span className="px-2 py-0.5 rounded bg-green-100 text-green-700 text-xs font-medium">
-        approved
+        {label}
       </span>
     );
   }
@@ -26,14 +27,14 @@ function StatusBadge({ status }: { status: string | null }) {
   if (status === "rejected") {
     return (
       <span className="px-2 py-0.5 rounded bg-gray-200 text-gray-600 text-xs font-medium">
-        rejected
+        {label}
       </span>
     );
   }
 
   return (
     <span className="px-2 py-0.5 rounded bg-blue-100 text-blue-700 text-xs font-medium">
-      pending
+      {label}
     </span>
   );
 }
@@ -90,6 +91,7 @@ export default function RecentActivityPanel({
   excelLast = 100,
   formType,
 }: Props) {
+  const { t } = useI18n();
   const supabase = getSupabaseBrowser();
   const theme = useTheme();
   const pathname = usePathname();
@@ -297,8 +299,9 @@ export default function RecentActivityPanel({
     <div className="rounded-lg border bg-white p-3 shadow-sm relative">
       <div className="mb-2 flex items-center justify-between">
         <h2 className="font-semibold text-gray-800 text-sm">
-          Letzte {formType === "verkauf" ? "Verkaufsmeldungen" : "Aktivitäten"}
+          {t(`history.header.${formType}`)}
         </h2>
+
 
         <div className="flex items-center gap-2 shrink-0">
           <button
@@ -311,7 +314,7 @@ export default function RecentActivityPanel({
             ) : (
               <FileSpreadsheet className="w-3.5 h-3.5" />
             )}
-            Excel
+            {t("history.actions.excel")}
           </button>
 
           <Link
@@ -319,7 +322,7 @@ export default function RecentActivityPanel({
             className={`inline-flex items-center gap-1 text-xs px-2 py-1 border rounded hover:bg-gray-50 ${theme.color}`}
           >
             <ChevronRight className="w-3.5 h-3.5" />
-            Verlauf
+            {t("history.actions.viewAll")}
           </Link>
 
 
@@ -329,10 +332,10 @@ export default function RecentActivityPanel({
 
       {loading ? (
         <div className="py-4 text-sm text-gray-500 flex items-center gap-2">
-          <Loader2 className="w-4 h-4 animate-spin" /> lädt …
+          <Loader2 className="w-4 h-4 animate-spin" /> {t("activity.loading")}
         </div>
       ) : visible.length === 0 ? (
-        <p className="text-sm text-gray-500">Keine Daten gefunden.</p>
+        <p className="text-sm text-gray-500">{t("activity.empty")}</p>
       ) : (
         <ul className="space-y-1.5">
           {visible.map((r) => {
@@ -365,14 +368,18 @@ export default function RecentActivityPanel({
                     <span className="text-gray-500">• {fmtDate(r.created_at)}</span>
 
                     <div className="flex items-center gap-2 ml-2">
-                      <StatusBadge status={r.status} />
+                      <StatusBadge
+                        status={r.status}
+                        label={t(`activity.status.${r.status ?? "unknown"}`)}
+                      />
+
 
                       {r.typ === "projekt" && r.status === "approved" && r.project_id && (
                       <button
                         onClick={() => startFromProject(r.project_id!)}
                         className="px-2 py-0.5 rounded border border-purple-300 text-purple-700 text-xs hover:bg-purple-50"
                       >
-                        Projekt bestellen
+                        {t("checkout.page.title")}
                       </button>
 
                       )}
@@ -386,7 +393,7 @@ export default function RecentActivityPanel({
                       className={`inline-flex items-center gap-1 text-xs px-2 py-1 border rounded hover:bg-gray-50 ${theme.color}`}
                     >
                       <FileText className="w-3.5 h-3.5" />
-                      PDF
+                      {t("history.actions.pdfTitle")}
                     </button>
                   )}
                 </div>

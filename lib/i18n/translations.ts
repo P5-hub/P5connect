@@ -1,404 +1,449 @@
-import { project } from "./de/project";
-export type Lang = "de" | "en" | "fr" | "it" | "rm";
+  import { project } from "./de/project";
+  export type Lang = "de" | "en" | "fr" | "it" | "rm";
 
-export const translationsByLang = {
-  /* 🇩🇪 Deutsch */
-de: {
-  nav: {
-    order: "Bestellung",
-    sales: "Verkauf",
-    project: "Projekt",
-    support: "Support",
-    instantDiscount: "Sofortrabatt",
-    info: "Infos",
-    password: "Passwort ändern",
-    logout: "Logout",
-    dashboard: "P5connect Dashboard",
-    dashboardTitle: "connect Dashboard",
-    backToDashboard: "Zurück zum Dashboard",
-  },
+  export const translationsByLang = {
+    /* 🇩🇪 Deutsch */
+  de: {
+    nav: {
+      order: "Bestellung",
+      sales: "Verkauf",
+      project: "Projekt",
+      support: "Support",
+      instantDiscount: "Sofortrabatt",
+      info: "Infos",
+      password: "Passwort ändern",
+      logout: "Logout",
+      dashboard: "P5connect Dashboard",
+      dashboardTitle: "connect Dashboard",
+      backToDashboard: "Zurück zum Dashboard",
+    },
 
-  passwordForgot: "Passwort vergessen?",
+    passwordForgot: "Passwort vergessen?",
 
-    dealer: {
-      infoTitle: "📋 Händlerinformationen",
-      shop: "Shop",
-      company: "Firma",
-      address: "Adresse",
-      city: "PLZ / Ort",
-      email: "E-Mail",
-      phone: "Telefon",
-      loading: "⏳ Händerdaten werden geladen...",
-      notfound: "❌ Händler nicht gefunden",
+      dealer: {
+        infoTitle: "📋 Händlerinformationen",
+        shop: "Shop",
+        company: "Firma",
+        address: "Adresse",
+        city: "PLZ / Ort",
+        email: "E-Mail",
+        phone: "Telefon",
+        loading: "⏳ Händerdaten werden geladen...",
+        notfound: "❌ Händler nicht gefunden",
+      },
+
+      
+    project: {
+      "page.title": "Projekt Preis anfragen",
+      title: "Projektinformationen",
+      type: "Projekt-Typ",
+      name: "Projektname oder Projektnummer",
+      customer: "Endkunde / Kunde",
+      location: "Standort (z. B. Zürich, Bern)",
+      start: "Startdatum",
+      end: "Enddatum",
+      comment: "Kommentar oder Beschreibung",
+      next: "Weiter zu den Produkten",
+
+      cart: {
+        title: "Projektanfrage absenden",
+        attachedFiles: "Angehängte Dateien",
+        noProducts: "Noch keine Produkte im Projekt.",
+        total: "Gesamt",
+        totalPrice: "Projektpreis total",
+        totalSavings: "Gesamtersparnis",
+
+        submit: "Projekt absenden",
+        sending: "Wird gesendet…",
+        continue: "Weiter konfigurieren",
+
+        success: {
+          title: "🎉 Projekt gespeichert!",
+          close: "Schließen",
+        },
+
+        validation: {
+          noDealer: "❌ Kein Händler gefunden – bitte neu einloggen.",
+          noProducts: "Keine Produkte im Projekt.",
+          missingDistributor: "❌ Bitte Haupt-Distributor auswählen.",
+          invalidDate: "Bitte gültiges Lieferdatum wählen (YYYY-MM-DD).",
+          missingDisti: "❌ Distributor fehlt",
+          missingSource: "❌ Anbieter fehlt",
+        },
+      },
     },
 
     
-  project: {
-    "page.title": "Projekt Preis anfragen",
-    title: "Projektinformationen",
-    type: "Projekt-Typ",
-    name: "Projektname oder Projektnummer",
-    customer: "Endkunde / Kunde",
-    location: "Standort (z. B. Zürich, Bern)",
-    start: "Startdatum",
-    end: "Enddatum",
-    comment: "Kommentar oder Beschreibung",
-    next: "Weiter zu den Produkten",
-
-    cart: {
-      title: "Projektanfrage absenden",
-      attachedFiles: "Angehängte Dateien",
-      noProducts: "Noch keine Produkte im Projekt.",
-      total: "Gesamt",
-      totalPrice: "Projektpreis total",
-      totalSavings: "Gesamtersparnis",
-
-      submit: "Projekt absenden",
-      sending: "Wird gesendet…",
-      continue: "Weiter konfigurieren",
-
-      success: {
-        title: "🎉 Projekt gespeichert!",
-        close: "Schließen",
+      product: {
+        search: "🔍 Suche nach Artikel, Name oder EAN...",
+        groups: { all: "Alle Gruppen" },
+        categories: { all: "Alle Kategorien" },
+        sort: {
+          sony_article_asc: "Artikelnummer (aufsteigend)",
+          sony_article_desc: "Artikelnummer (absteigend)",
+          name_asc: "Name (A–Z)",
+          name_desc: "Name (Z–A)",
+        },
+        reset: "Zurücksetzen",
       },
-
-      validation: {
-        noDealer: "❌ Kein Händler gefunden – bitte neu einloggen.",
-        noProducts: "Keine Produkte im Projekt.",
-        missingDistributor: "❌ Bitte Haupt-Distributor auswählen.",
-        invalidDate: "Bitte gültiges Lieferdatum wählen (YYYY-MM-DD).",
-        missingDisti: "❌ Distributor fehlt",
-        missingSource: "❌ Anbieter fehlt",
-      },
-    },
-  },
-
-  
-    product: {
-      search: "🔍 Suche nach Artikel, Name oder EAN...",
-      groups: { all: "Alle Gruppen" },
-      categories: { all: "Alle Kategorien" },
-      sort: {
-        sony_article_asc: "Artikelnummer (aufsteigend)",
-        sony_article_desc: "Artikelnummer (absteigend)",
-        name_asc: "Name (A–Z)",
-        name_desc: "Name (Z–A)",
-      },
-      reset: "Zurücksetzen",
-    },
-    support: {
-      "page.title": "Support beantragen",
-      title: "Support-Anfrage",
-      type: {
-        sellout: "Sell-Out Support",
-        werbung: "Werbekostenbeteiligung",
-        event: "Eventbeteiligung",
-        sonstiges: "Sonstiges",
-      },
-      comment: "Kommentar (optional)",
-      quantity: "Menge",
-      amountperunit: "Supportbetrag pro Stück (CHF)",
-      add: "Hinzufügen",
-      submit: "Support prüfen & absenden",
-      submitbutton: "📩 Support absenden",
-      sending: "⏳ Sende...",
-      success: "✅ Support-Antrag gespeichert",
-      close: "Schließen",
-      emptycart: "Noch keine Produkte ausgewählt.",
-      invoiceUpload: "Rechnung / Beleg hochladen (optional)",
-      remove: "Entfernen",
-      product: { unknown: "Unbekanntes Produkt" },
-      error: {
-        nodealer: "Kein Händler gefunden – bitte neu einloggen.",
-        noproducts: "Bitte mindestens ein Produkt hinzufügen.",
-        nouser: "Kein eingeloggter Benutzer gefunden.",
-        save: "Fehler beim Speichern.",
-      },
-    },
-    admin: {
-      promotions: "Promotionen",
-      instantDiscount: "Sofortrabatt",
-      projects: "Projekte",
-      orders: "Bestellungen",
-      support: "Support",
-      monthlyOffers: "Monatsaktionen",
-      reports: "Berichte / Datenauswertung",
-      info: "Wichtige Infos",
-      actAsDealer: "Als Händler agieren",
-    },
-
-    /* 🔵 Bestpreis-Liste */
-    bestprice: {
-      "page.title": "Bestellung zum Bestpreis",
-      heading: "Bestellung zum Bestpreis",
-      addToCart: "In den Warenkorb",
-    },
-
-    /* 💰 Preise / Marktpreise */
-    pricing: {
-      uvpGross: "UVP (brutto)",
-      ekNormal: "EK normal",
-      marketPricesCurrent: "Marktpreise (aktuell)",
-      notAvailable: "nicht verfügbar",
-      priceNet: "Preis (CHF, exkl. MwSt & VRG)",
-      bestPrice: "Günstigster Preis (inkl. MwSt.)",
-    },
-
-    /* 📊 Verkauf melden (Seite + Modal + CSV) */
-    sales: {
-      "page.title": "Verkaufsdaten melden",
-      heading: "Verkaufsdaten melden",
-      manual: "Manuell melden",
-      upload: "CSV / Excel Upload",
-      uploadTemplate: "CSV-Vorlage",
-      next: "Weiter",
-      back: "Zurück",
-      clearCsv: "CSV leeren",
-      modalTitle: "Verkaufsdaten melden",
-      quantity: "Anzahl",
-      priceOptional: "Preis (optional)",
-      date: "Datum",
-      inhouseShare: "Inhouse Share (%)",
-      calendarWeek: "Kalenderwoche",
-      noteForAllProducts: "Gilt automatisch für alle Produkte in dieser Meldung.",
-      noteForUpload: "Gilt automatisch für alle Datensätze im Upload.",
-      totalQuantity: "Gesamtmenge",
-      totalRevenue: "Gesamtumsatz",
-      reportSale: "Verkauf melden",
-    },
-
-    /* 📁 Upload-Komponenten */
-    upload: {
-      dropzoneText: "Datei hierher ziehen oder auswählen",
-      chooseFile: "Datei wählen",
-    },
-
-    /* ⚡ Sofortrabatt / Instant Discount */
-    instant: {
-      "page.title": "Sofortrabatt beantragen",
-      heading: "Sofortrabatt beantragen",
-      step1: "1. TV auswählen",
-      step2: "2. Rabatt-Level wählen",
-      step3: "3. Soundbar auswählen",
-      levelSingle: "Single (nur TV)",
-      levelDouble: "Double (TV + Soundbar)",
-      levelTriple: "Triple (TV + Soundbar + Subwoofer)",
-      addToCart: "In den Warenkorb",
-    },
-
-    /* ℹ️ Support & Kontaktinformationen */
-  infos: {
-      title: "Support & Kontaktinformationen",
-
       support: {
-        title: "Technischer Support",
-        hours: "Montag – Freitag, 09:00–18:00 Uhr",
-        phone: "Telefon",
-        email: "E-Mail",
-        moreHelp: "Weitere Hilfe direkt bei Sony:",
+        "page.title": "Support beantragen",
+        title: "Support-Anfrage",
+        type: {
+          sellout: "Sell-Out Support",
+          werbung: "Werbekostenbeteiligung",
+          event: "Eventbeteiligung",
+          sonstiges: "Sonstiges",
+        },
+        comment: "Kommentar (optional)",
+        quantity: "Menge",
+        amountperunit: "Supportbetrag pro Stück (CHF)",
+        add: "Hinzufügen",
+        submit: "Support prüfen & absenden",
+        submitbutton: "📩 Support absenden",
+        sending: "⏳ Sende...",
+        success: "✅ Support-Antrag gespeichert",
+        close: "Schließen",
+        emptycart: "Noch keine Produkte ausgewählt.",
+        invoiceUpload: "Rechnung / Beleg hochladen (optional)",
+        remove: "Entfernen",
+        product: { unknown: "Unbekanntes Produkt" },
+        error: {
+          nodealer: "Kein Händler gefunden – bitte neu einloggen.",
+          noproducts: "Bitte mindestens ein Produkt hinzufügen.",
+          nouser: "Kein eingeloggter Benutzer gefunden.",
+          save: "Fehler beim Speichern.",
+        },
+      },
+      admin: {
+        promotions: "Promotionen",
+        instantDiscount: "Sofortrabatt",
+        projects: "Projekte",
+        orders: "Bestellungen",
+        support: "Support",
+        monthlyOffers: "Monatsaktionen",
+        reports: "Berichte / Datenauswertung",
+        info: "Wichtige Infos",
+        actAsDealer: "Als Händler agieren",
       },
 
-      news: {
-        title: "Newsletter Archiv",
-        openWeb: "Newsletter im Web öffnen",
-
-        jan2025: {
-          title: "Newsletter Januar 2025",
-          desc: "Die wichtigsten Informationen & Aktionen im Januar.",
-        },
-
-        feb2025: {
-          title: "Newsletter Februar 2025",
-          desc: "Produktnews, Aktionen und Updates für den Februar.",
-        },
+      /* 🔵 Bestpreis-Liste */
+      bestprice: {
+        "page.title": "Bestellung zum Bestpreis",
+        heading: "Bestellung zum Bestpreis",
+        addToCart: "In den Warenkorb",
       },
 
+      /* 💰 Preise / Marktpreise */
+      pricing: {
+        uvpGross: "UVP (brutto)",
+        ekNormal: "EK normal",
+        marketPricesCurrent: "Marktpreise (aktuell)",
+        notAvailable: "nicht verfügbar",
+        priceNet: "Preis (CHF, exkl. MwSt & VRG)",
+        bestPrice: "Günstigster Preis (inkl. MwSt.)",
+      },
+
+      /* 📊 Verkauf melden (Seite + Modal + CSV) */
       sales: {
-        internal: "Verkauf Innendienst",
-        kam: "Ansprechpartner Verkauf",
+        "page.title": "Verkaufsdaten melden",
+        heading: "Verkaufsdaten melden",
+        manual: "Manuell melden",
+        upload: "CSV / Excel Upload",
+        uploadTemplate: "CSV-Vorlage",
+        next: "Weiter",
+        back: "Zurück",
+        clearCsv: "CSV leeren",
+        modalTitle: "Verkaufsdaten melden",
+        quantity: "Anzahl",
+        priceOptional: "Preis (optional)",
+        date: "Datum",
+        inhouseShare: "Inhouse Share (%)",
+        calendarWeek: "Kalenderwoche",
+        noteForAllProducts: "Gilt automatisch für alle Produkte in dieser Meldung.",
+        noteForUpload: "Gilt automatisch für alle Datensätze im Upload.",
+        totalQuantity: "Gesamtmenge",
+        totalRevenue: "Gesamtumsatz",
+        reportSale: "Verkauf melden",
       },
 
-      downloads: {
-        title: "Downloads",
-        sertronics: "Anmeldung Sertronics",
+      /* 📁 Upload-Komponenten */
+      upload: {
+        dropzoneText: "Datei hierher ziehen oder auswählen",
+        chooseFile: "Datei wählen",
       },
+
+      /* ⚡ Sofortrabatt / Instant Discount */
+      instant: {
+        "page.title": "Sofortrabatt beantragen",
+        heading: "Sofortrabatt beantragen",
+        step1: "1. TV auswählen",
+        step2: "2. Rabatt-Level wählen",
+        step3: "3. Soundbar auswählen",
+        levelSingle: "Single (nur TV)",
+        levelDouble: "Double (TV + Soundbar)",
+        levelTriple: "Triple (TV + Soundbar + Subwoofer)",
+        addToCart: "In den Warenkorb",
+      },
+
+      /* ℹ️ Support & Kontaktinformationen */
+    infos: {
+        title: "Support & Kontaktinformationen",
+
+        support: {
+          title: "Technischer Support",
+          hours: "Montag – Freitag, 09:00–18:00 Uhr",
+          phone: "Telefon",
+          email: "E-Mail",
+          moreHelp: "Weitere Hilfe direkt bei Sony:",
+        },
+
+        news: {
+          title: "Newsletter Archiv",
+          openWeb: "Newsletter im Web öffnen",
+
+          jan2025: {
+            title: "Newsletter Januar 2025",
+            desc: "Die wichtigsten Informationen & Aktionen im Januar.",
+          },
+
+          feb2025: {
+            title: "Newsletter Februar 2025",
+            desc: "Produktnews, Aktionen und Updates für den Februar.",
+          },
+        },
+
+        sales: {
+          internal: "Verkauf Innendienst",
+          kam: "Ansprechpartner Verkauf",
+        },
+
+        downloads: {
+          title: "Downloads",
+          sertronics: "Anmeldung Sertronics",
+        },
+      },
+
+
+
+
+      /* 🛒 Bestell-Overlay / Checkout */
+      checkout: {
+        "page.title": "Bestellung zum Bestpreis",
+        mainDistributor: "Haupt-Distributor",
+        defaultVia: "Standardmäßig über",
+        orderDetails: "Bestellangaben",
+        delivery: "Lieferung",
+        deliveryDateOptional: "Lieferdatum (optional)",
+        comment: "Wichtige Infos zur Bestellung (Kommentar)",
+        referenceNumber: "Ihre Bestell-/Referenz-Nr.",
+        differentDeliveryAddress: "Abweichende Lieferadresse / Direktlieferung",
+        pleaseSelect: "Bitte auswählen",
+        cheapestSupplier: "Günstigster Anbieter",
+        cheapestPrice: "Günstigster Preis (inkl. MwSt.)",
+        summaryTotal: "Gesamt",
+        summaryTotalPrice: "Gesamtpreis",
+        unitPiece: "Stück",
+        submitOrder: "Bestellung absenden",
+      },
+      productCard: {
+        unknownModel: "Unbekanntes Modell",
+        ean: "EAN",
+        mainDistributor: "Haupt-Distributor:",
+        distributorRequired: "Distributor (Pflicht)",
+        distributorSelect: "Bitte wählen",
+        uvpGross: "UVP (brutto)",
+        ekNormal: "EK normal",
+        marketPricesCurrent: "Marktpreise (aktuell):",
+        loading: "lädt…",
+        notAvailable: "nicht verfügbar",
+        lastChecked: "Stand:",
+        amount: "Anzahl",
+        priceNet: "Preis (CHF, exkl. MwSt & VRG)",
+        saving: "gespart",
+        added: "Produkt hinzugefügt",
+        addToCart: "In den Warenkorb"
+      },
+      cart: {
+      "button.cart": "Warenkorb",
+      "button.items": "({count})",
+
+      "title.cart": "Bestellung zum Bestpreis",
+
+      "dealer.customerNumber": "Kd-Nr.",
+      "dealer.contactPerson": "AP",
+      "dealer.phone": "Tel.",
+      "dealer.kam": "KAM",
+
+      "success.saved": "Bestellung gespeichert!",
+      "success.close": "Schließen",
+
+      "empty.noProducts": "Noch keine Produkte ausgewählt.",
+
+      "mainDistributor.title": "Haupt-Distributor",
+      "mainDistributor.placeholder": "Bitte auswählen",
+      "mainDistributor.defaultHint": "Standardmäßig über ElectronicPartner Schweiz AG.",
+
+      "orderInfo.title": "Bestellangaben",
+      "orderInfo.delivery": "Lieferung",
+      "orderInfo.delivery.sofort": "Sofort",
+      "orderInfo.delivery.termin": "Zum Termin",
+      "orderInfo.deliveryDate": "Lieferdatum (optional)",
+      "orderInfo.comment": "Wichtige Infos zur Bestellung (Kommentar)",
+      "orderInfo.comment.placeholder": "z. B. 'Muss zwingend bis 15.10. geliefert werden'…",
+      "orderInfo.referenceNumber": "Ihre Bestell-/Referenz-Nr.",
+      "orderInfo.reference.placeholder": "z. B. 45001234",
+
+      "altDelivery.title": "Abweichende Lieferadresse / Direktlieferung",
+      "altDelivery.name": "Name / Firma",
+      "altDelivery.street": "Straße / Nr.",
+      "altDelivery.zip": "PLZ",
+      "altDelivery.city": "Ort",
+      "altDelivery.country": "Land",
+      "altDelivery.phone": "Telefon (optional)",
+      "altDelivery.email": "E-Mail (optional)",
+
+      "product.ean": "EAN",
+      "product.remove": "Entfernen",
+      "product.amount": "Anzahl",
+      "product.price": "Preis (CHF)",
+      "product.normalPrice": "EK normal",
+      "product.saved": "{chf} CHF gespart ({percent}%)",
+      "product.special": "Spezialvertrieb",
+
+      "streetprice.bestProvider": "Günstigster Anbieter",
+      "streetprice.provider.other": "Andere",
+      "streetprice.providerName": "Bitte Namen des Anbieters angeben *",
+      "streetprice.providerName.placeholder": "Name des Händlers",
+      "streetprice.providerName.hint": "Pflichtfeld bei Auswahl von „Andere“ — bitte genaue Händlerangabe.",
+      "streetprice.bestPriceGross": "Günstigster Preis (inkl. MwSt.)",
+
+      "product.disti.required": "Distributor (Pflichtfeld)",
+      "product.disti.placeholder": "Bitte auswählen",
+
+      "footer.total": "Gesamt:",
+      "footer.totalPieces": "{count} Stück",
+      "footer.totalPrice": "Gesamtpreis:",
+      "footer.savings": "Gesamtersparnis: {amount} CHF",
+      "footer.submit": "Bestellung absenden",
+      "footer.sending": "⏳ Sende…",
+
+      "toast.noDealer": "❌ Kein Händler gefunden – bitte neu einloggen.",
+      "toast.needDistributor": "❌ Bitte Haupt-Distributor auswählen.",
+      "toast.needValidDate": "Bitte ein gültiges Lieferdatum (YYYY-MM-DD) wählen.",
+      "toast.invalidQuantity.title": "Ungültige Eingabe",
+      "toast.invalidQuantity.text": "Bitte gültige Menge für {product} eingeben!",
+      "toast.missingDisti.title": "❌ Distributor fehlt",
+      "toast.missingDisti.text": "Bitte Distributor für {product} auswählen.",
+      "toast.missingSourceName.title": "❌ Anbieter fehlt",
+      "toast.missingSourceName.text": "Bitte Händlernamen für \"Andere\" bei {product} angeben.",
+      "toast.unknownDisti.title": "❌ Unbekannter Distributor-Code",
+      "toast.unknownDisti.text": "Distributor \"{code}\" konnte nicht gefunden werden.",
+      "toast.success.title": "✅ Bestellung gespeichert",
+      "toast.success.text": "Die Bestellung wurde erfolgreich übermittelt.",
+      "toast.error.title": "❌ Fehler beim Speichern",
+      "toast.error.text": "Unbekannter Fehler",
     },
-
-
-
-
-    /* 🛒 Bestell-Overlay / Checkout */
-    checkout: {
-      "page.title": "Bestellung zum Bestpreis",
-      mainDistributor: "Haupt-Distributor",
-      defaultVia: "Standardmäßig über",
-      orderDetails: "Bestellangaben",
-      delivery: "Lieferung",
-      deliveryDateOptional: "Lieferdatum (optional)",
-      comment: "Wichtige Infos zur Bestellung (Kommentar)",
-      referenceNumber: "Ihre Bestell-/Referenz-Nr.",
-      differentDeliveryAddress: "Abweichende Lieferadresse / Direktlieferung",
-      pleaseSelect: "Bitte auswählen",
-      cheapestSupplier: "Günstigster Anbieter",
-      cheapestPrice: "Günstigster Preis (inkl. MwSt.)",
-      summaryTotal: "Gesamt",
-      summaryTotalPrice: "Gesamtpreis",
-      unitPiece: "Stück",
-      submitOrder: "Bestellung absenden",
+      /* E-Mail übersetzer*/
+      /* 🇩🇪 E-Mail Labels → müssen HIER rein! */
+    email: {
+        firmendaten: "Firmendaten",
+        ansprechperson: "Ansprechperson",
+        email: "E-Mail",
+        telefon: "Telefon",
+        kundennr: "Kunden-Nr.",
+        kam: "KAM",
+        kam_email: "KAM E-Mail",
+        lieferoption: "Lieferoption",
+        lieferdatum: "Geplantes Lieferdatum",
+        lieferadresse_warn: "⚠️ Achtung: Abweichende Lieferadresse (Direktlieferung)",
+        lieferadresse: "Lieferadresse",
+        kommentar: "Kommentar des Händlers",
+        bestellpositionen: "Bestellpositionen",
+        bestellweg: "Bestellweg",
+        haendler_referenz: "Ihre Händler-Referenz",
+        bestellnr: "P5 Bestell-Nr.",
+        delivery_immediately: "Sofort",
+        delivery_scheduled: "Geplante Lieferung",
     },
-    productCard: {
-      unknownModel: "Unbekanntes Modell",
-      ean: "EAN",
-      mainDistributor: "Haupt-Distributor:",
-      distributorRequired: "Distributor (Pflicht)",
-      distributorSelect: "Bitte wählen",
-      uvpGross: "UVP (brutto)",
-      ekNormal: "EK normal",
-      marketPricesCurrent: "Marktpreise (aktuell):",
-      loading: "lädt…",
-      notAvailable: "nicht verfügbar",
-      lastChecked: "Stand:",
-      amount: "Anzahl",
-      priceNet: "Preis (CHF, exkl. MwSt & VRG)",
-      saving: "gespart",
-      added: "Produkt hinzugefügt",
-      addToCart: "In den Warenkorb"
+    login: {
+      welcome: "Willkommen beim Login",
+      loginNr: "Login-Nummer",
+      loginNrPlaceholder: "Ihre Login-Nummer eingeben",
+      password: "Passwort",
+      passwordPlaceholder: "Passwort eingeben",
+      login: "Einloggen",
+      error: {
+        unknownLogin: "Unbekannte Login-Nummer.",
+        noEmail: "Für diesen Händler ist keine E-Mail hinterlegt.",
+        failed: "Login fehlgeschlagen. Bitte Login-Nr. und Passwort prüfen.",
+      },
+      footer: "Zugang nur für registrierte P5 Partner.",
     },
-    cart: {
-    "button.cart": "Warenkorb",
-    "button.items": "({count})",
+  /*passwortchange*/
+  auth: {
+    reset: {
+      title: "Neues Passwort setzen",
+      newPassword: "Neues Passwort",
+      confirm: "Passwort bestätigen",
+      submit: "Passwort ändern",
 
-    "title.cart": "Bestellung zum Bestpreis",
-
-    "dealer.customerNumber": "Kd-Nr.",
-    "dealer.contactPerson": "AP",
-    "dealer.phone": "Tel.",
-    "dealer.kam": "KAM",
-
-    "success.saved": "Bestellung gespeichert!",
-    "success.close": "Schließen",
-
-    "empty.noProducts": "Noch keine Produkte ausgewählt.",
-
-    "mainDistributor.title": "Haupt-Distributor",
-    "mainDistributor.placeholder": "Bitte auswählen",
-    "mainDistributor.defaultHint": "Standardmäßig über ElectronicPartner Schweiz AG.",
-
-    "orderInfo.title": "Bestellangaben",
-    "orderInfo.delivery": "Lieferung",
-    "orderInfo.delivery.sofort": "Sofort",
-    "orderInfo.delivery.termin": "Zum Termin",
-    "orderInfo.deliveryDate": "Lieferdatum (optional)",
-    "orderInfo.comment": "Wichtige Infos zur Bestellung (Kommentar)",
-    "orderInfo.comment.placeholder": "z. B. 'Muss zwingend bis 15.10. geliefert werden'…",
-    "orderInfo.referenceNumber": "Ihre Bestell-/Referenz-Nr.",
-    "orderInfo.reference.placeholder": "z. B. 45001234",
-
-    "altDelivery.title": "Abweichende Lieferadresse / Direktlieferung",
-    "altDelivery.name": "Name / Firma",
-    "altDelivery.street": "Straße / Nr.",
-    "altDelivery.zip": "PLZ",
-    "altDelivery.city": "Ort",
-    "altDelivery.country": "Land",
-    "altDelivery.phone": "Telefon (optional)",
-    "altDelivery.email": "E-Mail (optional)",
-
-    "product.ean": "EAN",
-    "product.remove": "Entfernen",
-    "product.amount": "Anzahl",
-    "product.price": "Preis (CHF)",
-    "product.normalPrice": "EK normal",
-    "product.saved": "{chf} CHF gespart ({percent}%)",
-    "product.special": "Spezialvertrieb",
-
-    "streetprice.bestProvider": "Günstigster Anbieter",
-    "streetprice.provider.other": "Andere",
-    "streetprice.providerName": "Bitte Namen des Anbieters angeben *",
-    "streetprice.providerName.placeholder": "Name des Händlers",
-    "streetprice.providerName.hint": "Pflichtfeld bei Auswahl von „Andere“ — bitte genaue Händlerangabe.",
-    "streetprice.bestPriceGross": "Günstigster Preis (inkl. MwSt.)",
-
-    "product.disti.required": "Distributor (Pflichtfeld)",
-    "product.disti.placeholder": "Bitte auswählen",
-
-    "footer.total": "Gesamt:",
-    "footer.totalPieces": "{count} Stück",
-    "footer.totalPrice": "Gesamtpreis:",
-    "footer.savings": "Gesamtersparnis: {amount} CHF",
-    "footer.submit": "Bestellung absenden",
-    "footer.sending": "⏳ Sende…",
-
-    "toast.noDealer": "❌ Kein Händler gefunden – bitte neu einloggen.",
-    "toast.needDistributor": "❌ Bitte Haupt-Distributor auswählen.",
-    "toast.needValidDate": "Bitte ein gültiges Lieferdatum (YYYY-MM-DD) wählen.",
-    "toast.invalidQuantity.title": "Ungültige Eingabe",
-    "toast.invalidQuantity.text": "Bitte gültige Menge für {product} eingeben!",
-    "toast.missingDisti.title": "❌ Distributor fehlt",
-    "toast.missingDisti.text": "Bitte Distributor für {product} auswählen.",
-    "toast.missingSourceName.title": "❌ Anbieter fehlt",
-    "toast.missingSourceName.text": "Bitte Händlernamen für \"Andere\" bei {product} angeben.",
-    "toast.unknownDisti.title": "❌ Unbekannter Distributor-Code",
-    "toast.unknownDisti.text": "Distributor \"{code}\" konnte nicht gefunden werden.",
-    "toast.success.title": "✅ Bestellung gespeichert",
-    "toast.success.text": "Die Bestellung wurde erfolgreich übermittelt.",
-    "toast.error.title": "❌ Fehler beim Speichern",
-    "toast.error.text": "Unbekannter Fehler",
+      invalidLink: "❌ Fehler: Reset-Token fehlt oder ist ungültig.",
+      expired: "❌ Der Link ist ungültig oder abgelaufen.",
+      noSession: "❌ Fehler: Auth-Session nicht verfügbar.",
+      mismatch: "❌ Die Passwörter stimmen nicht überein.",
+      short: "❌ Passwort muss mind. 8 Zeichen lang sein.",
+      success: "✅ Passwort erfolgreich geändert!",
+    },
   },
-    /* E-Mail übersetzer*/
-    /* 🇩🇪 E-Mail Labels → müssen HIER rein! */
-  email: {
-      firmendaten: "Firmendaten",
-      ansprechperson: "Ansprechperson",
-      email: "E-Mail",
-      telefon: "Telefon",
-      kundennr: "Kunden-Nr.",
-      kam: "KAM",
-      kam_email: "KAM E-Mail",
-      lieferoption: "Lieferoption",
-      lieferdatum: "Geplantes Lieferdatum",
-      lieferadresse_warn: "⚠️ Achtung: Abweichende Lieferadresse (Direktlieferung)",
-      lieferadresse: "Lieferadresse",
-      kommentar: "Kommentar des Händlers",
-      bestellpositionen: "Bestellpositionen",
-      bestellweg: "Bestellweg",
-      haendler_referenz: "Ihre Händler-Referenz",
-      bestellnr: "P5 Bestell-Nr.",
-      delivery_immediately: "Sofort",
-      delivery_scheduled: "Geplante Lieferung",
-   },
-  login: {
-    welcome: "Willkommen beim Login",
-    loginNr: "Login-Nummer",
-    loginNrPlaceholder: "Ihre Login-Nummer eingeben",
-    password: "Passwort",
-    passwordPlaceholder: "Passwort eingeben",
-    login: "Einloggen",
-    error: {
-      unknownLogin: "Unbekannte Login-Nummer.",
-      noEmail: "Für diesen Händler ist keine E-Mail hinterlegt.",
-      failed: "Login fehlgeschlagen. Bitte Login-Nr. und Passwort prüfen.",
+  activity: {
+    title: "Letzte Aktivitäten",
+    loading: "Lade Aktivitäten…",
+    empty: "Keine Einträge für den gewählten Zeitraum.",
+    status: {
+      pending: "ausstehend",
+      approved: "genehmigt",
+      rejected: "abgelehnt",
+      unknown: "—",
     },
-    footer: "Zugang nur für registrierte P5 Partner.",
   },
-/*passwortchange*/
-auth: {
-  reset: {
-    title: "Neues Passwort setzen",
-    newPassword: "Neues Passwort",
-    confirm: "Passwort bestätigen",
-    submit: "Passwort ändern",
+    history: {
+      header: {
+        all: "Letzte Aktivitäten",
+        verkauf: "Letzte Verkäufe",
+        bestellung: "Letzte Bestellungen",
+        projekt: "Letzte Projekte",
+        support: "Letzte Supportfälle",
+        sofortrabatt: "Letzte Sofortrabatte",
+      },
 
-    invalidLink: "❌ Fehler: Reset-Token fehlt oder ist ungültig.",
-    expired: "❌ Der Link ist ungültig oder abgelaufen.",
-    noSession: "❌ Fehler: Auth-Session nicht verfügbar.",
-    mismatch: "❌ Die Passwörter stimmen nicht überein.",
-    short: "❌ Passwort muss mind. 8 Zeichen lang sein.",
-    success: "✅ Passwort erfolgreich geändert!",
-  }
-}
+      actions: {
+        excel: "Excel",
+        excelTitle: "Verlauf als Excel herunterladen",
+        viewAll: "Gesamten Verlauf →",
+        pdfTitle: "PDF herunterladen",
+      },
+
+      empty: "Keine Einträge gefunden.",
+      loadingDetails: "Lade Details…",
+      noDetails: "Keine Details gefunden.",
+
+      meta: {
+        positions: "Pos.",
+        reference: "Ref.",
+        delivery: "Lieferung",
+        productFallback: "Produkt",
+        more: "… und {count} weitere",
+      },
+
+      error: {
+        excel: "Excel-Export fehlgeschlagen",
+        pdf: "PDF-Export fehlgeschlagen",
+      },
+    }
 
   },
- 
+  
 
   /* 🇬🇧 English */
   en: {
@@ -752,22 +797,67 @@ auth: {
     },
   /*passwortchange*/
   auth: {
-  reset: {
-    title: "Set new password",
-    newPassword: "New password",
-    confirm: "Confirm password",
-    submit: "Change password",
+    reset: {
+      title: "Set new password",
+      newPassword: "New password",
+      confirm: "Confirm password",
+      submit: "Change password",
 
-    invalidLink: "❌ Error: Reset token missing or invalid.",
-    expired: "❌ The link is invalid or expired.",
-    noSession: "❌ Error: Auth session not available.",
-    mismatch: "❌ Passwords do not match.",
-    short: "❌ Password must be at least 8 characters.",
-    success: "✅ Password successfully changed!",
-  }
-}
-
+      invalidLink: "❌ Error: Reset token missing or invalid.",
+      expired: "❌ The link is invalid or expired.",
+      noSession: "❌ Error: Auth session not available.",
+      mismatch: "❌ Passwords do not match.",
+      short: "❌ Password must be at least 8 characters.",
+      success: "✅ Password successfully changed!",
     },
+    },
+    activity: {
+      title: "Recent activity",
+      loading: "Loading activity…",
+      empty: "No entries for the selected period.",
+      status: {
+        pending: "pending",
+        approved: "approved",
+        rejected: "rejected",
+        unknown: "—",
+    },
+  },
+
+    history: {
+      header: {
+        all: "Recent activity",
+        verkauf: "Recent sales",
+        bestellung: "Recent orders",
+        projekt: "Recent projects",
+        support: "Recent support cases",
+        sofortrabatt: "Recent instant discounts",
+      },
+
+      actions: {
+        excel: "Excel",
+        excelTitle: "Download history as Excel",
+        viewAll: "View full history →",
+        pdfTitle: "Download PDF",
+      },
+
+      empty: "No entries found.",
+      loadingDetails: "Loading details…",
+      noDetails: "No details found.",
+
+      meta: {
+        positions: "items",
+        reference: "Ref.",
+        delivery: "Delivery",
+        productFallback: "Product",
+        more: "… and {count} more",
+      },
+
+      error: {
+        excel: "Excel export failed",
+        pdf: "PDF export failed",
+      },
+    },
+  },
   /* 🇫🇷 Français */
   fr: {
     nav: {
@@ -835,7 +925,7 @@ auth: {
       cart: {
         title: "Demander un prix de projet",
         send: "Envoyer la demande de projet",
-      },
+    },
     },
     product: {
       search: "🔍 Rechercher par article, nom ou EAN...",
@@ -1122,23 +1212,68 @@ auth: {
       },
       footer: "Accès réservé aux partenaires P5 enregistrés.",
     },
-    /* 🇫🇷 Français */
+    /* Reset */
     auth: {
-  reset: {
-    title: "Définir un nouveau mot de passe",
-    newPassword: "Nouveau mot de passe",
-    confirm: "Confirmer le mot de passe",
-    submit: "Changer le mot de passe",
+      reset: {
+        title: "Définir un nouveau mot de passe",
+        newPassword: "Nouveau mot de passe",
+        confirm: "Confirmer le mot de passe",
+        submit: "Changer le mot de passe",
 
-    invalidLink: "❌ Erreur : le lien de réinitialisation est manquant ou invalide.",
-    expired: "❌ Le lien est invalide ou a expiré.",
-    noSession: "❌ Erreur : session d’authentification non disponible.",
-    mismatch: "❌ Les mots de passe ne correspondent pas.",
-    short: "❌ Le mot de passe doit contenir au moins 8 caractères.",
-    success: "✅ Mot de passe modifié avec succès !",
-  }
-}
+        invalidLink: "❌ Erreur : le lien de réinitialisation est manquant ou invalide.",
+        expired: "❌ Le lien est invalide ou a expiré.",
+        noSession: "❌ Erreur : session d’authentification non disponible.",
+        mismatch: "❌ Les mots de passe ne correspondent pas.",
+        short: "❌ Le mot de passe doit contenir au moins 8 caractères.",
+        success: "✅ Mot de passe modifié avec succès !",
+      },
+    },   
+      activity: {
+        title: "Activités récentes",
+        loading: "Chargement des activités…",
+        empty: "Aucune entrée pour la période sélectionnée.",
+        status: {
+          pending: "en attente",
+          approved: "approuvé",
+          rejected: "refusé",
+          unknown: "—",
+      },
+    },
 
+    history: {
+      header: {
+        all: "Activités récentes",
+        verkauf: "Ventes récentes",
+        bestellung: "Commandes récentes",
+        projekt: "Projets récents",
+        support: "Cas de support récents",
+        sofortrabatt: "Remises immédiates récentes",
+      },
+
+      actions: {
+        excel: "Excel",
+        excelTitle: "Télécharger l’historique en Excel",
+        viewAll: "Voir l’historique complet →",
+        pdfTitle: "Télécharger le PDF",
+      },
+
+      empty: "Aucune entrée trouvée.",
+      loadingDetails: "Chargement des détails…",
+      noDetails: "Aucun détail trouvé.",
+
+      meta: {
+        positions: "pos.",
+        reference: "Réf.",
+        delivery: "Livraison",
+        productFallback: "Produit",
+        more: "… et {count} autres",
+      },
+
+      error: {
+        excel: "Échec de l’export Excel",
+        pdf: "Échec de l’export PDF",
+      },
+    },
   },
 
   /* 🇮🇹 Italiano */
@@ -1497,23 +1632,67 @@ auth: {
       footer: "Accesso riservato ai partner P5 registrati.",
     },
 
-/* Passwort change */    
-auth: {
-  reset: {
-    title: "Imposta una nuova password",
-    newPassword: "Nuova password",
-    confirm: "Conferma password",
-    submit: "Cambia password",
+    /* Passwort change */    
+    auth: {
+      reset: {
+        title: "Imposta una nuova password",
+        newPassword: "Nuova password",
+        confirm: "Conferma password",
+        submit: "Cambia password",
 
-    invalidLink: "❌ Errore: link di reset mancante o non valido.",
-    expired: "❌ Il link non è valido o è scaduto.",
-    noSession: "❌ Errore: sessione di autenticazione non disponibile.",
-    mismatch: "❌ Le password non coincidono.",
-    short: "❌ La password deve contenere almeno 8 caratteri.",
-    success: "✅ Password modificata con successo!",
-  }
-}
+        invalidLink: "❌ Errore: link di reset mancante o non valido.",
+        expired: "❌ Il link non è valido o è scaduto.",
+        noSession: "❌ Errore: sessione di autenticazione non disponibile.",
+        mismatch: "❌ Le password non coincidono.",
+        short: "❌ La password deve contenere almeno 8 caratteri.",
+        success: "✅ Password modificata con successo!",
+      },
+    },
+      activity: {
+        title: "Attività recenti",
+        loading: "Caricamento attività…",
+        empty: "Nessuna voce per il periodo selezionato.",
+        status: {
+          pending: "in sospeso",
+          approved: "approvato",
+          rejected: "rifiutato",
+          unknown: "—",
+        },
+      },
+      history: {
+        header: {
+          all: "Attività recenti",
+          verkauf: "Vendite recenti",
+          bestellung: "Ordini recenti",
+          projekt: "Progetti recenti",
+          support: "Richieste di supporto recenti",
+          sofortrabatt: "Sconti immediati recenti",
+        },
 
+        actions: {
+          excel: "Excel",
+          excelTitle: "Scarica lo storico in Excel",
+          viewAll: "Visualizza lo storico completo →",
+          pdfTitle: "Scarica PDF",
+        },
+
+        empty: "Nessuna voce trovata.",
+        loadingDetails: "Caricamento dettagli…",
+        noDetails: "Nessun dettaglio trovato.",
+
+        meta: {
+          positions: "art.",
+          reference: "Rif.",
+          delivery: "Consegna",
+          productFallback: "Prodotto",
+          more: "… e altri {count}",
+        },
+
+        error: {
+          excel: "Esportazione Excel non riuscita",
+          pdf: "Esportazione PDF non riuscita",
+        },
+    },
 
   },
 
@@ -1876,39 +2055,83 @@ auth: {
     },
     footer: "Access mo per partenaris P5 registrads.",
   },
-  /*passwort change*/
-auth: {
-  reset: {
-    title: "Fixar in nov pled-clav",
-    newPassword: "Nov pled-clav",
-    confirm: "Confermar il pled-clav",
-    submit: "Midar il pled-clav",
+    /*passwort change*/
+    auth: {
+      reset: {
+        title: "Fixar in nov pled-clav",
+        newPassword: "Nov pled-clav",
+        confirm: "Confermar il pled-clav",
+        submit: "Midar il pled-clav",
 
-    invalidLink: "❌ Errur: il link da reset manca u n’è betg valaivel.",
-    expired: "❌ Il link è nunvalaivel u è scrudà.",
-    noSession: "❌ Errur: nagina session d’autentificaziun disponibla.",
-    mismatch: "❌ Ils pleds-clav na correspundan betg.",
-    short: "❌ Il pled-clav sto cuntegnair almain 8 cars.",
-    success: "✅ Il pled-clav è vegnì midà cun success!",
-  }
-}
+        invalidLink: "❌ Errur: il link da reset manca u n’è betg valaivel.",
+        expired: "❌ Il link è nunvalaivel u è scrudà.",
+        noSession: "❌ Errur: nagina session d’autentificaziun disponibla.",
+        mismatch: "❌ Ils pleds-clav na correspundan betg.",
+        short: "❌ Il pled-clav sto cuntegnair almain 8 cars.",
+        success: "✅ Il pled-clav è vegnì midà cun success!",
+      },
+    },
+      activity: {
+        title: "Activitads novitads",
+        loading: "Chargiar las activitads…",
+        empty: "Naginas entradas per il temp tschernì.",
+        status: {
+          pending: "pendenta",
+          approved: "approvada",
+          rejected: "refusada",
+          unknown: "—",
+        },
+      },
+      history: {
+        header: {
+          all: "Activitads recentes",
+          verkauf: "Venditas recentes",
+          bestellung: "Cumandas recentes",
+          projekt: "Projects recents",
+          support: "Cas da sustegn recents",
+          sofortrabatt: "Rabats immediats recents",
+        },
 
-      
-  },
-} as const;
+        actions: {
+          excel: "Excel",
+          excelTitle: "Telechargiar l’istorgia sco Excel",
+          viewAll: "Veser l’istorgia cumpletta →",
+          pdfTitle: "Telechargiar PDF",
+        },
 
-/* -------------------------------------------------------
-   🔥 Rekursive Keys für alle verschachtelten Übersetzungen
---------------------------------------------------------*/
+        empty: "Naginas entradas chattadas.",
+        loadingDetails: "Chargiar detagls…",
+        noDetails: "Nagins detagls chattads.",
 
-type DeepKeys<T, P extends string = ""> =
-  T extends object
-    ? {
-        [K in keyof T & string]:
-          T[K] extends string
-            ? `${P}${K}`             // direkter Key, z. B. "passwordForgot"
-            : `${P}${K}` | DeepKeys<T[K], `${P}${K}.`>; // verschachtelte Keys
-      }[keyof T & string]
-    : never;
+        meta: {
+          positions: "pos.",
+          reference: "Ref.",
+          delivery: "Furniziun",
+          productFallback: "Product",
+          more: "… e {count} ulteriurs",
+        },
 
-export type TranslationKey = DeepKeys<typeof translationsByLang["de"]>;
+        error: {
+          excel: "Export Excel betg reussì",
+          pdf: "Export PDF betg reussì",
+        },
+      }
+    
+    },
+  } as const;
+
+  /* -------------------------------------------------------
+    🔥 Rekursive Keys für alle verschachtelten Übersetzungen
+  --------------------------------------------------------*/
+
+  type DeepKeys<T, P extends string = ""> =
+    T extends object
+      ? {
+          [K in keyof T & string]:
+            T[K] extends string
+              ? `${P}${K}`             // direkter Key, z. B. "passwordForgot"
+              : `${P}${K}` | DeepKeys<T[K], `${P}${K}.`>; // verschachtelte Keys
+        }[keyof T & string]
+      : never;
+
+  export type TranslationKey = DeepKeys<typeof translationsByLang["de"]>;

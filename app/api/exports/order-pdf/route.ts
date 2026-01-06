@@ -179,13 +179,28 @@ export async function GET(req: Request) {
     });
 
     /* ===============================
-       COMMENT
+      COMMENT
     =============================== */
     if (sub.order_comment) {
-      doc.moveDown(1);
-      doc.font(bold).fontSize(10).text("Kommentar");
-      doc.font(font).fillColor("#333").text(sub.order_comment);
+      // explizit unter die Tabelle springen
+      const commentY = rowY + 30;
+
+      doc.font(bold)
+        .fontSize(10)
+        .fillColor("#000")
+        .text("Kommentar", 42, commentY);
+
+      doc.moveDown(0.3);
+
+      doc.font(font)
+        .fontSize(10)
+        .fillColor("#333")
+        .text(sub.order_comment, 42, doc.y, {
+          width: 400,      // gut lesbar, kein Vollbreiten-Block
+          align: "left"
+        });
     }
+
 
     /* ===============================
        FOOTER

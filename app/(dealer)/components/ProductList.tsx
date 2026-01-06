@@ -253,19 +253,20 @@ export default function ProductList<T extends { product: Product }>({
         <Popover open={openGruppe} onOpenChange={setOpenGruppe}>
           <PopoverTrigger asChild>
             <Button variant="outline" className="w-[180px] justify-between">
-              {gruppe || "Alle Gruppen"}
+              {gruppe || t("product.groups.all")}
               <ChevronsUpDown className="w-4 h-4 opacity-50" />
             </Button>
           </PopoverTrigger>
           <PopoverContent className="w-[180px] p-0">
             <Command>
-              <CommandInput placeholder="Gruppe suchen" />
+              <CommandInput placeholder={t("product.groups.search")} />
               <CommandList>
-                <CommandEmpty>Keine Gruppe</CommandEmpty>
+                <CommandEmpty>{t("product.groups.empty")}</CommandEmpty>
                 <CommandGroup>
                   <CommandItem onSelect={() => setGruppe(null)}>
-                    Alle Gruppen
+                    {t("product.groups.all")}
                   </CommandItem>
+
                   {gruppen.map((g) => (
                     <CommandItem key={g} onSelect={() => setGruppe(g)}>
                       {g}
@@ -281,18 +282,18 @@ export default function ProductList<T extends { product: Product }>({
         <Popover open={openCategory} onOpenChange={setOpenCategory}>
           <PopoverTrigger asChild>
             <Button variant="outline" className="w-[180px] justify-between">
-              {category || "Alle Kategorien"}
+              {category || t("product.categories.all")}
               <ChevronsUpDown className="w-4 h-4 opacity-50" />
             </Button>
           </PopoverTrigger>
           <PopoverContent className="w-[180px] p-0">
             <Command>
-              <CommandInput placeholder="Kategorie suchen" />
+              <CommandInput placeholder={t("product.categories.search")} />
               <CommandList>
-                <CommandEmpty>Keine Kategorie</CommandEmpty>
+                <CommandEmpty>{t("product.categories.empty")}</CommandEmpty>
                 <CommandGroup>
                   <CommandItem onSelect={() => setCategory(null)}>
-                    Alle Kategorien
+                    {t("product.categories.all")}
                   </CommandItem>
                   {categories.map((c) => (
                     <CommandItem key={c} onSelect={() => setCategory(c)}>
@@ -315,7 +316,7 @@ export default function ProductList<T extends { product: Product }>({
             setSort("sony_article_asc");
           }}
         >
-          Reset
+          {t("product.reset")}
         </Button>
 
         {/* CSV-Import */}

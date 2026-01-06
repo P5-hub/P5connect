@@ -2,6 +2,9 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { getSupabaseBrowser } from "@/lib/supabaseClient";
+import { useI18n } from "@/lib/i18n/I18nProvider";
+
+
 import {
   ShoppingCart,
   FileSpreadsheet,
@@ -42,6 +45,7 @@ export default function AdminRecentActivity({
   toDate?: string;
   search?: string;
 }) {
+  const { t } = useI18n();          // ✅ FEHLT AKTUELL
   const supabase = getSupabaseBrowser();
   const [rows, setRows] = useState<Row[]>([]);
   const [loading, setLoading] = useState(true);
@@ -180,21 +184,22 @@ export default function AdminRecentActivity({
   }, [typ, fromDate, toDate, searchKey, supabase]);
 
   if (loading) {
-    return <p className="text-sm text-gray-500">Lade Aktivitäten…</p>;
+    return <p className="text-sm text-gray-500">{t("activity.loading")}</p>;
   }
 
   if (!rows.length) {
     return (
       <p className="text-sm text-gray-500">
-        Keine Einträge für den gewählten Zeitraum.
+        {t("history.empty")}
       </p>
     );
   }
 
+
   return (
     <div className="space-y-2">
       <h2 className="text-sm font-semibold text-gray-700">
-        Letzte Aktivitäten
+        t("history.header.all")
       </h2>
 
       {rows.map((r) => {
@@ -226,7 +231,9 @@ export default function AdminRecentActivity({
                 })}
               </div>
               <div className="text-xs text-gray-500">
-                {r.status ?? "—"}
+                {r.status
+                  ? t(`history.status.${r.status}`) // falls vorhanden
+                  : t("history.status.unknown")}
               </div>
             </div>
           </div>
