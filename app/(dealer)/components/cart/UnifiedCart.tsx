@@ -460,20 +460,23 @@ export default function UnifiedCart({
                 </div>
               </div>
             )}
-            <div className="border-t pt-3">
-              <label className="flex items-start gap-2 text-xs text-gray-700">
-                <input
-                  type="checkbox"
-                  checked={confirmSonyShare}
-                  onChange={(e) => setConfirmSonyShare(e.target.checked)}
-                  className="mt-0.5"
-                />
-                <span>
-                  Ich bestätige, dass die gemeldeten <b>SONY-Anteile (Stück & Umsatz)</b>
-                  den tatsächlichen Verkaufsverhältnissen dieser Kalenderwoche entsprechen.
-                </span>
-              </label>
-            </div>
+            {mode === "verkauf" && (
+              <div className="border-t pt-3">
+                <label className="flex items-start gap-2 text-xs text-gray-700">
+                  <input
+                    type="checkbox"
+                    checked={confirmSonyShare}
+                    onChange={(e) => setConfirmSonyShare(e.target.checked)}
+                    className="mt-0.5"
+                  />
+                  <span>
+                    Ich bestätige, dass die gemeldeten <b>SONY-Anteile (Stück & Umsatz)</b>
+                    den tatsächlichen Verkaufsverhältnissen dieser Kalenderwoche entsprechen.
+                  </span>
+                </label>
+              </div>
+            )}
+
 
             {/* ITEMS */}
             <div className="flex-1 overflow-y-auto py-4 space-y-4">

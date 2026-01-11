@@ -550,6 +550,12 @@ export default function CartBestellung() {
   /* ------------------------------------------------------------------
      🔄 EFFECTS
   ------------------------------------------------------------------- */
+  useEffect(() => {
+    // Wenn Bestellformular geöffnet wird, aber project_id fehlt → Projekt-Mode entfernen
+    if (open && (!projectDetails || !projectDetails.project_id)) {
+      setProjectDetails(null);
+    }
+  }, [open, projectDetails, setProjectDetails]);
 
   useEffect(() => {
     if (cart.length > 0) setSuccess(false);
@@ -1013,7 +1019,7 @@ export default function CartBestellung() {
 
         {/* 🔥 PROJEKT-BANNER */}
         {/* 🔥 PROJEKT-BANNER */}
-        {projectDetails && (
+        {projectDetails?.project_id && (
           <div className="mx-3 mt-2 mb-2 rounded-xl border border-purple-300 bg-purple-50 p-3 text-sm">
             <div className="flex items-start justify-between gap-3">
               <div>

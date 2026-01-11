@@ -115,7 +115,13 @@ export function GlobalCartProvider({ children }: { children: ReactNode }) {
 
       const parsed = JSON.parse(raw);
       setState({ ...emptyState, ...parsed });
-      setProjectDetails(parsed.projectDetails ?? null);
+      // ✅ projectDetails nur übernehmen, wenn Cart tatsächlich im Bestellmodus ist
+      if (parsed?.currentForm === "bestellung") {
+        setProjectDetails(parsed.projectDetails ?? null);
+      } else {
+        setProjectDetails(null);
+      }
+
       setOrderDetails(parsed.orderDetails ?? { files: [] });
     } catch {
       setState(emptyState);
@@ -124,10 +130,14 @@ export function GlobalCartProvider({ children }: { children: ReactNode }) {
   }, [STORAGE_KEY]);
 
   useEffect(() => {
+    const safeProjectDetails =
+      state.currentForm === "bestellung" ? projectDetails : null;
+
     localStorage.setItem(
       STORAGE_KEY,
-      JSON.stringify({ ...state, projectDetails, orderDetails })
+      JSON.stringify({ ...state, projectDetails: safeProjectDetails, orderDetails })
     );
+
   }, [state, projectDetails, orderDetails, STORAGE_KEY]);
 
 
@@ -149,8 +159,21 @@ export function GlobalCartProvider({ children }: { children: ReactNode }) {
     });
 
 
-  const openCart = (form: FormName) =>
-    setState((p) => ({ ...p, currentForm: form, open: true }));
+  const openCart = (form: FormName, opts?: { fromProject?: boolean }) =>
+    setState((p) => {
+      // ✅ Wenn normale Bestellung geöffnet wird → Projekt-Context löschen
+      if (form === "bestellung" && !opts?.fromProject) {
+        setProjectDetails(null);
+      }
+
+      // ✅ Support / Verkauf / etc. sollen NIE Projekt anzeigen
+      if (form !== "bestellung") {
+        setProjectDetails(null);
+      }
+
+      return { ...p, currentForm: form, open: true };
+    });
+
 
   const closeCart = () =>
     setState((p) => ({ ...p, currentForm: null, open: false }));

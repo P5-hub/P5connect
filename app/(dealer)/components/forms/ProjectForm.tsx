@@ -111,7 +111,7 @@ export default function ProjectForm() {
             animate={{ opacity: 1 }}
             className="space-y-6"
           >
-            <h2 className="text-xl font-semibold">{t("project.details")}</h2>
+            <h2>{t("project.details")}</h2>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {/* Projektname */}
@@ -271,8 +271,9 @@ export default function ProjectForm() {
             <div className="border rounded-xl p-3 bg-purple-50 text-sm space-y-2">
               <p className="font-semibold flex items-center gap-2 text-purple-700">
                 <ClipboardList className="w-4 h-4" />
-                Projekt
+                {t("project.summary.title")}
               </p>
+
 
               <div className="flex items-center gap-2">
                 <Briefcase className="w-4 h-4 text-gray-500" />
@@ -291,8 +292,9 @@ export default function ProjectForm() {
 
               {details.files.length > 0 && (
                 <div className="text-xs text-gray-600">
-                  📎 {details.files.length} Datei(en) angehängt
+                  📎 {t("project.filesAttached", { count: details.files.length })}
                 </div>
+
               )}
             </div>
 

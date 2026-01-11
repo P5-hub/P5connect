@@ -44,6 +44,7 @@
       end: "Enddatum",
       comment: "Kommentar oder Beschreibung",
       next: "Weiter zu den Produkten",
+      heading: "Projektmeldung",
 
       cart: {
         title: "Projektanfrage absenden",
@@ -504,6 +505,7 @@
       close: "Close",
       back: "Back",
       products: "Select products",
+      heading: "Project request",
       remove: "Remove",
       "error.nodealer": "No dealer found – please log in again.",
       "error.noproducts": "No products in cart.",
@@ -891,6 +893,7 @@
     project: {
       "page.title": "Demande de prix projet",
       title: "Informations sur le projet",
+      heading: "Demande de projet",
       type: "Type de projet",
       "type.hotel": "Hôtel",
       "type.event": "Événement",
@@ -1310,6 +1313,7 @@
       "page.title": "Richiedi prezzo progetto",
       title: "Informazioni sul progetto",
       type: "Tipo di progetto",
+      heading: "Richiesta progetto",
       "type.hotel": "Hotel",
       "type.event": "Evento",
       "type.aktion": "Offerta promozionale",
@@ -1730,6 +1734,7 @@
       "page.title": "Dumonda da pretsch da project",
       title: "Infurmaziuns dal project",
       type: "Tip da project",
+      heading: "Dumonda da project",
       "type.hotel": "Hotel",
       "type.event": "Eveniment",
       "type.aktion": "Offerta promoziunala",

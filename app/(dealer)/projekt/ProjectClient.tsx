@@ -10,7 +10,11 @@ export default function ProjectClient() {
   const { t } = useI18n();
 
   if (dealer === undefined) {
-    return <p className="text-gray-500">⏳ Initialisiere…</p>;
+    return (
+      <p className="text-gray-500">
+        {t("dealer.loading")}
+      </p>
+    );
   }
 
   if (!dealer) {
@@ -26,7 +30,7 @@ export default function ProjectClient() {
       <div className="flex items-center gap-2 text-purple-700">
         <ClipboardList className="w-5 h-5" />
         <h1 className="text-xl font-semibold">
-          {t("project.heading", { defaultValue: "Projektmeldung" })}
+          {t("project.heading")}
         </h1>
       </div>
 
