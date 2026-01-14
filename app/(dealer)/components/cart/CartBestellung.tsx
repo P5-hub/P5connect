@@ -754,6 +754,17 @@ export default function CartBestellung() {
 
           order_comment: orderComment || null,
           dealer_reference: dealerReference || null,
+          // ------------------------------------------
+          // 📦 Direktlieferung / Abweichende Lieferadresse
+          // ------------------------------------------
+          delivery_name: hasAltDelivery ? deliveryName || null : null,
+          delivery_street: hasAltDelivery ? deliveryStreet || null : null,
+          delivery_zip: hasAltDelivery ? deliveryZip || null : null,
+          delivery_city: hasAltDelivery ? deliveryCity || null : null,
+          delivery_country: hasAltDelivery ? deliveryCountry || null : null,
+          delivery_phone: hasAltDelivery ? deliveryPhone || null : null,
+          delivery_email: hasAltDelivery ? deliveryEmail || null : null,
+
 
           customer_number: dealerLoginNr || null,
           customer_contact: dealerContact || null,
