@@ -7,6 +7,8 @@ const publicRoutes = [
   "/login",
   "/reset-password",
   "/reset-password/change",
+  "/impressum",      // ✅ NEU
+  "/datenschutz",    // ✅ NEU
   "/favicon.ico"
 ]
 

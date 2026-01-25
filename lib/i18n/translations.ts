@@ -369,17 +369,30 @@
     },
     login: {
       welcome: "Willkommen beim Login",
+      portalTitle: "P5connect Partnerportal",
+      portalDesc:
+        "Geschützter Zugang für registrierte Handelspartner zur Übermittlung von Verkaufszahlen, Projektanfragen und Bestellungen.",
+      securityNote:
+        "Diese Verbindung ist verschlüsselt. Zugangsdaten werden nicht an Dritte weitergegeben.",
+
       loginNr: "Login-Nummer",
       loginNrPlaceholder: "Ihre Login-Nummer eingeben",
       password: "Passwort",
       passwordPlaceholder: "Passwort eingeben",
       login: "Einloggen",
+
       error: {
         unknownLogin: "Unbekannte Login-Nummer.",
         noEmail: "Für diesen Händler ist keine E-Mail hinterlegt.",
         failed: "Login fehlgeschlagen. Bitte Login-Nr. und Passwort prüfen.",
       },
-      footer: "Zugang nur für registrierte P5 Partner.",
+
+      footerLine1: "© {year} P5connect.ch – 8047 Zürich",
+      footerLine2: "support@p5connect.ch",
+      legalImprint: "Impressum",
+      legalPrivacy: "Datenschutz",
+
+      footer: "Zugang nur für registrierte Partner.",
     },
   /*passwortchange*/
   auth: {
@@ -784,19 +797,33 @@
         geplant: "Scheduled Delivery",
     },
     login: {
-      welcome: "Welcome to the login",
-      loginNr: "Login number",
-      loginNrPlaceholder: "Enter your login number",
+      welcome: "Welcome to login",
+      portalTitle: "P5connect Partner Portal",
+      portalDesc:
+        "Secure access for registered trade partners to submit sales reports, project requests and orders.",
+      securityNote:
+        "This connection is encrypted. Login credentials are not shared with third parties.",
+
+      loginNr: "Login ID",
+      loginNrPlaceholder: "Enter your login ID",
       password: "Password",
       passwordPlaceholder: "Enter password",
-      login: "Log in",
+      login: "Sign in",
+
       error: {
-        unknownLogin: "Unknown login number.",
-        noEmail: "No email registered for this dealer.",
-        failed: "Login failed. Please check login number and password.",
+        unknownLogin: "Unknown login ID.",
+        noEmail: "No email address is stored for this partner.",
+        failed: "Login failed. Please check login ID and password.",
       },
-      footer: "Access for registered P5 partners only.",
+
+      footerLine1: "© {year} P5connect.ch – Zurich, Switzerland",
+      footerLine2: "support@p5connect.ch",
+      legalImprint: "Legal Notice",
+      legalPrivacy: "Privacy Policy",
+
+      footer: "Access restricted to registered partners only.",
     },
+
   /*passwortchange*/
   auth: {
     reset: {
@@ -1202,19 +1229,33 @@
         geplant: "Livraison planifiée",
     },
     login: {
-      welcome: "Bienvenue à la connexion",
+      welcome: "Bienvenue sur la page de connexion",
+      portalTitle: "Portail Partenaire P5connect",
+      portalDesc:
+        "Accès sécurisé réservé aux partenaires commerciaux enregistrés pour la transmission des ventes, demandes de projet et commandes.",
+      securityNote:
+        "Cette connexion est chiffrée. Les identifiants ne sont pas transmis à des tiers.",
+
       loginNr: "Numéro de connexion",
-      loginNrPlaceholder: "Entrez votre numéro de connexion",
+      loginNrPlaceholder: "Saisir votre numéro de connexion",
       password: "Mot de passe",
-      passwordPlaceholder: "Entrez le mot de passe",
+      passwordPlaceholder: "Saisir le mot de passe",
       login: "Se connecter",
+
       error: {
         unknownLogin: "Numéro de connexion inconnu.",
-        noEmail: "Aucun e-mail enregistré pour ce revendeur.",
-        failed: "Échec de la connexion. Vérifiez le numéro et le mot de passe.",
+        noEmail: "Aucune adresse e-mail n’est enregistrée pour ce partenaire.",
+        failed: "Échec de la connexion. Veuillez vérifier vos identifiants.",
       },
-      footer: "Accès réservé aux partenaires P5 enregistrés.",
+
+      footerLine1: "© {year} P5connect.ch – Zurich, Suisse",
+      footerLine2: "support@p5connect.ch",
+      legalImprint: "Mentions légales",
+      legalPrivacy: "Protection des données",
+
+      footer: "Accès réservé exclusivement aux partenaires enregistrés.",
     },
+
     /* Reset */
     auth: {
       reset: {
@@ -1622,19 +1663,33 @@
         geplant: "Consegna programmata",
     },
     login: {
-      welcome: "Benvenuto",
-      loginNr: "Numero di login",
-      loginNrPlaceholder: "Inserisci il numero di login",
+      welcome: "Benvenuto nella pagina di accesso",
+      portalTitle: "Portale Partner P5connect",
+      portalDesc:
+        "Accesso protetto riservato ai partner commerciali registrati per l’invio di dati di vendita, richieste di progetto e ordini.",
+      securityNote:
+        "La connessione è crittografata. Le credenziali di accesso non vengono condivise con terze parti.",
+
+      loginNr: "Numero di accesso",
+      loginNrPlaceholder: "Inserire il numero di accesso",
       password: "Password",
-      passwordPlaceholder: "Inserisci la password",
+      passwordPlaceholder: "Inserire la password",
       login: "Accedi",
+
       error: {
-        unknownLogin: "Numero di login sconosciuto.",
-        noEmail: "Nessuna e-mail registrata per questo rivenditore.",
-        failed: "Accesso non riuscito. Controlla numero e password.",
+        unknownLogin: "Numero di accesso sconosciuto.",
+        noEmail: "Nessun indirizzo e-mail registrato per questo partner.",
+        failed: "Accesso non riuscito. Controllare numero di accesso e password.",
       },
-      footer: "Accesso riservato ai partner P5 registrati.",
+
+      footerLine1: "© {year} P5connect.ch – Zurigo, Svizzera",
+      footerLine2: "support@p5connect.ch",
+      legalImprint: "Note legali",
+      legalPrivacy: "Privacy",
+
+      footer: "Accesso consentito solo ai partner registrati.",
     },
+
 
     /* Passwort change */    
     auth: {
@@ -2047,19 +2102,33 @@
       geplant: "Furniziun planisada",
   },
   login: {
-    welcome: "Bainvegni al login",
-    loginNr: "Numer da login",
-    loginNrPlaceholder: "Endatar il numer da login",
+    welcome: "Bainvegni sin la pagina d’access",
+    portalTitle: "Portal partenari P5connect",
+    portalDesc:
+      "Access segirà per partenaris commerzials registrads per trametter cifras da vendita, dumondas da project e empustaziuns.",
+    securityNote:
+      "Questa connexiun è criptada. Datas d’access na vegnan betg dadas vinavant a terzs.",
+
+    loginNr: "Numer d’access",
+    loginNrPlaceholder: "Endatescha il numer d’access",
     password: "Pled-clav",
-    passwordPlaceholder: "Endatar il pled-clav",
+    passwordPlaceholder: "Endatescha il pled-clav",
     login: "S’annunziar",
+
     error: {
-      unknownLogin: "Numer da login nunenconuschent.",
-      noEmail: "Nagina adressa dad e-mail registrada per quest commerziant.",
-      failed: "S'annunzia betg reussida. Controllescha numer e pled-clav.",
+      unknownLogin: "Numer d’access nunenconuschent.",
+      noEmail: "Naginas datas d’e-mail registradas per quest partenari.",
+      failed: "L’annunzia n’è betg reussida. Controllescha numer d’access e pled-clav.",
     },
-    footer: "Access mo per partenaris P5 registrads.",
+
+    footerLine1: "© {year} P5connect.ch – Turitg, Svizra",
+    footerLine2: "support@p5connect.ch",
+    legalImprint: "Impressum",
+    legalPrivacy: "Protecziun da datas",
+
+    footer: "Access mo per partenaris registrads.",
   },
+
     /*passwort change*/
     auth: {
       reset: {

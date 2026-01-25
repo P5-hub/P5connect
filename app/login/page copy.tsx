@@ -6,8 +6,6 @@ import { createClient } from "@/utils/supabase/client";
 import { useI18n } from "@/lib/i18n/I18nProvider";          // ⭐ NEU
 import type { Lang } from "@/lib/i18n/translations";       // ⭐ NEU
 import { Globe, Handshake } from "lucide-react";
-import Link from "next/link";
-
 
 // Themefarben für animiertes 5
 const themeColors = {
@@ -177,23 +175,11 @@ export default function LoginPage() {
           <span>connect</span>
         </h1>
 
-        {/* Subtitle + Portalbeschreibung */}
-        {/* Subtitle + Portalbeschreibung */}
-        <div className="flex flex-col items-center justify-center gap-2 mb-6 text-gray-600 dark:text-gray-300 text-center">
-
-          <div className="flex items-center gap-2">
-            <Handshake className="w-5 h-5" />
-            <span className="text-sm font-semibold">
-              {t("login.portalTitle")}
-            </span>
-          </div>
-
-          <p className="text-xs max-w-xs leading-relaxed">
-            {t("login.portalDesc")}
-          </p>
+        {/* Subtitle */}
+        <div className="flex items-center justify-center gap-2 mb-6 text-gray-600 dark:text-gray-300">
+          <Handshake className="w-5 h-5" />
+          <span className="text-sm font-medium">{t("login.welcome")}</span>
         </div>
-
-
 
         {/* Login-Nr */}
         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
@@ -265,28 +251,12 @@ export default function LoginPage() {
           </span>
         </button>
 
-        <p className="mt-3 text-[11px] text-center text-gray-500 dark:text-gray-400">
-          🔒 {t("login.securityNote")}
-        </p>
-
-
-
         {/* Footer */}
-        <div className="mt-6 border-t border-gray-200 dark:border-gray-700 pt-4 text-center text-[11px] text-gray-500 dark:text-gray-400 space-y-1">
-          <p>{t("login.footerLine1", { year: new Date().getFullYear() })}</p>
-          <p>{t("login.footerLine2")}</p>
-
-          <Link href="/impressum" className="hover:underline text-indigo-600 dark:text-indigo-400">
-            {t("login.legalImprint")}
-          </Link>
-
-          <span>•</span>
-          <Link href="/datenschutz" className="hover:underline text-indigo-600 dark:text-indigo-400">
-            {t("login.legalPrivacy")}
-          </Link>
-
+        <div className="mt-4 space-y-1">
+          <p className="text-center text-xs text-gray-500 dark:text-gray-400">
+            {t("login.footer")}
+          </p>
         </div>
-
       </form>
 
       {/* Passwort vergessen */}
