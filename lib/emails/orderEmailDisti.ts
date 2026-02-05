@@ -115,7 +115,7 @@ export function buildDistiOrderEmailHTML(params: {
   // Direktlieferung: abweichende Lieferadresse
   // ------------------------------------------------------------
   const hasDeliveryAddress =
-    meta.deliveryName || meta.deliveryStreet || meta.deliveryZip || meta.deliveryCity;
+    meta.deliveryName || meta.deliveryStreet || meta.deliveryZip || meta.deliveryCity || meta.deliveryPhone || meta.deliveryEmail;
 
   const deliveryBlock = hasDeliveryAddress
     ? `
@@ -130,9 +130,27 @@ export function buildDistiOrderEmailHTML(params: {
         ${meta.deliveryStreet ?? ""}<br/>
         ${meta.deliveryZip ?? ""} ${meta.deliveryCity ?? ""}<br/>
         ${meta.deliveryCountry ?? ""}
+
+        ${
+          meta.deliveryPhone || meta.deliveryEmail
+            ? `<div style="margin-top:10px;">
+                ${meta.deliveryPhone ? `<strong>Telefon:</strong> ${meta.deliveryPhone}<br/>` : ""}
+                ${meta.deliveryEmail ? `<strong>E-Mail:</strong> ${meta.deliveryEmail}<br/>` : ""}
+              </div>`
+            : ""
+        }
+
+        ${
+          meta.dealerReference
+            ? `<div style="margin-top:10px;">
+                <strong>Händler-Referenz:</strong> ${meta.dealerReference}
+              </div>`
+            : ""
+        }
       </div>
     `
     : "";
+
 
   // ------------------------------------------------------------
   // Kommentar

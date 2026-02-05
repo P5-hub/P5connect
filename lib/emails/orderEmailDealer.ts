@@ -140,22 +140,40 @@ export function buildDealerOrderEmailHTML(params: {
 
   // Direktlieferung
   const hasAltDelivery =
-    meta.deliveryName || meta.deliveryStreet || meta.deliveryZip || meta.deliveryCity;
+  meta.deliveryName || meta.deliveryStreet || meta.deliveryZip || meta.deliveryCity || meta.deliveryPhone || meta.deliveryEmail;
 
   const altDeliveryBlock = hasAltDelivery
     ? `
-      <div style="margin-top:16px;padding:16px;border-radius:8px;
-                  background:#fff4d6;border-left:5px solid #f59e0b;">
-        <strong style="font-size:15px;color:#b45309;">
-          ${t.lieferadresse_warn}
-        </strong><br/><br/>
+        <div style="margin-top:16px;padding:16px;border-radius:8px;
+                    background:#fff4d6;border-left:5px solid #f59e0b;">
+          <strong style="font-size:15px;color:#b45309;">
+            ${t.lieferadresse_warn}
+          </strong><br/><br/>
 
-        ${meta.deliveryName ?? ""}<br/>
-        ${meta.deliveryStreet ?? ""}<br/>
-        ${meta.deliveryZip ?? ""} ${meta.deliveryCity ?? ""}<br/>
-        ${meta.deliveryCountry ?? ""}
-      </div>`
+          ${meta.deliveryName ?? ""}<br/>
+          ${meta.deliveryStreet ?? ""}<br/>
+          ${meta.deliveryZip ?? ""} ${meta.deliveryCity ?? ""}<br/>
+          ${meta.deliveryCountry ?? ""}
+
+          ${
+            meta.deliveryPhone || meta.deliveryEmail
+              ? `<div style="margin-top:10px;">
+                  ${meta.deliveryPhone ? `<strong>${t.telefon}:</strong> ${meta.deliveryPhone}<br/>` : ""}
+                  ${meta.deliveryEmail ? `<strong>${t.email}:</strong> ${meta.deliveryEmail}<br/>` : ""}
+                </div>`
+              : ""
+          }
+
+          ${
+            meta.dealerReference
+              ? `<div style="margin-top:10px;">
+                  <strong>${t.haendler_referenz}:</strong> ${meta.dealerReference}
+                </div>`
+              : ""
+          }
+        </div>`
     : "";
+
 
   // Kommentarblock
   const commentBlock = meta.orderComment

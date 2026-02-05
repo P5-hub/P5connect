@@ -6,36 +6,6 @@ import { buildDealerOrderEmailHTML } from "@/lib/emails/orderEmailDealer";
 import { buildDistiOrderEmailHTML } from "@/lib/emails/orderEmailDisti";
 import { orderMailTexts } from "@/lib/emails/orderMailTexts";
 
-function debugOrderMail(stage: string, preview: boolean, meta: any, recipients: any) {
-  console.log("📧 ORDER MAIL DEBUG ----------------------------");
-  console.log("Stage:", stage, "| Preview:", preview);
-  console.log("Order:", meta.orderNumber, "| Submission:", meta.submissionId);
-
-  console.log("Dealer:", {
-    name: meta.dealerCompany,
-    email: meta.dealerEmail,
-    phone: meta.dealerPhone,
-    reference: meta.dealerReference,
-  });
-
-  console.log("KAM:", {
-    kamName: meta.kamName,
-    kamEmail: meta.kamEmail,
-    kamEmail2: meta.kamEmail2,
-    kamSonyEmail: meta.kamSonyEmail,
-  });
-
-  console.log("Delivery Contact:", {
-    deliveryName: meta.deliveryName,
-    deliveryPhone: meta.deliveryPhone,
-    deliveryEmail: meta.deliveryEmail,
-  });
-
-  console.log("Recipients:", recipients);
-  console.log("--------------------------------------------------");
-}
-
-
 // ---------------------------------------------------
 // TYPES
 // ---------------------------------------------------
@@ -141,12 +111,6 @@ type DashboardRow = {
   delivery_zip: string | null;
   delivery_city: string | null;
   delivery_country: string | null;
-    // ✅ NEU
-  delivery_phone: string | null;
-  delivery_email: string | null;
-
-  // ✅ optional
-  customer_phone: string | null;
 };
 
 // ---------------------------------------------------
@@ -208,53 +172,36 @@ export async function sendOrderNotification(opts: {
     typ: order.typ,
     bestellweg: order.bestellweg,
     orderNumber: order.order_number,
-
-    // ✅ Referenz ist bereits korrekt
     dealerReference: order.dealer_reference,
-
     customerNumber: order.dealer_login_nr,
     dealerCompany: order.dealer_name,
     dealerName: order.dealer_contact_person,
     dealerEmail: order.dealer_email ?? order.mail_dealer,
     dealerPhone: order.dealer_phone,
-
-    // ✅ optional, falls dein Template orderFacts(meta.customerPhone) nutzt
-    customerPhone: order.customer_phone ?? order.dealer_phone,
-
     dealerStreet: order.dealer_street,
     dealerZip: order.dealer_zip,
     dealerCity: order.dealer_city,
     dealerCountry: order.dealer_country,
     dealerLanguage: order.dealer_language ?? "de_CH",
-
     kamName: order.kam_name,
     kamEmail: order.kam_email,
     kamEmail2: order.kam_email_2,
     kamSonyEmail: order.kam_email_sony,
     mailBG: order.mail_bg,
     mailBG2: order.mail_bg2,
-
     distributorId: order.distributor_id,
     distributorName: order.distributor_name,
     distributorCode: order.distributor_code,
     distributorEmail: order.distributor_email,
-
     deliveryName: order.delivery_name,
     deliveryStreet: order.delivery_street,
     deliveryZip: order.delivery_zip,
     deliveryCity: order.delivery_city,
     deliveryCountry: order.delivery_country,
-
-    // ✅ NEU: Lieferkontakt
-    deliveryPhone: order.delivery_phone,
-    deliveryEmail: order.delivery_email,
-
-
     orderComment: order.order_comment,
     requested_delivery: order.requested_delivery,
     requested_delivery_date: order.requested_delivery_date,
   };
-
 
   const lang = (order.dealer_language as "de_CH" | "fr_CH" | "it_CH") ?? "de_CH";
   const txt = orderMailTexts[stage][lang];
@@ -281,11 +228,6 @@ export async function sendOrderNotification(opts: {
   if (stage === "placed") {
     const recipients = cleanEmails([...dealerRecipients, ...sonyKamRecipients]);
     const subject = txt.subject;
-    debugOrderMail(stage, preview, meta, {
-      dealerRecipients,
-      sonyKamRecipients,
-      finalRecipients: recipients,
-    });
 
     if (preview) {
       return {
@@ -315,14 +257,7 @@ export async function sendOrderNotification(opts: {
   if (stage === "confirmed") {
     const dealerSubject = txt.subject;
     const distiSubject = `Neue Bestellung von ${order.dealer_name ?? "P5-Partner"}`;
-    const dealerTo = dealerRecipients.length ? dealerRecipients : ["test@p5connect.ch"];
-    const distiTo = distiRecipients.length ? distiRecipients : ["test@p5connect.ch"];
-    debugOrderMail(stage, preview, meta, {
-      dealerRecipients,
-      distiRecipients,
-      finalDealerTo: dealerTo,
-      finalDistiTo: distiTo,
-    });
+
     if (preview) {
       return {
         ok: true,
@@ -342,17 +277,16 @@ export async function sendOrderNotification(opts: {
     }
 
     const dealerRes = await sendMail({
-      to: dealerTo,
+      to: dealerRecipients.length ? dealerRecipients : ["test@p5connect.ch"],
       subject: dealerSubject,
       html: dealerHtml,
     });
 
     const distiRes = await sendMail({
-      to: distiTo,
+      to: distiRecipients.length ? distiRecipients : ["test@p5connect.ch"],
       subject: distiSubject,
       html: distiHtml,
     });
-
 
     if ((dealerRes as any)?.error || (distiRes as any)?.error) {
       return { ok: false, error: "mail_failed" };

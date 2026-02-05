@@ -15,9 +15,6 @@ type OrderMeta = {
   customerContact?: string | null;
   customerPhone?: string | null;
 
-  // ✅ NEU: Referenz
-  dealerReference?: string | null;
-
   dealerCompany?: string | null;
   dealerName?: string | null;
   dealerEmail?: string | null;
@@ -27,23 +24,19 @@ type OrderMeta = {
   dealerCity?: string | null;
   dealerCountry?: string | null;
 
-  // Lieferadresse
+  // 🆕 Lieferadresse
   deliveryName?: string | null;
   deliveryStreet?: string | null;
   deliveryZip?: string | null;
   deliveryCity?: string | null;
   deliveryCountry?: string | null;
 
-  // ✅ NEU: Liefer-Kontakt
-  deliveryPhone?: string | null;
-  deliveryEmail?: string | null;
-
-  // Kommentar zur Bestellung
+  // 🆕 Kommentar zur Bestellung
   orderComment?: string | null;
 
   kamName?: string | null;
   kamEmail?: string | null;
-  kamSonyEmail?: string | null;
+  kamSonyEmail?: string | null; 
 };
 
 function clean(v?: string | null) {
@@ -74,9 +67,7 @@ function addressBlock(meta: OrderMeta) {
   } else if (company) rows.push(company);
   else if (name) rows.push(name);
 
-  const addressLine = [street, [zip, city].filter(Boolean).join(" ")]
-    .filter(Boolean)
-    .join(" · ");
+  const addressLine = [street, [zip, city].filter(Boolean).join(" ")].filter(Boolean).join(" · ");
   if (addressLine) rows.push(addressLine);
   if (country) rows.push(country);
 
@@ -84,9 +75,7 @@ function addressBlock(meta: OrderMeta) {
   if (contact) rows.push(contact);
 
   return rows.length
-    ? `<p style="margin:0 0 10px;"><strong>Händleradresse</strong><br/>${rows.join(
-        "<br/>"
-      )}</p>`
+    ? `<p style="margin:0 0 10px;"><strong>Händleradresse</strong><br/>${rows.join("<br/>")}</p>`
     : "";
 }
 
@@ -101,25 +90,16 @@ function deliveryBlock(meta: OrderMeta) {
   const city = clean(meta.deliveryCity);
   const country = clean(meta.deliveryCountry);
 
-  const phone = clean(meta.deliveryPhone);
-  const email = clean(meta.deliveryEmail);
-
-  // ✅ Block soll auch erscheinen, wenn nur Tel/Mail vorhanden ist
-  if (!name && !street && !zip && !city && !phone && !email) return "";
+  if (!name && !street && !zip && !city) return "";
 
   const line1 = name ? name : "";
-  const line2 = [street, [zip, city].filter(Boolean).join(" ")]
-    .filter(Boolean)
-    .join(" · ");
+  const line2 = [street, [zip, city].filter(Boolean).join(" ")].filter(Boolean).join(" · ");
   const line3 = country || "";
-  const line4 = [email, phone].filter(Boolean).join(" · ");
 
-  [line1, line2, line3, line4].filter(Boolean).forEach((l) => rows.push(l));
+  [line1, line2, line3].filter(Boolean).forEach((l) => rows.push(l));
 
   return rows.length
-    ? `<p style="margin:12px 0 10px;"><strong>Lieferadresse</strong><br/>${rows.join(
-        "<br/>"
-      )}</p>`
+    ? `<p style="margin:12px 0 10px;"><strong>Lieferadresse</strong><br/>${rows.join("<br/>")}</p>`
     : "";
 }
 
@@ -131,12 +111,6 @@ function orderFacts(meta: OrderMeta) {
     meta.orderNumber
       ? `<tr><td style="padding:4px 8px;">Bestell-Nr.</td><td style="padding:4px 8px;"><strong>${meta.orderNumber}</strong></td></tr>`
       : "",
-
-    // ✅ NEU: Referenz
-    meta.dealerReference
-      ? `<tr><td style="padding:4px 8px;">Referenz</td><td style="padding:4px 8px;">${meta.dealerReference}</td></tr>`
-      : "",
-
     meta.customerNumber
       ? `<tr><td style="padding:4px 8px;">Kunden-Nr.</td><td style="padding:4px 8px;">${meta.customerNumber}</td></tr>`
       : "",
@@ -155,7 +129,10 @@ function orderFacts(meta: OrderMeta) {
       ? `<tr>
           <td style="padding:4px 8px;">KAM</td>
           <td style="padding:4px 8px;">
-            ${[meta.kamName, meta.kamSonyEmail || meta.kamEmail]
+            ${[
+              meta.kamName,
+              meta.kamSonyEmail || meta.kamEmail
+            ]
               .filter(Boolean)
               .join(" · ")}
           </td>
@@ -172,8 +149,9 @@ function orderFacts(meta: OrderMeta) {
     : "";
 }
 
+
 /* ========================================================================== */
-/* ✉️ HTML-Gesamtvorlage                                                      */
+/* ✉️ HTML-Gesamtvorlage                                                     */
 /* ========================================================================== */
 export function buildOrderEmailHTML(params: {
   distributor: Dist;
@@ -186,27 +164,17 @@ export function buildOrderEmailHTML(params: {
     .map(
       (i) => `
         <tr>
-          <td style="padding:6px;border-top:1px solid #eee;">${
-            i.products?.product_name ?? "-"
-          }</td>
-          <td style="padding:6px;border-top:1px solid #eee;">${
-            i.products?.ean ?? "-"
-          }</td>
-          <td style="padding:6px;border-top:1px solid #eee;">${
-            i.menge ?? "-"
-          }</td>
-          <td style="padding:6px;border-top:1px solid #eee;">${(i.preis ?? 0).toFixed(
-            2
-          )} CHF</td>
+          <td style="padding:6px;border-top:1px solid #eee;">${i.products?.product_name ?? "-"}</td>
+          <td style="padding:6px;border-top:1px solid #eee;">${i.products?.ean ?? "-"}</td>
+          <td style="padding:6px;border-top:1px solid #eee;">${i.menge ?? "-"}</td>
+          <td style="padding:6px;border-top:1px solid #eee;">${(i.preis ?? 0).toFixed(2)} CHF</td>
         </tr>`
     )
     .join("");
 
   return `
   <div style="font-family:Arial,sans-serif;color:#333;line-height:1.6;">
-    <h2 style="color:#1E3A8A;margin:0 0 8px;">Neue Bestellung – ${
-      meta.dealerCompany || meta.dealerName || "-"
-    }</h2>
+    <h2 style="color:#1E3A8A;margin:0 0 8px;">Neue Bestellung – ${meta.dealerCompany || meta.dealerName || "-"}</h2>
     <p style="margin:0 0 12px;">Liebes ${distributor.name || "Distributor"}-Team,</p>
 
     <p style="margin:0 0 12px;">
