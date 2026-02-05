@@ -9,6 +9,7 @@ import CartContainer from "@/app/(dealer)/components/CartContainer";
 import RecentActivityPanel from "@/app/(dealer)/components/RecentActivityPanel";
 import SofortrabattActivityPanel from "@/app/(dealer)/components/SofortrabattActivityPanel";
 
+
 import { useI18n } from "@/lib/i18n/I18nProvider";
 
 import { DealerProvider } from "./DealerContext";
@@ -121,7 +122,7 @@ export default function DealerShell({ children }: { children: ReactNode }) {
     return () => {
       mounted = false;
     };
-  }, [impersonatingDealerId, pathname, supabase]);
+  }, [impersonatingDealerId, pathname]);
 
   // ================================
   // IMPERSONATION EXIT
@@ -147,15 +148,16 @@ export default function DealerShell({ children }: { children: ReactNode }) {
     <DealerProvider dealer={dealer}>
       <GlobalCartProvider>
         <div className="min-h-screen flex flex-col bg-gray-50">
+
           {/* NAVIGATION */}
           <DealerNav />
 
           {/* CART CONTAINER */}
           <CartContainer />
 
-          {/* ADMIN IMPERSONATION BAR (wird normal im Flow gerendert) */}
+          {/* ADMIN IMPERSONATION */}
           {impersonatingDealerId && dealer && (
-            <div className="bg-blue-50 text-blue-700 border-b border-blue-200 px-3 md:px-4 py-2 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 text-sm">
+            <div className="bg-blue-50 text-blue-700 border-b border-blue-200 px-4 py-2 flex items-center justify-between text-sm mt-[56px]">
               <span>
                 Admin arbeitet als{" "}
                 <strong>
@@ -165,7 +167,7 @@ export default function DealerShell({ children }: { children: ReactNode }) {
 
               <button
                 onClick={exitImpersonation}
-                className="w-full sm:w-auto px-3 py-1 bg-white border border-blue-300 rounded text-blue-700 font-medium hover:bg-blue-100"
+                className="px-3 py-1 bg-white border border-blue-300 rounded text-blue-700 font-medium hover:bg-blue-100"
               >
                 Impersonation verlassen
               </button>
@@ -173,22 +175,16 @@ export default function DealerShell({ children }: { children: ReactNode }) {
           )}
 
           {/* HAUPTBEREICH */}
-          <main
-            className="
-              flex-1 relative z-0
-              px-3 md:px-6
-              pt-16 md:pt-24
-              pb-6
-            "
-          >
+          <main className="flex-1 p-6 pt-28 relative z-0">
             {loading ? (
               <p className="text-gray-500">{t("dealer.loading")}</p>
             ) : dealer ? (
               <>
                 {/* Händlerkarte + Activities */}
-                <div className="flex flex-col lg:flex-row gap-4 md:gap-6 mb-4 md:mb-6">
+                <div className="flex flex-col lg:flex-row gap-6 mb-6">
+
                   {/* Händlerkarte */}
-                  <div className="flex-1 min-w-0">
+                  <div className="flex-1 min-w-[320px]">
                     <div className="h-full flex flex-col bg-white border border-gray-200 rounded-lg shadow-sm p-3 text-[14px] leading-snug">
                       <h2 className="text-base font-semibold mb-2">
                         {t("dealer.infoTitle")}
@@ -196,47 +192,30 @@ export default function DealerShell({ children }: { children: ReactNode }) {
 
                       <div className="space-y-1 flex-1">
                         {dealer.store_name && (
-                          <p>
-                            <strong>{t("dealer.shop")}:</strong>{" "}
-                            {dealer.store_name}
-                          </p>
+                          <p><strong>{t("dealer.shop")}:</strong> {dealer.store_name}</p>
                         )}
                         {dealer.company_name && (
-                          <p>
-                            <strong>{t("dealer.company")}:</strong>{" "}
-                            {dealer.company_name}
-                          </p>
+                          <p><strong>{t("dealer.company")}:</strong> {dealer.company_name}</p>
                         )}
                         {dealer.address && (
-                          <p>
-                            <strong>{t("dealer.address")}:</strong>{" "}
-                            {dealer.address}
-                          </p>
+                          <p><strong>{t("dealer.address")}:</strong> {dealer.address}</p>
                         )}
                         {(dealer.zip || dealer.city) && (
-                          <p>
-                            <strong>{t("dealer.city")}:</strong> {dealer.zip}{" "}
-                            {dealer.city}
-                          </p>
+                          <p><strong>{t("dealer.city")}:</strong> {dealer.zip} {dealer.city}</p>
                         )}
                         {dealer.email && (
-                          <p>
-                            <strong>{t("dealer.email")}:</strong>{" "}
-                            {dealer.email}
-                          </p>
+                          <p><strong>{t("dealer.email")}:</strong> {dealer.email}</p>
                         )}
                         {dealer.phone && (
-                          <p>
-                            <strong>{t("dealer.phone")}:</strong>{" "}
-                            {dealer.phone}
-                          </p>
+                          <p><strong>{t("dealer.phone")}:</strong> {dealer.phone}</p>
                         )}
                       </div>
                     </div>
                   </div>
 
                   {/* Realtime Panels */}
-                  <div className="w-full lg:max-w-[520px] flex flex-col gap-4 md:gap-6">
+                  <div className="w-full lg:max-w-[520px] flex flex-col gap-6">
+
                     {/* Normale Aktivitäten (alles ausser Sofortrabatt) */}
                     {detectedFormType && detectedFormType !== "sofortrabatt" && (
                       <RecentActivityPanel
@@ -264,6 +243,8 @@ export default function DealerShell({ children }: { children: ReactNode }) {
               <p className="text-red-500">{t("dealer.notfound")}</p>
             )}
           </main>
+
+
         </div>
       </GlobalCartProvider>
     </DealerProvider>
