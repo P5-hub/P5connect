@@ -2,20 +2,18 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import React, { ReactNode, useMemo, useState, useEffect, useRef } from "react";
+import {
+  ReactNode,
+  useMemo,
+  useState,
+  useEffect,
+  useRef,
+} from "react";
 
 import I18nProvider, { useI18n } from "@/lib/i18n/I18nProvider";
 import { createClient } from "@/utils/supabase/client";
 
-import {
-  Globe,
-  LogOut,
-  UserRound,
-  Search,
-  Menu,
-  X,
-  Bell,
-} from "lucide-react";
+import { Globe, LogOut, UserRound, Search } from "lucide-react";
 
 import PendingIndicator from "@/components/admin/PendingIndicator";
 import MiniBadge from "@/components/admin/MiniBadge";
@@ -37,6 +35,7 @@ type PendingKey =
    HILFSFUNKTIONEN
 ------------------------------------------------------------------ */
 
+// Zufallspasswort generieren (C4)
 function generateRandomPassword(length: number = 12): string {
   const chars =
     "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789!@$%&*?";
@@ -60,32 +59,27 @@ function AdminLayoutInner({ children }: { children: ReactNode }) {
   const [openLang, setOpenLang] = useState(false);
   const [dealers, setDealers] = useState<any[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
-
   const langRef = useRef<HTMLDivElement | null>(null);
 
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [pendingCounts, setPendingCounts] = useState<Record<PendingKey, number>>({
+    promotions: 0,
+    sofortrabatt: 0,
+    projekts: 0,
+    bestellungen: 0,
+    support: 0,
+    aktionen: 0,
+    cashback: 0,
+  });
 
-  const [pendingCounts, setPendingCounts] = useState<Record<PendingKey, number>>(
-    {
-      promotions: 0,
-      sofortrabatt: 0,
-      projekts: 0,
-      bestellungen: 0,
-      support: 0,
-      aktionen: 0,
-      cashback: 0,
-    }
-  );
+  // -------------------------------------------------------------------
+  // STATE: Aktueller Admin (für Logging etc.)
+  // -------------------------------------------------------------------
+  const [currentAdminEmail, setCurrentAdminEmail] = useState<string | null>(null);
+  const [currentAdminLogin, setCurrentAdminLogin] = useState<string | null>(null);
 
-  // Admin state
-  const [currentAdminEmail, setCurrentAdminEmail] = useState<string | null>(
-    null
-  );
-  const [currentAdminLogin, setCurrentAdminLogin] = useState<string | null>(
-    null
-  );
-
-  // Modal state
+  // -------------------------------------------------------------------
+  // STATE: Login / Passwort ändern Modal
+  // -------------------------------------------------------------------
   const [isUserModalOpen, setIsUserModalOpen] = useState(false);
   const [modalLogin, setModalLogin] = useState("");
   const [modalNewLogin, setModalNewLogin] = useState("");
@@ -95,7 +89,7 @@ function AdminLayoutInner({ children }: { children: ReactNode }) {
   const [modalSuccess, setModalSuccess] = useState<string | null>(null);
   const [showPassword, setShowPassword] = useState(false);
 
-  // Toast
+  // Toast für globale Meldungen (D3)
   const [toast, setToast] = useState<{
     type: "success" | "error";
     message: string;
@@ -103,12 +97,14 @@ function AdminLayoutInner({ children }: { children: ReactNode }) {
 
   const showToast = (type: "success" | "error", message: string) => {
     setToast({ type, message });
-    setTimeout(() => setToast(null), 4000);
+    setTimeout(() => {
+      setToast(null);
+    }, 4000);
   };
 
-  /* ------------------------------------------------------------------
-     Admin-User laden
-  ------------------------------------------------------------------ */
+  // -------------------------------------------------------------------
+  // Admin-User aus Supabase holen (für Logging + Komfort)
+  // -------------------------------------------------------------------
   useEffect(() => {
     const loadAdmin = async () => {
       const { data, error } = await supabase.auth.getUser();
@@ -117,6 +113,7 @@ function AdminLayoutInner({ children }: { children: ReactNode }) {
       const email = data.user.email;
       setCurrentAdminEmail(email);
 
+      // Falls Schema: LOGIN@p5.local -> Login extrahieren
       if (email.endsWith("@p5.local")) {
         const login = email.replace("@p5.local", "");
         setCurrentAdminLogin(login);
@@ -126,6 +123,7 @@ function AdminLayoutInner({ children }: { children: ReactNode }) {
   }, [supabase]);
 
   const openUserModal = () => {
+    // Standardmäßig mit aktuellem Admin-Login vorbefüllen (kann überschrieben werden)
     setModalLogin(currentAdminLogin || "");
     setModalNewLogin("");
     setModalNewPassword("");
@@ -133,7 +131,6 @@ function AdminLayoutInner({ children }: { children: ReactNode }) {
     setModalSuccess(null);
     setShowPassword(false);
     setIsUserModalOpen(true);
-    setMobileMenuOpen(false); // falls offen
   };
 
   const closeUserModal = () => {
@@ -163,6 +160,7 @@ function AdminLayoutInner({ children }: { children: ReactNode }) {
       return;
     }
 
+    // A4: Neuer Login – nur bestimmte Zeichen zulassen
     if (newLoginTrimmed) {
       const loginRegex = /^[A-Za-z0-9_-]+$/;
       if (!loginRegex.test(newLoginTrimmed)) {
@@ -175,13 +173,18 @@ function AdminLayoutInner({ children }: { children: ReactNode }) {
     }
 
     const finalNewLogin = newLoginTrimmed || loginTrimmed;
+
+    // A5: Warnung, wenn Login gleich bleibt (nur Hinweis, kein Blocker)
     const loginChanged = finalNewLogin !== loginTrimmed;
 
+    // A2: Confirm-Dialog bei Login-Änderung
     if (loginChanged) {
       const confirmed = window.confirm(
         `Sie ändern den Login von "${loginTrimmed}" auf "${finalNewLogin}". Fortfahren?`
       );
-      if (!confirmed) return;
+      if (!confirmed) {
+        return;
+      }
     }
 
     const payload = {
@@ -214,7 +217,7 @@ function AdminLayoutInner({ children }: { children: ReactNode }) {
 
       setModalSuccess(successMsg);
       showToast("success", successMsg);
-    } catch {
+    } catch (err: any) {
       const msg = "Fehler beim Senden der Anfrage.";
       setModalError(msg);
       showToast("error", msg);
@@ -227,6 +230,7 @@ function AdminLayoutInner({ children }: { children: ReactNode }) {
     const pwd = generateRandomPassword(12);
     setModalNewPassword(pwd);
 
+    // Optional: direkt in Zwischenablage kopieren
     try {
       if (navigator && "clipboard" in navigator) {
         await navigator.clipboard.writeText(pwd);
@@ -240,11 +244,13 @@ function AdminLayoutInner({ children }: { children: ReactNode }) {
   };
 
   const handleFillAdminLogin = () => {
-    if (currentAdminLogin) setModalLogin(currentAdminLogin);
+    if (currentAdminLogin) {
+      setModalLogin(currentAdminLogin);
+    }
   };
 
   /* ------------------------------------------------------------------
-     Click outside Language Dropdown (nur Desktop-Button relevant)
+     CLICK OUTSIDE LANGUAGE DROPDOWN
   ------------------------------------------------------------------ */
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
@@ -257,7 +263,7 @@ function AdminLayoutInner({ children }: { children: ReactNode }) {
   }, []);
 
   /* ------------------------------------------------------------------
-     Load dealers
+     LOAD DEALERS
   ------------------------------------------------------------------ */
   useEffect(() => {
     const loadDealers = async () => {
@@ -272,7 +278,7 @@ function AdminLayoutInner({ children }: { children: ReactNode }) {
   }, [supabase]);
 
   /* ------------------------------------------------------------------
-     Pending counts
+     LOAD PENDING COUNTS (INLINE FUNCTION)
   ------------------------------------------------------------------ */
   const loadPendingCounts = async () => {
     const counts: Record<PendingKey, number> = {
@@ -285,47 +291,61 @@ function AdminLayoutInner({ children }: { children: ReactNode }) {
       cashback: 0,
     };
 
+    // 1) Submissions laden
     const { data: submissions } = await supabase
       .from("submissions")
       .select("typ, status");
 
     if (submissions) {
       submissions.forEach((row: any) => {
-        if (row.status !== "pending") return;
-        if (row.typ === "promotion") counts.promotions++;
-        if (row.typ === "projekt") counts.projekts++;
-        if (row.typ === "bestellung") counts.bestellungen++;
-        if (row.typ === "support") counts.support++;
-        if (row.typ === "monatsaktion") counts.aktionen++;
-        if (row.typ === "cashback") counts.cashback++;
+        if (row.status === "pending") {
+          if (row.typ === "promotion") counts.promotions++;
+          if (row.typ === "projekt") counts.projekts++;
+          if (row.typ === "bestellung") counts.bestellungen++;
+          if (row.typ === "support") counts.support++;
+          if (row.typ === "monatsaktion") counts.aktionen++;
+          if (row.typ === "cashback") counts.cashback++;
+        }
       });
     }
 
+    // 2) Sofortrabatt separat laden (eigene Tabelle!)
     const { data: sofortrabattClaims } = await supabase
       .from("sofortrabatt_claims")
       .select("status");
 
     if (sofortrabattClaims) {
       sofortrabattClaims.forEach((row: any) => {
-        if (row.status === "pending") counts.sofortrabatt++;
+        if (row.status === "pending") {
+          counts.sofortrabatt++;
+        }
       });
     }
 
     setPendingCounts(counts);
   };
 
+  /* ------------------------------------------------------------------
+     INITIAL LOAD
+  ------------------------------------------------------------------ */
   useEffect(() => {
     loadPendingCounts();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  /* ------------------------------------------------------------------
+     REALTIME LISTENER FOR LIVE UPDATES
+  ------------------------------------------------------------------ */
   useEffect(() => {
     const channel = supabase
       .channel("pending_updates")
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "submissions" },
-        () => loadPendingCounts()
+        () => {
+          // Anytime something changes → reload counters
+          loadPendingCounts();
+        }
       )
       .subscribe();
 
@@ -335,24 +355,19 @@ function AdminLayoutInner({ children }: { children: ReactNode }) {
   }, [supabase]);
 
   /* ------------------------------------------------------------------
-     Filter dealers
+     FILTER DEALERS
   ------------------------------------------------------------------ */
   const filteredDealers = useMemo(() => {
     const lower = searchTerm.toLowerCase();
     return dealers.filter((d) => {
       const name = d.name?.toLowerCase() || "";
       const email = d.email?.toLowerCase() || "";
-      const login = d.login_nr?.toLowerCase?.() || "";
-      return (
-        name.includes(lower) ||
-        email.includes(lower) ||
-        login.includes(lower)
-      );
+      return name.includes(lower) || email.includes(lower);
     });
   }, [dealers, searchTerm]);
 
   /* ------------------------------------------------------------------
-     Navigation
+     NAVIGATION
   ------------------------------------------------------------------ */
   const navItems: {
     href: string;
@@ -360,54 +375,14 @@ function AdminLayoutInner({ children }: { children: ReactNode }) {
     label: string;
     color: string;
   }[] = [
-    {
-      href: "/admin/promotions",
-      key: "promotions",
-      label: t("admin.promotions"),
-      color: "text-blue-600",
-    },
-    {
-      href: "/admin/sofortrabatt",
-      key: "sofortrabatt",
-      label: t("admin.instantDiscount"),
-      color: "text-pink-600",
-    },
-    {
-      href: "/admin/projekte",
-      key: "projekts",
-      label: t("admin.projects"),
-      color: "text-indigo-600",
-    },
-    {
-      href: "/admin/bestellungen",
-      key: "bestellungen",
-      label: t("admin.orders"),
-      color: "text-green-600",
-    },
-    {
-      href: "/admin/support",
-      key: "support",
-      label: t("admin.support"),
-      color: "text-orange-600",
-    },
-    {
-      href: "/admin/aktionen",
-      key: "aktionen",
-      label: t("admin.monthlyOffers"),
-      color: "text-teal-600",
-    },
-    {
-      href: "/admin/reports",
-      key: null,
-      label: t("admin.reports"),
-      color: "text-gray-600",
-    },
-    {
-      href: "/admin/infos",
-      key: null,
-      label: t("admin.info"),
-      color: "text-gray-500",
-    },
+    { href: "/admin/promotions", key: "promotions", label: t("admin.promotions"), color: "text-blue-600" },
+    { href: "/admin/sofortrabatt", key: "sofortrabatt", label: t("admin.instantDiscount"), color: "text-pink-600" },
+    { href: "/admin/projekte", key: "projekts", label: t("admin.projects"), color: "text-indigo-600" },
+    { href: "/admin/bestellungen", key: "bestellungen", label: t("admin.orders"), color: "text-green-600" },
+    { href: "/admin/support", key: "support", label: t("admin.support"), color: "text-orange-600" },
+    { href: "/admin/aktionen", key: "aktionen", label: t("admin.monthlyOffers"), color: "text-teal-600" },
+    { href: "/admin/reports", key: null, label: t("admin.reports"), color: "text-gray-600" },
+    { href: "/admin/infos", key: null, label: t("admin.info"), color: "text-gray-500" },
   ];
 
   const activeColor = useMemo(() => {
@@ -415,27 +390,21 @@ function AdminLayoutInner({ children }: { children: ReactNode }) {
     return m ? m.color : "text-gray-800";
   }, [pathname, navItems]);
 
+  /* ------------------------------------------------------------------
+     IMPERSONATE DEALER
+  ------------------------------------------------------------------ */
   const handleImpersonate = (dealerId: string) => {
     if (!dealerId) return;
     window.open(`/bestellung?dealer_id=${dealerId}`, "_blank");
-    setMobileMenuOpen(false);
   };
 
+  /* ------------------------------------------------------------------
+     LOGOUT
+  ------------------------------------------------------------------ */
   const handleLogout = async () => {
     await supabase.auth.signOut();
     router.push("/login");
   };
-
-  const langLabel =
-    lang === "de"
-      ? "Deutsch"
-      : lang === "fr"
-      ? "Français"
-      : lang === "it"
-      ? "Italiano"
-      : lang === "rm"
-      ? "Rumantsch"
-      : "English";
 
   /* ------------------------------------------------------------------
      RENDER
@@ -445,22 +414,20 @@ function AdminLayoutInner({ children }: { children: ReactNode }) {
     <div className="min-h-screen flex flex-col bg-gray-50">
       {/* HEADER */}
       <header className="bg-white shadow-md fixed top-0 left-0 right-0 z-50 border-b">
-        <div className="flex justify-between items-center px-3 md:px-6 py-2 md:py-3">
+        <div className="flex justify-between items-center px-6 py-3">
           {/* LOGO */}
           <Link
             href="/dashboard"
-            className="font-semibold text-gray-800 text-base md:text-lg flex items-center gap-0"
+            className="font-semibold text-gray-800 text-lg flex items-center gap-0"
           >
             <span className="text-black">P</span>
             <span className={`${activeColor} transition-colors`}>5</span>
-            <span className="text-black hidden sm:inline">
-              connect Admin Dashboard
-            </span>
-            <span className="text-black sm:hidden">connect</span>
+            <span className="text-black">connect Admin Dashboard</span>
           </Link>
 
-          {/* RIGHT ACTIONS - DESKTOP */}
-          <div className="hidden md:flex items-center gap-5">
+          {/* RIGHT ACTIONS */}
+          <div className="flex items-center gap-5">
+            {/* GLOBAL BADGE MENU */}
             <PendingIndicator />
 
             {/* IMPERSONATION */}
@@ -491,7 +458,7 @@ function AdminLayoutInner({ children }: { children: ReactNode }) {
               </select>
             </div>
 
-            {/* LOGIN / PASSWORT */}
+            {/* BUTTON: LOGIN / PASSWORT ÄNDERN */}
             <button
               onClick={openUserModal}
               className="bg-yellow-500 hover:bg-yellow-600 text-white text-sm px-3 py-1.5 rounded flex items-center gap-1"
@@ -506,7 +473,15 @@ function AdminLayoutInner({ children }: { children: ReactNode }) {
                 className="flex items-center gap-1 text-sm text-gray-800 hover:text-black"
               >
                 <Globe className="w-4 h-4" />
-                {langLabel}
+                {lang === "de"
+                  ? "Deutsch"
+                  : lang === "fr"
+                  ? "Français"
+                  : lang === "it"
+                  ? "Italiano"
+                  : lang === "rm"
+                  ? "Rumantsch"
+                  : "English"}
               </button>
 
               {openLang && (
@@ -548,34 +523,10 @@ function AdminLayoutInner({ children }: { children: ReactNode }) {
               Logout
             </button>
           </div>
-
-          {/* RIGHT ACTIONS - MOBILE */}
-          <div className="flex md:hidden items-center gap-2">
-            {/* Pending indicator (optional: falls zu groß, ersetzbar durch Icon) */}
-            <button
-              type="button"
-              onClick={() => setMobileMenuOpen(true)}
-              className="p-2 rounded hover:bg-gray-100"
-              aria-label="Benachrichtigungen / Menü öffnen"
-              title="Öffnen"
-            >
-              <Bell className="w-5 h-5 text-gray-700" />
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setMobileMenuOpen(true)}
-              className="p-2 rounded hover:bg-gray-100"
-              aria-label="Menü öffnen"
-              title="Menü"
-            >
-              <Menu className="w-5 h-5 text-gray-800" />
-            </button>
-          </div>
         </div>
 
-        {/* NAVIGATION - DESKTOP */}
-        <nav className="hidden md:flex gap-6 px-6 py-2 bg-white border-t shadow-sm overflow-x-auto">
+        {/* NAVIGATION */}
+        <nav className="flex gap-6 px-6 py-2 bg-white border-t shadow-sm overflow-x-auto">
           {navItems.map((item) => {
             const isActive = pathname.startsWith(item.href);
             const count = item.key ? pendingCounts[item.key as PendingKey] : 0;
@@ -598,157 +549,13 @@ function AdminLayoutInner({ children }: { children: ReactNode }) {
         </nav>
       </header>
 
-      {/* MOBILE DRAWER */}
-      {mobileMenuOpen && (
-        <div className="fixed inset-0 z-[70]">
-          <div
-            className="absolute inset-0 bg-black/40"
-            onClick={() => setMobileMenuOpen(false)}
-          />
-          <div className="absolute right-0 top-0 h-full w-[86%] max-w-sm bg-white shadow-xl flex flex-col">
-            <div className="flex items-center justify-between px-4 py-3 border-b">
-              <div className="font-semibold text-gray-900">Admin Menü</div>
-              <button
-                className="p-2 rounded hover:bg-gray-100"
-                onClick={() => setMobileMenuOpen(false)}
-                aria-label="Schliessen"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <div className="p-4 space-y-4 overflow-y-auto">
-              {/* Pending indicator als kompakter Block */}
-              <div className="rounded border bg-gray-50 p-3">
-                <div className="text-sm font-medium text-gray-800 mb-2">
-                  Offene Punkte
-                </div>
-                <PendingIndicator />
-              </div>
-
-              {/* Dealer search + impersonate */}
-              <div className="space-y-2">
-                <div className="text-sm font-medium text-gray-800 flex items-center gap-2">
-                  <UserRound className="w-4 h-4 text-blue-600" />
-                  Als Händler agieren
-                </div>
-
-                <div className="relative">
-                  <Search className="absolute left-3 top-2.5 w-4 h-4 text-gray-400" />
-                  <input
-                    type="text"
-                    placeholder="Händler suchen..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="w-full pl-9 pr-3 py-2 text-sm border border-blue-200 bg-blue-50 text-blue-800 rounded-md outline-none"
-                  />
-                </div>
-
-                <select
-                  onChange={(e) => handleImpersonate(e.target.value)}
-                  className="w-full border border-blue-200 bg-blue-50 text-blue-800 text-sm rounded-md px-2 py-2"
-                >
-                  <option value="">{t("admin.actAsDealer")}</option>
-                  {filteredDealers.map((d) => (
-                    <option key={d.dealer_id} value={d.dealer_id}>
-                      {d.name} ({d.email})
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Login/Passwort */}
-              <button
-                onClick={openUserModal}
-                className="w-full bg-yellow-500 hover:bg-yellow-600 text-white text-sm px-3 py-2 rounded flex items-center justify-center gap-2"
-              >
-                🔐 Login / Passwort
-              </button>
-
-              {/* Sprache */}
-              <div className="rounded border p-3">
-                <div className="flex items-center gap-2 text-sm font-medium text-gray-800 mb-2">
-                  <Globe className="w-4 h-4" />
-                  Sprache
-                </div>
-                <div className="grid grid-cols-2 gap-2">
-                  {["de", "en", "fr", "it", "rm"].map((l) => (
-                    <button
-                      key={l}
-                      onClick={() => setLang(l as any)}
-                      className={`px-3 py-2 rounded text-sm border ${
-                        l === lang
-                          ? "bg-gray-900 text-white border-gray-900"
-                          : "bg-white text-gray-800 hover:bg-gray-50"
-                      }`}
-                    >
-                      {l === "de"
-                        ? "Deutsch"
-                        : l === "fr"
-                        ? "Français"
-                        : l === "it"
-                        ? "Italiano"
-                        : l === "rm"
-                        ? "Rumantsch"
-                        : "English"}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Navigation */}
-              <div className="rounded border p-3">
-                <div className="text-sm font-medium text-gray-800 mb-2">
-                  Navigation
-                </div>
-                <div className="flex flex-col gap-1">
-                  {navItems.map((item) => {
-                    const isActive = pathname.startsWith(item.href);
-                    const count = item.key
-                      ? pendingCounts[item.key as PendingKey]
-                      : 0;
-
-                    return (
-                      <Link
-                        key={item.href}
-                        href={item.href}
-                        onClick={() => setMobileMenuOpen(false)}
-                        className={`flex items-center justify-between px-3 py-2 rounded text-sm ${
-                          isActive
-                            ? "bg-gray-900 text-white"
-                            : "hover:bg-gray-50 text-gray-800"
-                        }`}
-                      >
-                        <span className="flex items-center gap-2">
-                          <span>{item.label}</span>
-                        </span>
-                        <MiniBadge count={count} />
-                      </Link>
-                    );
-                  })}
-                </div>
-              </div>
-
-              {/* Logout */}
-              <button
-                onClick={handleLogout}
-                className="w-full bg-red-500 hover:bg-red-600 text-white text-sm px-3 py-2 rounded flex items-center justify-center gap-2"
-              >
-                <LogOut className="w-4 h-4" />
-                Logout
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* CONTENT */}
-      <main className="flex-1 p-3 md:p-6 pt-16 md:pt-28">{children}</main>
+      <main className="flex-1 p-6 pt-28">{children}</main>
 
       {/* MODAL: LOGIN / PASSWORT ÄNDERN */}
       {isUserModalOpen && (
-        <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/40 p-3">
-          <div className="bg-white rounded-lg shadow-xl w-full max-w-md p-6">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-md p-6 transform transition-all duration-200 scale-100 opacity-100">
             <h2 className="text-lg font-semibold mb-4">
               Login / Passwort ändern
             </h2>
@@ -853,7 +660,7 @@ function AdminLayoutInner({ children }: { children: ReactNode }) {
 
       {/* TOAST */}
       {toast && (
-        <div className="fixed top-4 right-4 z-[90]">
+        <div className="fixed top-4 right-4 z-[60]">
           <div
             className={`px-4 py-2 rounded shadow-md text-sm text-white ${
               toast.type === "success" ? "bg-green-600" : "bg-red-600"
