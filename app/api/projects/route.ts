@@ -20,13 +20,20 @@ export async function POST(req: Request) {
       comment,
     } = body;
 
-    // 🔒 Pflichtfelder gemäss Schema
-    if (!dealer_id || !project_type || !project_name) {
+    // ✅ Nur dealer_id ist Pflicht (wie du es im Frontend willst)
+    if (!dealer_id) {
       return NextResponse.json(
         { error: "Ungültige Projektanfrage" },
         { status: 400 }
       );
     }
+
+    // ✅ Strings normalisieren: leere Strings -> null
+    const projectType = project_type?.trim() || null;
+    const projectName = project_name?.trim() || null;
+    const customerVal = customer?.trim() || null;
+    const locationVal = location?.trim() || null;
+    const commentVal = comment?.trim() || null;
 
     // ✅ cookies korrekt holen
     const cookieStore = await cookies();
@@ -42,6 +49,13 @@ export async function POST(req: Request) {
     );
 
     const dealerId = Number(dealer_id);
+
+    if (!dealerId || Number.isNaN(dealerId)) {
+      return NextResponse.json(
+        { error: "Ungültige dealer_id" },
+        { status: 400 }
+      );
+    }
 
     // 🔥 1️⃣ store_name SERVERSEITIG aus dealers laden
     const { data: dealer, error: dealerError } = await supabase
@@ -65,14 +79,14 @@ export async function POST(req: Request) {
         {
           dealer_id: dealerId,
           login_nr: login_nr ?? null,
-          store_name: dealer.store_name ?? null, // ✅ HIER
-          project_type,
-          project_name,
-          customer: customer ?? null,
-          location: location ?? null,
+          store_name: dealer.store_name ?? null,
+          project_type: projectType,     // ✅ statt project_type
+          project_name: projectName,     // ✅ statt project_name
+          customer: customerVal,         // ✅ statt customer ?? null
+          location: locationVal,         // ✅ statt location ?? null
           start_date: start_date ?? null,
           end_date: end_date ?? null,
-          comment: comment ?? null,
+          comment: commentVal,           // ✅ statt comment ?? null
         },
       ])
       .select()
@@ -83,8 +97,8 @@ export async function POST(req: Request) {
       throw error;
     }
 
-    // 🔥 3️⃣ Projekt-Log
-    await supabase.from("project_logs").insert([
+    // 🔥 3️⃣ Projekt-Log (Fehler hier soll Request nicht killen)
+    const { error: logErr } = await supabase.from("project_logs").insert([
       {
         project_id: project.id,
         dealer_id: dealerId,
@@ -92,6 +106,10 @@ export async function POST(req: Request) {
         payload: body,
       },
     ]);
+
+    if (logErr) {
+      console.warn("⚠️ Projekt-Log konnte nicht geschrieben werden:", logErr);
+    }
 
     return NextResponse.json({
       success: true,

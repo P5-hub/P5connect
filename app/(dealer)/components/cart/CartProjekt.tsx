@@ -785,7 +785,7 @@ const projectFiles: File[] = details.files;
 
         const fd = new FormData();
         fd.append("file", file);
-        fd.append("project_id", project_id);
+        fd.append("project_id", String(project_id));
         fd.append("dealer_id", String((dealer as any).dealer_id));
         fd.append("login_nr", String((dealer as any).login_nr ?? ""));
 
@@ -1026,6 +1026,45 @@ const projectFiles: File[] = details.files;
                     </div>
                   )}
                 </div>  {/* ✅ DAS HAT GEFEHLT */}
+                {/* 📎 Dateien anhängen */}
+                <div className="border rounded-xl p-3 space-y-2 bg-purple-50/20">
+                  <p className="text-sm font-semibold flex items-center gap-2 text-purple-700">
+                    <FileText className="w-4 h-4" />
+                    Dateien anhängen (optional)
+                  </p>
+
+                  <Input
+                    type="file"
+                    multiple
+                    onChange={(e) => {
+                      const newFiles = e.currentTarget.files ? Array.from(e.currentTarget.files) : [];
+                      patchDetails({ files: [...(details.files ?? []), ...newFiles] });
+                      toast.success(`📎 ${newFiles.length} Datei(en) hinzugefügt`);
+                      e.currentTarget.value = ""; // ✅ erlaubt erneutes Auswählen derselben Datei
+                    }}
+                  />
+
+
+                  {details.files.length > 0 && (
+                    <div className="text-xs text-gray-600 space-y-1">
+                      <p className="font-semibold">Ausgewählt:</p>
+                      {details.files.map((f, i) => (
+                        <div key={i} className="flex items-center gap-2">
+                          <FileText className="w-3 h-3" />
+                          {f.name}
+                        </div>
+                      ))}
+                      <Button
+                        type="button"
+                        variant="outline"
+                        className="mt-2 w-full"
+                        onClick={() => patchDetails({ files: [] })}
+                      >
+                        Dateien entfernen
+                      </Button>
+                    </div>
+                  )}
+                </div>
 
                 {/* Haupt-Distributor */}
                 {hasNormalProducts && (

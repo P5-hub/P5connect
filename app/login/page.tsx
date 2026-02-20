@@ -3,11 +3,10 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/utils/supabase/client";
-import { useI18n } from "@/lib/i18n/I18nProvider";          // ⭐ NEU
-import type { Lang } from "@/lib/i18n/translations";       // ⭐ NEU
+import { useI18n } from "@/lib/i18n/I18nProvider";
+import type { Lang } from "@/lib/i18n/translations";
 import { Globe, Handshake } from "lucide-react";
 import Link from "next/link";
-
 
 // Themefarben für animiertes 5
 const themeColors = {
@@ -18,23 +17,25 @@ const themeColors = {
   sofortrabatt: "#ec4899",
 };
 
+type DealerLookup = {
+  dealer_id: number;
+  login_nr: string;
+  role: "admin" | "dealer" | string | null;
+  store_name: string | null;
+  email: string | null;
+};
+
 export default function LoginPage() {
   const supabase = createClient();
   const router = useRouter();
-
-  // ⭐ i18n Hook (statt altes _())
   const { t, lang, setLang } = useI18n();
 
-  // States
   const [loginNr, setLoginNr] = useState("");
   const [password, setPassword] = useState("");
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
-  // Sprache umschalten
-  const switchLang = (l: Lang) => {
-    setLang(l); // Cookie + LocalStorage + State
-  };
+  const switchLang = (l: Lang) => setLang(l);
 
   // Animiertes Farblogo P5
   const colorKeys = Object.keys(themeColors) as (keyof typeof themeColors)[];
@@ -43,7 +44,7 @@ export default function LoginPage() {
 
   useEffect(() => {
     const interval = setInterval(() => {
-      let nextKey;
+      let nextKey: keyof typeof themeColors;
       do {
         nextKey = colorKeys[Math.floor(Math.random() * colorKeys.length)];
       } while (themeColors[nextKey] === currentColor);
@@ -54,29 +55,40 @@ export default function LoginPage() {
     }, 2400);
 
     return () => clearInterval(interval);
-  }, [currentColor]);
+  }, [currentColor, colorKeys]);
 
-  // Login Handler
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setErrorMsg(null);
 
     try {
-      const { data: dealer, error: dealerError } = await supabase
-        .from("dealers")
-        .select("dealer_id, login_nr, role, store_name, email")
-        .eq("login_nr", loginNr)
-        .maybeSingle();
+      // ✅ 0) Dealer Lookup serverseitig (Service Role) -> funktioniert auch wenn dealers RLS an ist
+      const lookupRes = await fetch("/api/auth/lookup-dealer", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ loginNr }),
+      });
 
-      if (dealerError || !dealer) {
-        throw new Error(t("login.error.unknownLogin"));
+      const lookupJson = await lookupRes.json().catch(() => ({}));
+      console.log("lookupRes.ok:", lookupRes.ok);
+      console.log("lookupJson:", lookupJson);
+
+      if (!lookupRes.ok) {
+        // möglichst generische Fehlermeldung
+        throw new Error(
+          lookupJson?.error === "Invalid credentials"
+            ? t("login.error.unknownLogin")
+            : (lookupJson?.error ?? t("login.error.failed"))
+        );
       }
 
-      if (!dealer.email) {
+      const dealer: DealerLookup | undefined = lookupJson?.dealer;
+      if (!dealer?.email) {
         throw new Error(t("login.error.noEmail"));
       }
 
+      // ✅ 1) Auth Login
       const { data, error: authError } = await supabase.auth.signInWithPassword({
         email: dealer.email,
         password,
@@ -86,6 +98,35 @@ export default function LoginPage() {
         throw new Error(t("login.error.failed"));
       }
 
+      // ✅ 2) dealer_id sicher in app_metadata setzen (serverseitig)
+      const res = await fetch("/api/auth/set-claims", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          userId: data.user.id,
+          dealerId: dealer.dealer_id,
+          role: dealer.role ?? "dealer",
+        }),
+      });
+
+      if (!res.ok) {
+        const msg = await res.text();
+        throw new Error("❌ set-claims failed: " + msg);
+      }
+
+      // ✅ 3) neues JWT ziehen
+      await supabase.auth.refreshSession();
+
+      // ✅ 3b) Absicherung: falls Claims noch nicht sofort im Token sind, einmal retry
+      {
+        const { data: s1 } = await supabase.auth.getSession();
+        const dealerIdClaim = (s1.session?.user.app_metadata as any)?.dealer_id;
+        if (!dealerIdClaim) {
+          await supabase.auth.refreshSession();
+        }
+      }
+
+      // OPTIONAL (UI/Fallback): user_metadata setzen (nicht für Security)
       await supabase.auth.updateUser({
         data: {
           dealer_id: dealer.dealer_id,
@@ -95,13 +136,14 @@ export default function LoginPage() {
         },
       });
 
+      // Redirect
       if (dealer.role === "admin") {
         router.push("/admin");
       } else {
         router.push("/bestellung");
       }
     } catch (err: any) {
-      setErrorMsg(err.message);
+      setErrorMsg(err?.message ?? "Unbekannter Fehler");
     } finally {
       setLoading(false);
     }
@@ -178,22 +220,14 @@ export default function LoginPage() {
         </h1>
 
         {/* Subtitle + Portalbeschreibung */}
-        {/* Subtitle + Portalbeschreibung */}
         <div className="flex flex-col items-center justify-center gap-2 mb-6 text-gray-600 dark:text-gray-300 text-center">
-
           <div className="flex items-center gap-2">
             <Handshake className="w-5 h-5" />
-            <span className="text-sm font-semibold">
-              {t("login.portalTitle")}
-            </span>
+            <span className="text-sm font-semibold">{t("login.portalTitle")}</span>
           </div>
 
-          <p className="text-xs max-w-xs leading-relaxed">
-            {t("login.portalDesc")}
-          </p>
+          <p className="text-xs max-w-xs leading-relaxed">{t("login.portalDesc")}</p>
         </div>
-
-
 
         {/* Login-Nr */}
         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
@@ -253,9 +287,7 @@ export default function LoginPage() {
             transition disabled:opacity-50 shadow-md
           "
         >
-          {loading && (
-            <span className="absolute inset-0 bg-indigo-400/30 animate-button-fill"></span>
-          )}
+          {loading && <span className="absolute inset-0 bg-indigo-400/30 animate-button-fill"></span>}
 
           <span className="relative z-10 flex items-center justify-center gap-2">
             {loading && (
@@ -268,8 +300,6 @@ export default function LoginPage() {
         <p className="mt-3 text-[11px] text-center text-gray-500 dark:text-gray-400">
           🔒 {t("login.securityNote")}
         </p>
-
-
 
         {/* Footer */}
         <div className="mt-6 border-t border-gray-200 dark:border-gray-700 pt-4 text-center text-[11px] text-gray-500 dark:text-gray-400 space-y-1">
@@ -284,9 +314,7 @@ export default function LoginPage() {
           <Link href="/datenschutz" className="hover:underline text-indigo-600 dark:text-indigo-400">
             {t("login.legalPrivacy")}
           </Link>
-
         </div>
-
       </form>
 
       {/* Passwort vergessen */}
