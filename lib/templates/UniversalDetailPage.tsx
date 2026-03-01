@@ -47,6 +47,9 @@ type SubmissionRecord = {
   rabatt_level?: number | null;
   rabatt_betrag?: number | null;
   products?: any;
+
+  // ✅ Sofortrabatt: invoice path(s)
+  invoice_file_url?: any;
 };
 
 // Projekt-spezifisch
@@ -66,14 +69,12 @@ type SubmissionFile = {
   created_at?: string;
 };
 
-
 type UniversalDetailProps = {
   tableName: string; // "submissions" oder "sofortrabatt_claims"
   typeFilter?: string; // z. B. "bestellung", "projekt", "support", "sofortrabatt"
   title: string;
   storageBucket?: string; // für Sofortrabatt invoice API
 };
-
 
 export default function UniversalDetailPage({
   tableName,
@@ -98,9 +99,9 @@ export default function UniversalDetailPage({
 
   const [activeTab, setActiveTab] = useState<"dealer" | "disti">("dealer");
 
-  // Sofortrabatt invoice
-  const [invoiceUrl, setInvoiceUrl] = useState<string | null>(null);
-  const [invoicePath, setInvoicePath] = useState<string | null>(null);
+  // Sofortrabatt invoice (mehrere möglich)
+  const [invoiceUrls, setInvoiceUrls] = useState<Record<string, string>>({});
+  const [invoicePaths, setInvoicePaths] = useState<string[]>([]);
 
   // Projekt files
   const [projectFiles, setProjectFiles] = useState<ProjectFile[]>([]);
@@ -108,7 +109,6 @@ export default function UniversalDetailPage({
   const [orderFiles, setOrderFiles] = useState<SubmissionFile[]>([]);
   const [uploading, setUploading] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
-
 
   // Sofortrabatt-Erkennung
   const isSofort =
@@ -168,6 +168,31 @@ export default function UniversalDetailPage({
     }
   };
 
+  // ✅ B: robustes Normalisieren (string | JSON-string-array | array)
+  const normalizeInvoicePaths = (raw: any): string[] => {
+    if (!raw) return [];
+    if (Array.isArray(raw)) return raw.filter(Boolean);
+
+    if (typeof raw === "string") {
+      const s = raw.trim();
+
+      // JSON Array?
+      if (s.startsWith("[") && s.endsWith("]")) {
+        try {
+          const parsed = JSON.parse(s);
+          return Array.isArray(parsed) ? parsed.filter(Boolean) : [];
+        } catch {
+          return [];
+        }
+      }
+
+      // single path
+      return [s];
+    }
+
+    return [];
+  };
+
   // -----------------------------
   // Daten laden
   // -----------------------------
@@ -192,12 +217,21 @@ export default function UniversalDetailPage({
 
         const anyData: any = data;
 
-        // Invoice signed URL
-        setInvoiceUrl(null);
-        setInvoicePath(anyData.invoice_file_url ?? null);
-        if (anyData.invoice_file_url) {
-          const url = await loadInvoiceUrl(anyData.invoice_file_url);
-          if (url) setInvoiceUrl(url);
+        // ✅ Invoice paths normalisieren + URLs resetten
+        const paths = normalizeInvoicePaths(anyData.invoice_file_url);
+        setInvoicePaths(paths);
+        setInvoiceUrls({});
+
+        // ✅ optional: direkt vor-laden (kannst du auch lazy machen)
+        if (paths.length > 0) {
+          const next: Record<string, string> = {};
+          await Promise.all(
+            paths.map(async (p) => {
+              const url = await loadInvoiceUrl(p);
+              if (url) next[p] = url;
+            })
+          );
+          setInvoiceUrls(next);
         }
 
         // Dealer nachladen
@@ -224,6 +258,7 @@ export default function UniversalDetailPage({
           products: anyData.products,
           dealers: dealer,
           project_id: null,
+          invoice_file_url: anyData.invoice_file_url,
         });
 
         // Projekte sind hier nicht relevant
@@ -260,9 +295,9 @@ export default function UniversalDetailPage({
             : anyData.dealers || null,
         });
 
-        // Sofortrabatt invoice states resetten, damit UI sauber bleibt
-        setInvoiceUrl(null);
-        setInvoicePath(null);
+        // ✅ Sofortrabatt invoice states resetten, damit UI sauber bleibt
+        setInvoicePaths([]);
+        setInvoiceUrls({});
       }
     } catch (e) {
       console.error(e);
@@ -305,17 +340,13 @@ export default function UniversalDetailPage({
         data: { user },
       } = await supabase.auth.getUser();
 
-      const role =
-        user?.app_metadata?.role ||
-        user?.user_metadata?.role ||
-        null;
+      const role = user?.app_metadata?.role || user?.user_metadata?.role || null;
 
       setIsAdmin(role === "admin");
     };
 
     loadRole();
   }, [supabase]);
-
 
   // -----------------------------
   // Projekt-Dateien nachladen (nur wenn record geladen ist)
@@ -357,10 +388,6 @@ export default function UniversalDetailPage({
     [record?.dealers?.mail_dealer, record?.dealers?.email]
   );
 
-  console.log("🧾 RECORD FULL", record);
-  // -----------------------------
-  // Bestell-Dateien nachladen
-  // -----------------------------
   // -----------------------------
   // Bestell-Dateien nachladen
   // -----------------------------
@@ -375,8 +402,6 @@ export default function UniversalDetailPage({
     if (!record?.submission_id) return;
 
     (async () => {
-      console.log("📎 LOADING ORDER FILES FOR", record.submission_id);
-
       const { data, error } = await supabase
         .from("submission_files")
         .select("id, file_name, file_path, bucket, created_at")
@@ -389,16 +414,10 @@ export default function UniversalDetailPage({
         return;
       }
 
-      console.log("✅ ORDER FILES", data);
       setOrderFiles(data ?? []);
     })();
-  }, [record?.submission_id, typeFilter]);
+  }, [record?.submission_id, typeFilter, supabase]);
 
-
-
-  // ===============================
-  // Sofortrabatt: Products normalisieren (String | Array)
-  // ===============================
   // ===============================
   // Sofortrabatt: Products normalisieren (robust)
   // ===============================
@@ -417,11 +436,8 @@ export default function UniversalDetailPage({
     }
   }, [record?.products]);
 
-
   // Status-Update
-  const updateStatus = async (
-    newStatus: "approved" | "rejected" | "pending"
-  ) => {
+  const updateStatus = async (newStatus: "approved" | "rejected" | "pending") => {
     if (!record?.submission_id) return;
 
     const table = isSofort ? "sofortrabatt_claims" : "submissions";
@@ -461,8 +477,10 @@ export default function UniversalDetailPage({
       if (res.preview === true) {
         setActiveTab("dealer");
 
-        const dealerHtml = res.dealer?.html ?? "<p>Keine Händler-Mail vorhanden.</p>";
-        const distiHtml = res.disti?.html ?? "<p>Keine Disti-Mail vorhanden.</p>";
+        const dealerHtml =
+          res.dealer?.html ?? "<p>Keine Händler-Mail vorhanden.</p>";
+        const distiHtml =
+          res.disti?.html ?? "<p>Keine Disti-Mail vorhanden.</p>";
 
         setDealerPreview(dealerHtml);
         setDistiPreview(distiHtml);
@@ -502,6 +520,7 @@ export default function UniversalDetailPage({
       setSendingMail(false);
     }
   };
+
   // -----------------------------
   // Datei-Upload für Bestellung (ADMIN)
   // -----------------------------
@@ -519,15 +538,12 @@ export default function UniversalDetailPage({
 
       if (uploadError) throw uploadError;
 
-      const { error: insertError } = await supabase
-        .from("submission_files")
-        .insert({
-          submission_id: record.submission_id,
-          file_name: file.name,
-          file_path: path,
-          bucket: "order-documents",
-        });
-
+      const { error: insertError } = await supabase.from("submission_files").insert({
+        submission_id: record.submission_id,
+        file_name: file.name,
+        file_path: path,
+        bucket: "order-documents",
+      });
 
       if (insertError) throw insertError;
 
@@ -547,11 +563,12 @@ export default function UniversalDetailPage({
       setUploading(false);
     }
   };
+
   const handleDragOver = (e: React.DragEvent) => {
-  e.preventDefault();
-  e.stopPropagation();
-  setIsDragging(true);
-};
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(true);
+  };
 
   const handleDragLeave = (e: React.DragEvent) => {
     e.preventDefault();
@@ -572,12 +589,7 @@ export default function UniversalDetailPage({
     }
   };
 
-  // -----------------------------
-  // Datei öffnen (Signed URL)
-  // -----------------------------
-  // -----------------------------
   // Datei anzeigen (Browser / Office entscheidet)
-  // -----------------------------
   const previewOrderFile = async (file: SubmissionFile) => {
     try {
       const res = await fetch("/api/admin/order/document", {
@@ -602,10 +614,7 @@ export default function UniversalDetailPage({
     }
   };
 
-
-  // -----------------------------
   // Datei herunterladen (erzwingen)
-  // -----------------------------
   const downloadOrderFile = async (file: SubmissionFile) => {
     try {
       const res = await fetch("/api/admin/order/document", {
@@ -614,7 +623,7 @@ export default function UniversalDetailPage({
         body: JSON.stringify({
           path: file.file_path,
           bucket: file.bucket,
-          mode: "download", // 👈 erzwingt attachment
+          mode: "download",
         }),
       });
 
@@ -633,37 +642,25 @@ export default function UniversalDetailPage({
     }
   };
 
-  // -----------------------------
   // Datei löschen (ADMIN)
-  // -----------------------------
   const deleteOrderFile = async (file: SubmissionFile) => {
-    const confirmed = confirm(
-      `Datei "${file.file_name}" wirklich löschen?`
-    );
+    const confirmed = confirm(`Datei "${file.file_name}" wirklich löschen?`);
     if (!confirmed) return;
 
     try {
-      // 1️⃣ Storage-Datei löschen
       const { error: storageError } = await supabase.storage
         .from(file.bucket)
         .remove([file.file_path]);
-
       if (storageError) throw storageError;
 
-      // 2️⃣ DB-Eintrag löschen
       const { error: dbError } = await supabase
         .from("submission_files")
         .delete()
         .eq("id", file.id);
-
       if (dbError) throw dbError;
 
       toast.success("Datei gelöscht");
-
-      // 3️⃣ UI sofort aktualisieren
-      setOrderFiles((prev) =>
-        prev.filter((f) => f.id !== file.id)
-      );
+      setOrderFiles((prev) => prev.filter((f) => f.id !== file.id));
     } catch (e) {
       console.error(e);
       toast.error("Datei konnte nicht gelöscht werden");
@@ -711,7 +708,9 @@ export default function UniversalDetailPage({
             <p>
               <strong>Datum:</strong>{" "}
               {record?.datum || record?.created_at
-                ? new Date((record?.datum || record?.created_at) ?? "").toLocaleDateString("de-CH")
+                ? new Date((record?.datum || record?.created_at) ?? "").toLocaleDateString(
+                    "de-CH"
+                  )
                 : "-"}
             </p>
             <p className={`mt-1 font-medium ${statusColor}`}>
@@ -780,7 +779,6 @@ export default function UniversalDetailPage({
         <CardContent className="pt-4">
           {/* Bestellung → OrderDetailView wie bisher */}
           {typeFilter === "bestellung" && (
-            
             <OrderDetailView
               submission={{
                 submission_id: Number(record.submission_id),
@@ -789,6 +787,7 @@ export default function UniversalDetailPage({
               onStatusChange={fetchData}
             />
           )}
+
           {/* 📎 Dateien zur Bestellung (Admin Upload) */}
           {typeFilter === "bestellung" && (
             <div className="mt-6 max-w-xl">
@@ -797,8 +796,6 @@ export default function UniversalDetailPage({
                   📎 Dateien zur Bestellung
                 </h4>
 
-                {/* Upload */}
-                {/* Upload */}
                 <div
                   onDragOver={handleDragOver}
                   onDragLeave={handleDragLeave}
@@ -837,12 +834,8 @@ export default function UniversalDetailPage({
                   </label>
                 </div>
 
-
-                {/* Datei-Liste */}
                 {orderFiles.length === 0 ? (
-                  <p className="text-xs text-gray-500">
-                    Keine Dateien vorhanden.
-                  </p>
+                  <p className="text-xs text-gray-500">Keine Dateien vorhanden.</p>
                 ) : (
                   <div className="flex flex-col gap-2">
                     {orderFiles.map((file) => (
@@ -856,12 +849,8 @@ export default function UniversalDetailPage({
                           transition
                         "
                       >
-                        {/* Dateiname */}
-                        <span className="flex-1 truncate">
-                          📄 {file.file_name}
-                        </span>
+                        <span className="flex-1 truncate">📄 {file.file_name}</span>
 
-                        {/* Anzeigen */}
                         <button
                           type="button"
                           onClick={() => previewOrderFile(file)}
@@ -871,7 +860,6 @@ export default function UniversalDetailPage({
                           👁️
                         </button>
 
-                        {/* Download */}
                         <button
                           type="button"
                           onClick={() => downloadOrderFile(file)}
@@ -881,7 +869,6 @@ export default function UniversalDetailPage({
                           ⬇️
                         </button>
 
-                        {/* Löschen (Admin) */}
                         <button
                           type="button"
                           onClick={() => deleteOrderFile(file)}
@@ -891,8 +878,6 @@ export default function UniversalDetailPage({
                           🗑️
                         </button>
                       </div>
-
-
                     ))}
                   </div>
                 )}
@@ -903,39 +888,34 @@ export default function UniversalDetailPage({
           {/* Sofortrabatt Anzeige */}
           {record?.typ === "sofortrabatt" && (
             <div className="mt-6 space-y-6 text-sm text-gray-700">
-
-              {/* ===================== */}
               {/* ANTRAGSDETAILS */}
-              {/* ===================== */}
               <div className="rounded-xl border p-4 bg-gray-50">
                 <h4 className="font-semibold mb-3">Antragsdetails</h4>
 
                 <div className="grid grid-cols-2 gap-x-6 gap-y-2">
-                  <p><strong>Claim-ID:</strong> #{record.submission_id}</p>
-                  <p><strong>Status:</strong> {record.status ?? "-"}</p>
+                  <p>
+                    <strong>Claim-ID:</strong> #{record.submission_id}
+                  </p>
+                  <p>
+                    <strong>Status:</strong> {record.status ?? "-"}
+                  </p>
 
                   <p>
                     <strong>Datum:</strong>{" "}
-                    {record.datum
-                      ? new Date(record.datum).toLocaleDateString("de-CH")
-                      : "-"}
+                    {record.datum ? new Date(record.datum).toLocaleDateString("de-CH") : "-"}
                   </p>
 
                   <p>
-                    <strong>Rabatt-Level:</strong>{" "}
-                    {record.rabatt_level ?? "-"}
+                    <strong>Rabatt-Level:</strong> {record.rabatt_level ?? "-"}
                   </p>
 
                   <p>
-                    <strong>Rabattbetrag:</strong>{" "}
-                    CHF {(Number(record.rabatt_betrag) || 0).toFixed(2)}
+                    <strong>Rabattbetrag:</strong> CHF {(Number(record.rabatt_betrag) || 0).toFixed(2)}
                   </p>
                 </div>
               </div>
 
-              {/* ===================== */}
               {/* PRODUKTE */}
-              {/* ===================== */}
               <div className="rounded-xl border p-4">
                 <h4 className="font-semibold mb-3">Produkte</h4>
 
@@ -967,9 +947,7 @@ export default function UniversalDetailPage({
                 )}
               </div>
 
-              {/* ===================== */}
               {/* KOMMENTAR */}
-              {/* ===================== */}
               {record.kommentar && (
                 <div className="rounded-xl border p-4 bg-gray-50">
                   <h4 className="font-semibold mb-2">Kommentar</h4>
@@ -977,46 +955,60 @@ export default function UniversalDetailPage({
                 </div>
               )}
 
-              {/* ===================== */}
-              {/* RECHNUNG */}
-              {/* ===================== */}
-              <div>
-                {invoiceUrl ? (
-                  <Button
-                    variant="outline"
-                    onClick={() => window.open(invoiceUrl, "_blank")}
-                  >
-                    📎 Rechnung anzeigen
-                  </Button>
-                ) : invoicePath ? (
-                  <Button
-                    variant="outline"
-                    onClick={async () => {
-                      const url = await loadInvoiceUrl(invoicePath);
-                      if (url) {
-                        setInvoiceUrl(url);
-                        window.open(url, "_blank");
-                      }
-                    }}
-                  >
-                    📎 Rechnung laden
-                  </Button>
+              {/* RECHNUNGEN (mehrere) */}
+              <div className="space-y-2">
+                {invoicePaths.length === 0 ? (
+                  <p className="text-xs text-gray-500">Keine Rechnung hinterlegt.</p>
                 ) : (
-                  <p className="text-xs text-gray-500">
-                    Keine Rechnung hinterlegt.
-                  </p>
+                  <div className="flex flex-col gap-2">
+                    {invoicePaths.map((path, idx) => {
+                      const url = invoiceUrls[path];
+
+                      return (
+                        <div
+                          key={path}
+                          className="flex items-center justify-between gap-2 rounded-lg border bg-white px-3 py-2"
+                        >
+                          <span className="text-xs truncate">
+                            📎 Rechnung {idx + 1}: {path.split("/").pop() || path}
+                          </span>
+
+                          {url ? (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => window.open(url, "_blank")}
+                            >
+                              Anzeigen
+                            </Button>
+                          ) : (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={async () => {
+                                const nextUrl = await loadInvoiceUrl(path);
+                                if (nextUrl) {
+                                  setInvoiceUrls((prev) => ({ ...prev, [path]: nextUrl }));
+                                  window.open(nextUrl, "_blank");
+                                }
+                              }}
+                            >
+                              Laden
+                            </Button>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
                 )}
               </div>
             </div>
           )}
 
-
           {/* ✅ Projekt-Dateien */}
           {record?.typ === "projekt" && (
             <div className="mt-6 space-y-3">
-              <h4 className="text-sm font-semibold text-gray-700">
-                Projektdateien
-              </h4>
+              <h4 className="text-sm font-semibold text-gray-700">Projektdateien</h4>
 
               {projectFiles.length === 0 ? (
                 <p className="text-xs text-gray-500">Keine Dateien hochgeladen.</p>
@@ -1054,9 +1046,7 @@ export default function UniversalDetailPage({
       >
         <DialogContent className="w-[95vw] max-w-[1600px] p-0">
           <DialogHeader className="px-6 pt-6">
-            <DialogTitle className="text-xl font-semibold">
-              E-Mail Vorschau
-            </DialogTitle>
+            <DialogTitle className="text-xl font-semibold">E-Mail Vorschau</DialogTitle>
           </DialogHeader>
 
           {/* Tabs */}

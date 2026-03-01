@@ -13,12 +13,12 @@ import DealerInfoCompact from "@/app/(dealer)/components/DealerInfoCompact";
 import { useCart } from "@/app/(dealer)/GlobalCartProvider";
 import { useDealer } from "@/app/(dealer)/DealerContext";
 import { useState } from "react";
-import { Tag } from "lucide-react";
+import { Tag, Trash2, FileText } from "lucide-react";
 import { toast } from "sonner";
 import { useTheme } from "@/lib/theme/ThemeContext";
 
 /* -------------------------------------------------- */
-/* 🧠 Rabatt-Logik (NUR Anzeige!)                     */
+/* 🧠 Rabatt Level Anzeige                            */
 /* -------------------------------------------------- */
 const hasCategory = (items: any[], keywords: string[]) =>
   items.some((i) =>
@@ -47,8 +47,10 @@ export default function CartSofortrabatt() {
     getItems,
     removeItem,
     clearCart,
-    addItem,
     closeCart,
+    orderDetails,
+    setOrderDetails,
+    clearOrderFiles,
   } = useCart();
 
   const items = getItems("sofortrabatt");
@@ -56,22 +58,54 @@ export default function CartSofortrabatt() {
 
   const rabattLevel = getRabattLevel(items);
 
-  const getRabattForItem = (item: any): number => {
+  /* -------------------------------------------------- */
+  /* 📎 FILE HANDLING                                  */
+  /* -------------------------------------------------- */
+
+  const files = orderDetails?.sofortrabatt_files ?? [];
+
+  const addFiles = (fileList: FileList | null) => {
+    if (!fileList) return;
+
+    const newFiles = Array.from(fileList);
+
+    setOrderDetails((prev) => ({
+      ...prev,
+      sofortrabatt_files: [...prev.sofortrabatt_files, ...newFiles],
+    }));
+  };
+
+  const removeFile = (index: number) => {
+    setOrderDetails((prev) => ({
+      ...prev,
+      sofortrabatt_files: prev.sofortrabatt_files.filter(
+        (_, i) => i !== index
+      ),
+    }));
+  };
+
+  /* -------------------------------------------------- */
+  /* 💰 Rabatt Berechnung                               */
+  /* -------------------------------------------------- */
+
+  const getRabattForItem = (item: any) => {
     const isTV =
-      (item.category || item.gruppe || "").toLowerCase().includes("tv");
+      (item.category || item.gruppe || "")
+        .toLowerCase()
+        .includes("tv");
 
     if (!isTV) return 0;
 
-    switch (rabattLevel) {
-      case 1:
-        return Number(item.sofortrabatt_amount || 0);
-      case 2:
-        return Number(item.sofortrabatt_double_amount || 0);
-      case 3:
-        return Number(item.sofortrabatt_triple_amount || 0);
-      default:
-        return 0;
-    }
+    if (rabattLevel === 1)
+      return Number(item.sofortrabatt_amount || 0);
+
+    if (rabattLevel === 2)
+      return Number(item.sofortrabatt_double_amount || 0);
+
+    if (rabattLevel === 3)
+      return Number(item.sofortrabatt_triple_amount || 0);
+
+    return 0;
   };
 
   const totalRabatt = items.reduce(
@@ -79,31 +113,24 @@ export default function CartSofortrabatt() {
     0
   );
 
-  const [invoiceFile, setInvoiceFile] = useState<File | null>(null);
+  /* -------------------------------------------------- */
+  /* 🚀 SUBMIT                                          */
+  /* -------------------------------------------------- */
+
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
 
-  const canSubmit = rabattLevel > 0 && !!invoiceFile;
+  const canSubmit =
+    rabattLevel > 0 && files.length > 0 && !!dealer?.dealer_id;
 
-  const updateSerial = (index: number, value: string) => {
-    const updated = [...items];
-    updated[index] = { ...updated[index], seriennummer: value };
-
-    clearCart("sofortrabatt");
-    updated.forEach((it) => addItem("sofortrabatt", it));
-  };
-
-  /* -------------------------------------------------- */
-  /* 🚀 ABSENDEN → NUR FormData an API                  */
-  /* -------------------------------------------------- */
   const handleSubmit = async () => {
     if (!dealer?.dealer_id) {
-      toast.error("Kein Händler gefunden.");
+      toast.error("Kein Händler gefunden");
       return;
     }
 
-    if (!invoiceFile) {
-      toast.error("Bitte Rechnungsdatei hochladen.");
+    if (files.length === 0) {
+      toast.error("Bitte Rechnung hochladen");
       return;
     }
 
@@ -111,9 +138,17 @@ export default function CartSofortrabatt() {
 
     try {
       const formData = new FormData();
-      formData.append("dealer_id", dealer.dealer_id.toString());
+
+      formData.append(
+        "dealer_id",
+        dealer.dealer_id.toString()
+      );
+
       formData.append("items", JSON.stringify(items));
-      formData.append("invoice", invoiceFile);
+
+      files.forEach((file) => {
+        formData.append("files", file);
+      });
 
       const res = await fetch("/api/sofortrabatt/submit", {
         method: "POST",
@@ -123,20 +158,25 @@ export default function CartSofortrabatt() {
       const data = await res.json();
 
       if (!res.ok) {
-        throw new Error(data.error || "Sofortrabatt fehlgeschlagen");
+        throw new Error(data.error || "Upload fehlgeschlagen");
       }
 
-      setSuccess(true);
       clearCart("sofortrabatt");
-      toast.success("Sofortrabatt erfolgreich gespeichert");
+      clearOrderFiles("sofortrabatt");
+
+      setSuccess(true);
+
+      toast.success("Sofortrabatt erfolgreich eingereicht");
     } catch (err: any) {
-      toast.error("Fehler beim Speichern", {
-        description: err.message,
-      });
+      toast.error(err.message);
     }
 
     setLoading(false);
   };
+
+  /* -------------------------------------------------- */
+  /* UI                                                 */
+  /* -------------------------------------------------- */
 
   return (
     <Sheet open={open} onOpenChange={(o) => !o && closeCart()}>
@@ -155,83 +195,103 @@ export default function CartSofortrabatt() {
         )}
 
         {success ? (
-          <div className="flex-1 flex flex-col items-center justify-center gap-4 text-center">
-            <p className={`${theme.color} font-semibold text-lg`}>
-              🎉 Sofortrabatt erfolgreich gespeichert!
+          <div className="flex-1 flex flex-col justify-center items-center gap-4 text-center">
+            <p className={`${theme.color} text-lg font-semibold`}>
+              🎉 Antrag erfolgreich gesendet
             </p>
-            <p className="text-sm">
-              Gesamtbetrag: <b>{totalRabatt} CHF</b>
-            </p>
+
             <SheetClose asChild>
-              <Button className={`${theme.bg} ${theme.bgHover} text-white`}>
+              <Button className={`${theme.bg} text-white`}>
                 Schließen
               </Button>
             </SheetClose>
           </div>
         ) : (
           <>
-            <div className="flex-1 overflow-y-auto py-4 space-y-4">
+            {/* ITEMS */}
+            <div className="flex-1 overflow-y-auto space-y-4 py-4">
               {items.map((item: any, index: number) => (
                 <div
                   key={index}
-                  className={`border rounded-xl p-3 bg-white shadow space-y-2 ${theme.border}`}
+                  className={`border rounded-xl p-3 bg-white shadow ${theme.border}`}
                 >
-                  <div className="flex justify-between items-center">
+                  <div className="flex justify-between">
                     <div>
                       <p className="font-semibold">
-                        {item.product_name || item.sony_article}
+                        {item.product_name}
                       </p>
-                      <p className="text-xs text-gray-500">EAN: {item.ean}</p>
+                      <p className="text-xs text-gray-500">
+                        EAN: {item.ean}
+                      </p>
                     </div>
+
                     <button
-                      onClick={() => removeItem("sofortrabatt", index)}
-                      className="text-red-500 hover:text-red-700"
+                      onClick={() =>
+                        removeItem("sofortrabatt", index)
+                      }
+                      className="text-red-500"
                     >
                       ✕
                     </button>
                   </div>
 
-                  <p>
-                    Rabatt:{" "}
-                    <b className={theme.color}>
-                      {getRabattForItem(item)} CHF
-                    </b>
+                  <p className={`mt-2 ${theme.color}`}>
+                    Rabatt: {getRabattForItem(item)} CHF
                   </p>
-
-                  <Input
-                    placeholder="Seriennummer"
-                    value={item.seriennummer || ""}
-                    onChange={(e) =>
-                      updateSerial(index, e.target.value)
-                    }
-                  />
                 </div>
               ))}
             </div>
 
-            <div className="border-t pt-4 space-y-2">
-              <label className="text-sm font-medium">Rechnung hochladen</label>
+            {/* FILE UPLOAD */}
+            <div className="border-t pt-4 space-y-3">
+              <label className="text-sm font-medium">
+                Rechnungen hochladen
+              </label>
+
               <Input
                 type="file"
+                multiple
                 accept=".pdf,.jpg,.jpeg,.png"
-                onChange={(e) =>
-                  setInvoiceFile(e.target.files?.[0] || null)
-                }
+                onChange={(e) => addFiles(e.target.files)}
               />
+
+              {/* FILE PREVIEW */}
+              {files.length > 0 && (
+                <div className="space-y-2">
+                  {files.map((file, i) => (
+                    <div
+                      key={i}
+                      className="flex justify-between items-center border rounded p-2 text-sm"
+                    >
+                      <div className="flex items-center gap-2">
+                        <FileText className="w-4 h-4" />
+                        {file.name}
+                      </div>
+
+                      <button onClick={() => removeFile(i)}>
+                        <Trash2 className="w-4 h-4 text-red-500" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
 
+            {/* FOOTER */}
             <div className="border-t pt-4 space-y-3">
-              <p className="text-sm">
+              <p>
                 Gesamt-Rabatt:{" "}
                 <b className={theme.color}>{totalRabatt} CHF</b>
               </p>
 
               <Button
                 onClick={handleSubmit}
-                disabled={loading || !canSubmit}
-                className={`w-full ${theme.bg} ${theme.bgHover} text-white font-semibold`}
+                disabled={!canSubmit || loading}
+                className={`w-full ${theme.bg} text-white`}
               >
-                {loading ? "Wird gesendet…" : "Sofortrabatt absenden"}
+                {loading
+                  ? "Wird gesendet…"
+                  : "Sofortrabatt absenden"}
               </Button>
             </div>
           </>

@@ -9,7 +9,6 @@ import { Product } from "@/types/Product";
 import { PlusCircle, CheckCircle2 } from "lucide-react";
 import { useI18n } from "@/lib/i18n/I18nProvider";
 
-// ✅ Eigener Typ, da ProductCardProps NICHT MEHR aus ProductList exportiert wird
 type ProductCardProjectProps = {
   product: Product;
   onAddToCart: (item: any) => void;
@@ -28,8 +27,14 @@ export default function ProductCardProject({
   );
 
   const handleAddToCart = () => {
+    if (!product?.product_id) {
+      toast.error("Produkt konnte nicht hinzugefügt werden (fehlende product_id).");
+      return;
+    }
+
     onAddToCart({
       ...product,
+      product_name: product.product_name ?? product.sony_article ?? "Unbekannt",
       quantity,
       price: targetPrice,
     });
@@ -37,10 +42,7 @@ export default function ProductCardProject({
     setAdded(true);
 
     toast.success(t("project.added"), {
-      description:
-        product.product_name ||
-        product.sony_article ||
-        "Produkt",
+      description: product.product_name || product.sony_article || "Produkt",
     });
 
     setTimeout(() => setAdded(false), 2000);
@@ -53,15 +55,12 @@ export default function ProductCardProject({
           {product.product_name || product.sony_article || "Unbekannt"}
         </CardTitle>
 
-        {product.brand && (
-          <p className="text-xs text-gray-500">{product.brand}</p>
-        )}
+        {product.brand && <p className="text-xs text-gray-500">{product.brand}</p>}
 
         <p className="text-xs text-gray-400">EAN: {product.ean || "-"}</p>
       </CardHeader>
 
       <CardContent className="space-y-3">
-        {/* Bild */}
         {product.product_image_url && (
           <div className="flex justify-center">
             <img
@@ -72,7 +71,6 @@ export default function ProductCardProject({
           </div>
         )}
 
-        {/* Menge & Zielpreis */}
         <div className="grid grid-cols-2 gap-3 text-center">
           <div>
             <label className="block text-xs text-gray-600 mb-1">
@@ -83,9 +81,7 @@ export default function ProductCardProject({
               type="number"
               min={1}
               value={quantity}
-              onChange={(e) =>
-                setQuantity(parseInt(e.target.value) || 1)
-              }
+              onChange={(e) => setQuantity(parseInt(e.target.value) || 1)}
               className="text-center"
             />
           </div>
@@ -98,15 +94,12 @@ export default function ProductCardProject({
             <Input
               type="number"
               value={Math.round(targetPrice)}
-              onChange={(e) =>
-                setTargetPrice(parseFloat(e.target.value) || 0)
-              }
+              onChange={(e) => setTargetPrice(parseFloat(e.target.value) || 0)}
               className="text-center"
             />
           </div>
         </div>
 
-        {/* Button */}
         <div className="flex justify-center">
           {added ? (
             <Button

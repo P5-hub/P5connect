@@ -2,7 +2,7 @@
 
 import { useParams, useRouter } from "next/navigation";
 import { createClient } from "@/utils/supabase/client";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { Card, CardHeader, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft, FileDown, Upload } from "lucide-react";
@@ -33,6 +33,14 @@ type ProjectLog = {
   created_at?: string;
 };
 
+type ProjectFileRow = {
+  id: string;
+  file_name: string;
+  bucket: string;
+  path: string;
+  uploaded_at?: string;
+};
+
 export default function ProjektDetailPage() {
   const params = useParams();
   const router = useRouter();
@@ -46,12 +54,15 @@ export default function ProjektDetailPage() {
     submission: any;
     produkte: Produkt[];
     dealer: Dealer | null;
-    projectFiles: any[];
+    projectFiles: ProjectFileRow[];
     projectLogs: ProjectLog[];
   } | null>(null);
 
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
+
+  // ✅ Signed URL Cache: key = `${bucket}::${path}`
+  const [signedUrls, setSignedUrls] = useState<Record<string, string>>({});
 
   useEffect(() => {
     if (!id) return;
@@ -66,9 +77,7 @@ export default function ProjektDetailPage() {
 
         let submissionQuery = supabase
           .from("submissions")
-          .select(
-            "submission_id, dealer_id, project_id, typ, status, kommentar, datum"
-          )
+          .select("submission_id, dealer_id, project_id, typ, status, kommentar, datum")
           .eq("typ", "projekt")
           .order("datum", { ascending: false })
           .limit(1);
@@ -77,8 +86,7 @@ export default function ProjektDetailPage() {
           ? submissionQuery.eq("project_id", id)
           : submissionQuery.eq("submission_id", Number(id));
 
-        const { data: submission } =
-          await submissionQuery.maybeSingle();
+        const { data: submission } = await submissionQuery.maybeSingle();
 
         if (!submission) {
           toast.error("Projektanfrage nicht gefunden.");
@@ -140,12 +148,14 @@ export default function ProjektDetailPage() {
           .eq("project_id", projekt.id)
           .order("created_at", { ascending: true });
 
+        setSignedUrls({}); // ✅ cache reset bei neuem Projekt
+
         setData({
           projekt,
           submission,
           produkte: produkte ?? [],
           dealer,
-          projectFiles: projectFiles ?? [],
+          projectFiles: (projectFiles ?? []) as ProjectFileRow[],
           projectLogs: projectLogs ?? [],
         });
       } catch (err) {
@@ -157,6 +167,27 @@ export default function ProjektDetailPage() {
     })();
   }, [id, supabase]);
 
+  const getSignedUrl = useCallback(
+    async (bucket: string, path: string) => {
+      const key = `${bucket}::${path}`;
+      if (signedUrls[key]) return signedUrls[key];
+
+      const { data, error } = await supabase.storage
+        .from(bucket)
+        .createSignedUrl(path, 60 * 30); // 30 min
+
+      if (error || !data?.signedUrl) {
+        console.error("createSignedUrl error:", error);
+        toast.error("Datei konnte nicht geöffnet werden.");
+        return null;
+      }
+
+      setSignedUrls((prev) => ({ ...prev, [key]: data.signedUrl }));
+      return data.signedUrl;
+    },
+    [signedUrls, supabase]
+  );
+
   if (loading) {
     return <p className="p-6 text-sm text-gray-500">Lade Daten…</p>;
   }
@@ -165,35 +196,34 @@ export default function ProjektDetailPage() {
     return <p className="p-6 text-sm text-gray-500">Kein Datensatz gefunden.</p>;
   }
 
-  const {
-    projekt,
-    submission,
-    produkte,
-    dealer,
-    projectFiles,
-    projectLogs,
-  } = data;
+  const { projekt, submission, produkte, dealer, projectFiles, projectLogs } = data;
 
   const total = produkte.reduce(
-    (sum, p) =>
-      sum + (Number(p.preis) || 0) * (Number(p.menge) || 1),
+    (sum, p) => sum + (Number(p.preis) || 0) * (Number(p.menge) || 1),
     0
   );
 
-  const handleUpload = async (
-    event: React.ChangeEvent<HTMLInputElement>
-  ) => {
+  const handleUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
 
     try {
       setUploading(true);
 
-      const filePath = `${projekt.id}/${file.name}`;
+      // ✅ Konsistente Pfad-Logik (passt zu deinem Screenshot)
+      const dealerId = submission?.dealer_id ?? projekt?.dealer_id ?? "unknown";
+      const safeName = file.name.replaceAll("/", "_");
+      const filePath = `projects/${projekt.id}/dealer_${dealerId}/${Date.now()}_${safeName}`;
 
-      await supabase.storage
+      const { error: upErr } = await supabase.storage
         .from("project-documents")
         .upload(filePath, file, { upsert: true });
+
+      if (upErr) {
+        console.error(upErr);
+        toast.error("Upload fehlgeschlagen.");
+        return;
+      }
 
       await supabase.from("project_files").insert({
         project_id: projekt.id,
@@ -211,20 +241,23 @@ export default function ProjektDetailPage() {
         .eq("project_id", projekt.id)
         .order("uploaded_at", { ascending: false });
 
+      setSignedUrls({}); // ✅ neu signieren nach Upload
+
       setData((prev) =>
-        prev
-          ? { ...prev, projectFiles: refreshedFiles ?? [] }
-          : prev
+        prev ? { ...prev, projectFiles: (refreshedFiles ?? []) as ProjectFileRow[] } : prev
       );
 
       toast.success("Datei erfolgreich hochgeladen.");
+    } catch (e) {
+      console.error(e);
+      toast.error("Upload fehlgeschlagen.");
     } finally {
       setUploading(false);
+      event.target.value = "";
     }
   };
-  const updateStatus = async (
-    newStatus: "approved" | "rejected" | "pending"
-  ) => {
+
+  const updateStatus = async (newStatus: "approved" | "rejected" | "pending") => {
     try {
       await supabase
         .from("submissions")
@@ -233,13 +266,7 @@ export default function ProjektDetailPage() {
 
       setData((prev) =>
         prev
-          ? {
-              ...prev,
-              submission: {
-                ...prev.submission,
-                status: newStatus,
-              },
-            }
+          ? { ...prev, submission: { ...prev.submission, status: newStatus } }
           : prev
       );
 
@@ -284,7 +311,7 @@ export default function ProjektDetailPage() {
             <p>Kd.-Nr.: {dealer?.login_nr || "-"}</p>
           </div>
 
-          {/* PROJEKTINFOS (aus PDF) */}
+          {/* PROJEKTINFOS */}
           <div className="text-sm space-y-1 border rounded p-3">
             <p className="font-semibold">Projektinformationen</p>
             <p>Projekt-Nr.: #{submission.submission_id}</p>
@@ -292,8 +319,7 @@ export default function ProjektDetailPage() {
             <p>Kunde: {projekt.customer || "-"}</p>
             <p>Ort: {projekt.location || "-"}</p>
             <p>
-              Zeitraum: {projekt.start_date || "-"} –{" "}
-              {projekt.end_date || "-"}
+              Zeitraum: {projekt.start_date || "-"} – {projekt.end_date || "-"}
             </p>
             <p className="text-sm">
               Status:{" "}
@@ -321,34 +347,48 @@ export default function ProjektDetailPage() {
 
         <CardContent className="space-y-6">
           {/* DATEIEN */}
-          {projectFiles?.length > 0 && (
-            <div>
-              <h3 className="font-semibold flex items-center gap-2 mb-2">
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <h3 className="font-semibold flex items-center gap-2">
                 <FileDown className="w-4 h-4" />
                 Projektbelege
               </h3>
 
+              <label className="inline-flex items-center gap-2 text-sm cursor-pointer">
+                <Upload className="w-4 h-4" />
+                <span>{uploading ? "Lädt…" : "Upload"}</span>
+                <input
+                  type="file"
+                  className="hidden"
+                  onChange={handleUpload}
+                  disabled={uploading}
+                />
+              </label>
+            </div>
+
+            {projectFiles?.length > 0 ? (
               <ul className="space-y-2">
                 {projectFiles.map((f) => (
                   <li key={f.id} className="flex justify-between text-sm">
-                    <span>{f.file_name}</span>
-                    <a
-                      href={
-                        supabase.storage
-                          .from(f.bucket)
-                          .getPublicUrl(f.path).data.publicUrl
-                      }
-                      target="_blank"
-                      rel="noopener noreferrer"
+                    <span className="truncate max-w-[70%]">{f.file_name}</span>
+
+                    <button
+                      type="button"
                       className="text-purple-600 hover:underline"
+                      onClick={async () => {
+                        const url = await getSignedUrl(f.bucket, f.path);
+                        if (url) window.open(url, "_blank", "noopener,noreferrer");
+                      }}
                     >
                       Anzeigen
-                    </a>
+                    </button>
                   </li>
                 ))}
               </ul>
-            </div>
-          )}
+            ) : (
+              <p className="text-sm text-gray-500">Keine Dateien vorhanden.</p>
+            )}
+          </div>
 
           {/* PRODUKTE */}
           <div className="border rounded">
@@ -359,10 +399,15 @@ export default function ProjektDetailPage() {
                     <td className="p-2">{p.product_name}</td>
                     <td className="p-2 text-right">{p.menge}</td>
                     <td className="p-2 text-right">
-                      {Number(p.preis).toFixed(2)} CHF
+                      {Number(p.preis || 0).toFixed(2)} CHF
                     </td>
                   </tr>
                 ))}
+                <tr className="border-t font-semibold">
+                  <td className="p-2">Total</td>
+                  <td className="p-2" />
+                  <td className="p-2 text-right">{total.toFixed(2)} CHF</td>
+                </tr>
               </tbody>
             </table>
           </div>

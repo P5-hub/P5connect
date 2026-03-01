@@ -5,8 +5,6 @@ import { getSupabaseBrowser } from "@/lib/supabaseClient";
 import { toast } from "sonner";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { calcInvestByRule } from "@/lib/helpers/calcHelpers";
-
 
 import {
   Sheet,
@@ -32,9 +30,7 @@ import {
   Hash,
   User,
   FolderKanban,
-  MapPin,
   FileText,
-  Calendar,
   Phone,
   BadgeInfo,
 } from "lucide-react";
@@ -42,7 +38,6 @@ import {
 import { useDealer } from "@/app/(dealer)/DealerContext";
 import { useCart } from "@/app/(dealer)/GlobalCartProvider";
 
-import type { Database } from "@/types/supabase";
 import type { CartItem } from "@/app/(dealer)/types/CartItem";
 
 type Disti = {
@@ -52,27 +47,14 @@ type Disti = {
   invest_rule: string | null;
 };
 
-type SubmissionInsert =
-  Database["public"]["Tables"]["submissions"]["Insert"];
-type SubmissionItemInsert =
-  Database["public"]["Tables"]["submission_items"]["Insert"];
-
 /* ------------------------------------------------------------------
-   💡 Hilfsfunktionen
+   💡 Helpers
 ------------------------------------------------------------------- */
 
 const toInt = (v: any) => (Number.isFinite(+v) ? Math.round(+v) : 0);
 const norm = (v: any) => (typeof v === "string" ? v.trim() : v ?? "");
-const safeNum = (v: any) =>
-  isFinite(v) && !isNaN(v) ? parseFloat(Number(v).toFixed(2)) : 0;
 
-const mapRequestedDelivery = (m: "sofort" | "termin") =>
-  m === "termin" ? "scheduled" : "immediately";
-
-const normalizeRequestedDate = (
-  mode: "sofort" | "termin",
-  dateStr: string
-) => {
+const normalizeRequestedDate = (mode: "sofort" | "termin", dateStr: string) => {
   if (mode !== "termin") return null;
   const s = (dateStr || "").trim();
   if (!s) return null;
@@ -108,7 +90,7 @@ const pickPreferred = (item: CartItem, allowed: string[]) => {
 };
 
 /* ------------------------------------------------------------------
-   🧱 PRODUKTKARTE (Projekt)
+   🧱 Produktkarte (Projekt)
 ------------------------------------------------------------------- */
 
 function ProductCardProjekt({
@@ -122,13 +104,7 @@ function ProductCardProjekt({
   index: number;
   distis: Disti[];
   updateItem: (
-    form:
-      | "verkauf"
-      | "bestellung"
-      | "projekt"
-      | "support"
-      | "sofortrabatt"
-      | "cashback",
+    form: "verkauf" | "bestellung" | "projekt" | "support" | "sofortrabatt" | "cashback",
     index: number,
     updates: Partial<any>
   ) => void;
@@ -144,9 +120,7 @@ function ProductCardProjekt({
 
   const showSavings = ek > 0 && price > 0 && price < ek;
   const savedCHF = showSavings ? ek - price : 0;
-  const savedPercent = showSavings
-    ? Math.round(((ek - price) / ek) * 100)
-    : 0;
+  const savedPercent = showSavings ? Math.round(((ek - price) / ek) * 100) : 0;
 
   return (
     <div
@@ -184,12 +158,8 @@ function ProductCardProjekt({
 
       {/* Menge + Preis */}
       <div className="grid grid-cols-2 gap-2 text-center">
-        {/* Menge */}
         <div>
-          <label className="block text-[11px] text-gray-600 mb-1">
-            Anzahl
-          </label>
-
+          <label className="block text-[11px] text-gray-600 mb-1">Anzahl</label>
           <Input
             type="number"
             min={1}
@@ -203,7 +173,6 @@ function ProductCardProjekt({
           />
         </div>
 
-        {/* Preis */}
         <div>
           <label className="block text-[11px] text-gray-600 mb-1">
             Projektpreis (CHF)
@@ -213,9 +182,7 @@ function ProductCardProjekt({
             type="number"
             value={price}
             onChange={(e) =>
-              updateItem("projekt", index, {
-                price: toInt(e.target.value),
-              })
+              updateItem("projekt", index, { price: toInt(e.target.value) })
             }
             className="text-center h-8 text-xs"
           />
@@ -238,9 +205,7 @@ function ProductCardProjekt({
 
       {/* Streetprice */}
       <div className="mt-4 border-t pt-2 text-xs text-gray-700">
-        <label className="block text-gray-500 mb-1">
-          Günstigster Anbieter
-        </label>
+        <label className="block text-gray-500 mb-1">Günstigster Anbieter</label>
 
         <Select
           value={(item as any).lowest_price_source ?? ""}
@@ -269,7 +234,6 @@ function ProductCardProjekt({
           </SelectContent>
         </Select>
 
-        {/* Händlername bei "Andere" */}
         {(item as any).lowest_price_source === "Andere" && (
           <div className="mt-2">
             <label className="block text-gray-500 mb-1">
@@ -293,7 +257,6 @@ function ProductCardProjekt({
           </div>
         )}
 
-        {/* Streetprice CHF */}
         <label className="block text-gray-500 mb-1 mt-3">
           Günstigster Preis (inkl. MwSt.)
         </label>
@@ -354,7 +317,7 @@ function ProductCardProjekt({
 }
 
 /* ------------------------------------------------------------------
-   🧱 PRODUKTLISTE (Projekt)
+   🧱 Produktliste (Projekt)
 ------------------------------------------------------------------- */
 
 function ProductListProjekt({
@@ -366,13 +329,7 @@ function ProductListProjekt({
   cart: CartItem[];
   distis: Disti[];
   updateItem: (
-    form:
-      | "verkauf"
-      | "bestellung"
-      | "projekt"
-      | "support"
-      | "sofortrabatt"
-      | "cashback",
+    form: "verkauf" | "bestellung" | "projekt" | "support" | "sofortrabatt" | "cashback",
     index: number,
     updates: Partial<any>
   ) => void;
@@ -399,14 +356,13 @@ function ProductListProjekt({
 }
 
 /* ------------------------------------------------------------------
-   🟪 HAUPTKOMPONENTE: CartProjekt
+   🟪 Hauptkomponente: CartProjekt
 ------------------------------------------------------------------- */
 
 export default function CartProjekt() {
   const dealer = useDealer();
   const supabase = getSupabaseBrowser();
 
-  // GLOBAL CART
   const {
     state,
     getItems,
@@ -414,15 +370,14 @@ export default function CartProjekt() {
     clearCart,
     closeCart,
     updateItem,
-    projectDetails, // 👈 wird verwendet
+    projectDetails,
+    orderDetails,
+    setOrderDetails,
   } = useCart();
 
-
-
-
-  const cart = (
-    (getItems("projekt") as (CartItem | undefined)[]) || []
-  ).filter((item): item is CartItem => Boolean(item));
+  const cart = ((getItems("projekt") as (CartItem | undefined)[]) || [])
+    .filter((item): item is CartItem => Boolean(item))
+    .filter((item: any) => Number.isFinite(Number(item.product_id)));
 
   const open = state.open && state.currentForm === "projekt";
 
@@ -443,73 +398,62 @@ export default function CartProjekt() {
   const [deliveryPhone, setDeliveryPhone] = useState("");
 
   // Zusatzfelder
-  const [deliveryMode, setDeliveryMode] =
-    useState<"sofort" | "termin">("sofort");
+  const [deliveryMode, setDeliveryMode] = useState<"sofort" | "termin">("sofort");
   const [deliveryDate, setDeliveryDate] = useState("");
   const [orderComment, setOrderComment] = useState("");
   const [dealerReference, setDealerReference] = useState("");
 
-  // Projekt-Stammdaten
-  // Projekt-Stammdaten
+  // Projekt-Metadaten (lokal im Cart; Files kommen aus orderDetails.files)
   const [details, setDetails] = useState<{
     type: string;
     name: string;
-    customer: string | null; // ✅ HIER
+    customer: string | null;
     location: string;
     start: string;
     end: string;
     comment: string;
-    files: File[];
   }>({
     type: "",
     name: "",
-    customer: null,          // ✅ HIER
+    customer: null,
     location: "",
     start: "",
     end: "",
     comment: "",
-    files: [],
   });
 
-  // 📎 Projekt-Dateien (CSV, PDF, etc.)
-const projectFiles: File[] = details.files;
-
-
-
-  const patchDetails = (
-    patch: Partial<{
-      type: string;
-      name: string;
-      customer: string;
-      location: string;
-      start: string;
-      end: string;
-      comment: string;
-      files: File[];
-    }>
-  ) =>
+  const patchDetails = (patch: Partial<typeof details>) =>
     setDetails((prev) => ({ ...prev, ...patch }));
 
+  // ✅ Source of truth für Dateien
+  const projectFiles: File[] = Array.isArray(orderDetails?.files)
+    ? orderDetails.files
+    : [];
 
-  /* ------------------------------------------------------------------
-     👤 DEALER DATA MEMO
-  ------------------------------------------------------------------- */
+  // ✅ Success-Snapshot (damit Success-View nie leer ist)
+  const [successInfo, setSuccessInfo] = useState<{
+    name?: string;
+    customer?: string | null;
+    location?: string;
+    type?: string;
+  } | null>(null);
+
+  /* ---------------------------------------------------------------
+     Dealer Memo
+  ---------------------------------------------------------------- */
 
   const {
     dealerDisplayName,
     dealerLoginNr,
     dealerContact,
-    dealerPhone,
+    dealerPhone: dealerPhoneStr,
     dealerKam,
-    dealerEmail,
+    dealerEmail: dealerEmailStr,
     dealerCityZip,
   } = useMemo(() => {
     const d = dealer as any;
 
-    const displayName = norm(
-      d?.store_name ?? d?.company_name ?? d?.name ?? ""
-    );
-
+    const displayName = norm(d?.store_name ?? d?.company_name ?? d?.name ?? "");
     const loginNr = norm(d?.login_nr ?? d?.dealer_login_nr ?? "");
     const contact = norm(d?.contact_person ?? d?.dealer_contact_person ?? "");
     const phone = norm(d?.phone ?? d?.dealer_phone ?? "");
@@ -529,9 +473,9 @@ const projectFiles: File[] = details.files;
     };
   }, [dealer]);
 
-  /* ------------------------------------------------------------------
-     🧮 CART CALCULATED VALUES
-  ------------------------------------------------------------------- */
+  /* ---------------------------------------------------------------
+     Calculated Values
+  ---------------------------------------------------------------- */
 
   const totalQuantity = useMemo(
     () => cart.reduce((s, i) => s + toInt((i as any).quantity || 0), 0),
@@ -542,8 +486,7 @@ const projectFiles: File[] = details.files;
     () =>
       cart.reduce(
         (s, i) =>
-          s +
-          toInt((i as any).quantity || 0) * toInt((i as any).price || 0),
+          s + toInt((i as any).quantity || 0) * toInt((i as any).price || 0),
         0
       ),
     [cart]
@@ -576,26 +519,33 @@ const projectFiles: File[] = details.files;
     return m;
   }, [distis]);
 
+  /* ---------------------------------------------------------------
+     Effects
+  ---------------------------------------------------------------- */
 
-  
-  /* ------------------------------------------------------------------
-     🔄 EFFECTS
-  ------------------------------------------------------------------- */
+  // Projekt-Metadaten aus projectDetails in den lokalen Cart-State übernehmen
   useEffect(() => {
     if (!projectDetails) return;
 
     setDetails((prev) => ({
       ...prev,
-      name: projectDetails.project_name ?? "",
-      customer: projectDetails.customer ?? null,
-      // alles andere bleibt UI-intern
-      files: prev.files,
+      type: (projectDetails as any).project_type ?? prev.type,
+      name: projectDetails.project_name ?? prev.name,
+      customer: projectDetails.customer ?? prev.customer,
+      location: (projectDetails as any).location ?? prev.location,
+      start: (projectDetails as any).start_date ?? prev.start,
+      end: (projectDetails as any).end_date ?? prev.end,
+      comment: (projectDetails as any).comment ?? prev.comment,
     }));
   }, [projectDetails]);
 
-
-
-
+  // Wenn Cart neu geöffnet wird: success zurücksetzen (UX)
+  useEffect(() => {
+    if (open) {
+      setSuccess(false);
+      setSuccessInfo(null);
+    }
+  }, [open]);
 
   useEffect(() => {
     if (cart.length > 0) setSuccess(false);
@@ -639,20 +589,22 @@ const projectFiles: File[] = details.files;
     };
 
     if (cart.length > 0) loadAllowedDistis();
-  }, [cart.length, supabase, cart, updateItem]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cart.length, supabase]);
 
-  /* ------------------------------------------------------------------
-     🧹 REMOVE ITEM WRAPPER
-  ------------------------------------------------------------------- */
+  /* ---------------------------------------------------------------
+     Remove Wrapper
+  ---------------------------------------------------------------- */
 
   const removeFromCart = useCallback(
     (index: number) => removeItem("projekt", index),
     [removeItem]
   );
 
-  /* ------------------------------------------------------------------
-     SUBMISSION LOGIC (Projekt)
-  ------------------------------------------------------------------- */
+  /* ---------------------------------------------------------------
+     Submit
+  ---------------------------------------------------------------- */
+
   const submitProject = async () => {
     if (!(dealer as any)?.dealer_id) {
       toast.error("❌ Kein Händler gefunden – bitte neu einloggen.");
@@ -662,17 +614,6 @@ const projectFiles: File[] = details.files;
     if (cart.length === 0) {
       toast.error("Keine Produkte im Projekt.");
       return;
-    }
-
-    // ℹ️ KEINE Pflichtfelder mehr – nur Hinweis
-    if (
-      !details.type.trim() &&
-      !details.name.trim() &&
-      !details.customer?.trim() &&
-      !details.location.trim()
-    ) {
-
-      toast.message("ℹ️ Projekt wird ohne detaillierte Angaben gespeichert.");
     }
 
     const hasNormal = cart.some(
@@ -694,7 +635,6 @@ const projectFiles: File[] = details.files;
       setDeliveryDate("");
     }
 
-    // 🔎 Produkt-Validierung bleibt
     for (const item of cart as any[]) {
       if (!item.quantity || item.quantity <= 0) {
         toast.error("Ungültige Eingabe", {
@@ -727,7 +667,6 @@ const projectFiles: File[] = details.files;
       }
     }
 
-    // Distributor-Check
     const allCodes = new Set<string>();
     for (const item of cart as any[]) {
       const code = item.allowedDistis?.length
@@ -748,20 +687,28 @@ const projectFiles: File[] = details.files;
     setLoading(true);
 
     try {
-      // 1️⃣ Projekt-Stammdaten
+      // ✅ Snapshot für Success-View bevor Cleanup alles leert
+      setSuccessInfo({
+        name: projectDetails?.project_name ?? details.name ?? "",
+        customer: projectDetails?.customer ?? details.customer ?? null,
+        location: (projectDetails as any)?.location ?? details.location ?? "",
+        type: (projectDetails as any)?.project_type ?? details.type ?? "",
+      });
+
       const res = await fetch("/api/projects", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           dealer_id: (dealer as any).dealer_id,
           login_nr: (dealer as any).login_nr,
-          project_type: details.type || null,
-          project_name: details.name || null,
-          customer: details.customer || null,
-          location: details.location || null,
-          start_date: details.start || null,
-          end_date: details.end || null,
-          comment: details.comment || null,
+
+          project_type: (projectDetails as any)?.project_type ?? details.type ?? null,
+          project_name: projectDetails?.project_name ?? details.name ?? null,
+          customer: projectDetails?.customer ?? details.customer ?? null,
+          location: (projectDetails as any)?.location ?? details.location ?? null,
+          start_date: (projectDetails as any)?.start_date ?? details.start ?? null,
+          end_date: (projectDetails as any)?.end_date ?? details.end ?? null,
+          comment: (projectDetails as any)?.comment ?? details.comment ?? null,
         }),
       });
 
@@ -772,10 +719,8 @@ const projectFiles: File[] = details.files;
 
       const { project_id } = await res.json();
 
-      // 📎 DATEI-UPLOADS (CSV / Anhänge)
+      // 📎 Datei-Uploads
       for (const file of projectFiles) {
-
-        // 🔒 SCHRITT 3 – SICHERHEITSCHECK (HIER!)
         if (!(file instanceof File)) {
           console.error("Ungültiges File-Objekt:", file);
           throw new Error(
@@ -802,15 +747,11 @@ const projectFiles: File[] = details.files;
         }
       }
 
-
-
-      // 2️⃣ Items gruppieren & speichern
+      // Items gruppieren & speichern
       const itemsByCode: Record<string, CartItem[]> = {};
 
       for (const item of cart as any[]) {
-        const code = item.allowedDistis?.length
-          ? item.overrideDistributor
-          : distributor;
+        const code = item.allowedDistis?.length ? item.overrideDistributor : distributor;
         const key = (code || "").toLowerCase();
         if (!itemsByCode[key]) itemsByCode[key] = [];
         itemsByCode[key].push(item as CartItem);
@@ -847,34 +788,39 @@ const projectFiles: File[] = details.files;
           project_id,
         }));
 
-        const { error: itemsErr } = await supabase
-          .from("submission_items")
-          .insert(itemPayloads);
-
+        const { error: itemsErr } = await supabase.from("submission_items").insert(itemPayloads);
         if (itemsErr) throw itemsErr;
       }
 
-      // 🧹 Cleanup
-      clearCart("projekt");
+      // ✅ Cleanup: reicht komplett
+      clearCart("projekt"); // leert items + projectDetails + orderDetails.files
+      closeCart();
       setSuccess(true);
+
+      // lokale States zurücksetzen (optional)
       setDistributor("ep");
       setDeliveryMode("sofort");
       setDeliveryDate("");
       setOrderComment("");
       setDealerReference("");
       setHasAltDelivery(false);
+      setDeliveryName("");
+      setDeliveryStreet("");
+      setDeliveryZip("");
+      setDeliveryCity("");
+      setDeliveryCountry("Schweiz");
+      setDeliveryEmail("");
+      setDeliveryPhone("");
 
       setDetails({
         type: "",
         name: "",
-        customer: null, // ✅
+        customer: null,
         location: "",
         start: "",
         end: "",
         comment: "",
-        files: [], // 👈 WICHTIG
       });
-
 
       toast.success("✅ Projekt erfolgreich gespeichert");
     } catch (err: any) {
@@ -887,18 +833,15 @@ const projectFiles: File[] = details.files;
     }
   };
 
-
-  /* ------------------------------------------------------------------
-     RENDER
-  ------------------------------------------------------------------- */
+  /* ---------------------------------------------------------------
+     Render
+  ---------------------------------------------------------------- */
 
   return (
     <Sheet
       open={open}
       onOpenChange={(isOpen) => {
-        if (!isOpen) {
-          closeCart();
-        }
+        if (!isOpen) closeCart();
       }}
     >
       <SheetContent
@@ -931,48 +874,42 @@ const projectFiles: File[] = details.files;
             <div className="flex items-center gap-1">
               <Hash className="w-3.5 h-3.5 text-gray-400" />
               <span>
-                Kd-Nr.:{" "}
-                <span className="font-medium">{dealerLoginNr || "–"}</span>
+                Kd-Nr.: <span className="font-medium">{dealerLoginNr || "–"}</span>
               </span>
             </div>
 
             <div className="flex items-center gap-1">
               <User className="w-3.5 h-3.5 text-gray-400" />
               <span>
-                AP:{" "}
-                <span className="font-medium">{dealerContact || "–"}</span>
+                AP: <span className="font-medium">{dealerContact || "–"}</span>
               </span>
             </div>
 
             <div className="flex items-center gap-1">
               <Phone className="w-3.5 h-3.5 text-gray-400" />
               <span>
-                Tel.:{" "}
-                <span className="font-medium">{dealerPhone || "–"}</span>
+                Tel.: <span className="font-medium">{dealerPhoneStr || "–"}</span>
               </span>
             </div>
 
             <div className="flex items-center gap-1">
               <BadgeInfo className="w-3.5 h-3.5 text-gray-400" />
               <span>
-                E-Mail:{" "}
-                <span className="font-medium">{dealerEmail || "–"}</span>
+                E-Mail: <span className="font-medium">{dealerEmailStr || "–"}</span>
               </span>
             </div>
 
             <div className="flex items-center gap-1">
               <BadgeInfo className="w-3.5 h-3.5 text-gray-400" />
               <span>
-                Ort:{" "}
-                <span className="font-medium">{dealerCityZip || "–"}</span>
+                Ort: <span className="font-medium">{dealerCityZip || "–"}</span>
               </span>
             </div>
 
             <div className="flex items-center gap-1">
               <BadgeInfo className="w-3.5 h-3.5 text-gray-400" />
               <span>
-                KAM:{" "}
-                <span className="font-medium">{dealerKam || "–"}</span>
+                KAM: <span className="font-medium">{dealerKam || "–"}</span>
               </span>
             </div>
           </div>
@@ -981,18 +918,15 @@ const projectFiles: File[] = details.files;
         {/* SUCCESS VIEW */}
         {success ? (
           <div className="flex-1 flex flex-col items-center justify-center text-center space-y-4">
-            <p className="text-purple-600 font-semibold text-lg">
-              🎉 Projekt gespeichert!
-            </p>
-            <div className="text-sm text-gray-700 space-y-1">
-              {details.name && <p>🏗️ {details.name}</p>}
-              {details.customer?.trim() && (
-                <p>👤 {details.customer}</p>
-              )}
+            <p className="text-purple-600 font-semibold text-lg">🎉 Projekt gespeichert!</p>
 
-              {details.location && <p>📍 {details.location}</p>}
-              {details.type && <p>📁 {details.type}</p>}
+            <div className="text-sm text-gray-700 space-y-1">
+              {successInfo?.name && <p>🏗️ {successInfo.name}</p>}
+              {successInfo?.customer?.trim() && <p>👤 {successInfo.customer}</p>}
+              {successInfo?.location && <p>📍 {successInfo.location}</p>}
+              {successInfo?.type && <p>📁 {successInfo.type}</p>}
             </div>
+
             <SheetClose asChild>
               <Button className="bg-purple-600 hover:bg-purple-700 text-white">
                 Schließen
@@ -1001,9 +935,8 @@ const projectFiles: File[] = details.files;
           </div>
         ) : (
           <>
-            {/* 2-Spalten Layout */}
             <div className="flex-1 grid grid-cols-1 lg:grid-cols-2 gap-4 mt-2 min-h-0">
-              {/* Linke Spalte */}
+              {/* Links */}
               <div className="space-y-4 overflow-y-auto pr-1">
                 {/* Projektangaben */}
                 <div className="border rounded-xl p-3 space-y-3 bg-purple-50/40">
@@ -1012,21 +945,22 @@ const projectFiles: File[] = details.files;
                     Projektangaben
                   </p>
 
-                  {projectDetails?.project_name && (
+                  {(projectDetails?.project_name || details.name) && (
                     <div className="flex items-center gap-2">
                       <FolderKanban className="w-4 h-4 text-gray-500" />
-                      <span>{projectDetails.project_name}</span>
+                      <span>{projectDetails?.project_name ?? details.name}</span>
                     </div>
                   )}
 
-                  {projectDetails?.customer && (
+                  {(projectDetails?.customer || details.customer) && (
                     <div className="flex items-center gap-2">
                       <User className="w-4 h-4 text-gray-500" />
-                      <span>{projectDetails.customer}</span>
+                      <span>{projectDetails?.customer ?? details.customer}</span>
                     </div>
                   )}
-                </div>  {/* ✅ DAS HAT GEFEHLT */}
-                {/* 📎 Dateien anhängen */}
+                </div>
+
+                {/* Dateien anhängen */}
                 <div className="border rounded-xl p-3 space-y-2 bg-purple-50/20">
                   <p className="text-sm font-semibold flex items-center gap-2 text-purple-700">
                     <FileText className="w-4 h-4" />
@@ -1037,28 +971,37 @@ const projectFiles: File[] = details.files;
                     type="file"
                     multiple
                     onChange={(e) => {
-                      const newFiles = e.currentTarget.files ? Array.from(e.currentTarget.files) : [];
-                      patchDetails({ files: [...(details.files ?? []), ...newFiles] });
+                      const newFiles = e.currentTarget.files
+                        ? Array.from(e.currentTarget.files)
+                        : [];
+
+                      setOrderDetails((prev) => ({
+                        ...prev,
+                        files: [...(prev.files ?? []), ...newFiles],
+                      }));
+
                       toast.success(`📎 ${newFiles.length} Datei(en) hinzugefügt`);
-                      e.currentTarget.value = ""; // ✅ erlaubt erneutes Auswählen derselben Datei
+                      e.currentTarget.value = "";
                     }}
                   />
 
-
-                  {details.files.length > 0 && (
+                  {projectFiles.length > 0 && (
                     <div className="text-xs text-gray-600 space-y-1">
                       <p className="font-semibold">Ausgewählt:</p>
-                      {details.files.map((f, i) => (
+                      {projectFiles.map((f, i) => (
                         <div key={i} className="flex items-center gap-2">
                           <FileText className="w-3 h-3" />
                           {f.name}
                         </div>
                       ))}
+
                       <Button
                         type="button"
                         variant="outline"
                         className="mt-2 w-full"
-                        onClick={() => patchDetails({ files: [] })}
+                        onClick={() =>
+                          setOrderDetails((prev) => ({ ...prev, files: [] }))
+                        }
                       >
                         Dateien entfernen
                       </Button>
@@ -1073,21 +1016,14 @@ const projectFiles: File[] = details.files;
                       Haupt-Distributor
                     </label>
 
-                    <Select
-                      onValueChange={(v) => setDistributor(v)}
-                      value={distributor}
-                    >
+                    <Select onValueChange={(v) => setDistributor(v)} value={distributor}>
                       <SelectTrigger className="h-8 text-xs">
                         <SelectValue placeholder="Bitte auswählen" />
                       </SelectTrigger>
 
                       <SelectContent>
                         {distis.map((d) => (
-                          <SelectItem
-                            key={d.code}
-                            value={d.code}
-                            className="text-sm"
-                          >
+                          <SelectItem key={d.code} value={d.code} className="text-sm">
                             {d.name}
                           </SelectItem>
                         ))}
@@ -1100,11 +1036,9 @@ const projectFiles: File[] = details.files;
                   </div>
                 )}
 
-                {/* Bestellangaben / Lieferung (optional für Projekte) */}
+                {/* Liefer-/Projektangaben */}
                 <div className="border rounded-xl p-3 space-y-3">
-                  <p className="text-sm font-semibold">
-                    Liefer-/Projektangaben
-                  </p>
+                  <p className="text-sm font-semibold">Liefer-/Projektangaben</p>
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
@@ -1114,9 +1048,7 @@ const projectFiles: File[] = details.files;
 
                       <Select
                         value={deliveryMode}
-                        onValueChange={(v) =>
-                          setDeliveryMode(v as "sofort" | "termin")
-                        }
+                        onValueChange={(v) => setDeliveryMode(v as "sofort" | "termin")}
                       >
                         <SelectTrigger className="h-8 text-xs">
                           <SelectValue placeholder="Bitte wählen" />
@@ -1184,11 +1116,7 @@ const projectFiles: File[] = details.files;
                       onChange={(e) => setHasAltDelivery(e.target.checked)}
                       className="w-4 h-4"
                     />
-
-                    <label
-                      htmlFor="altDelivery"
-                      className="text-sm font-medium"
-                    >
+                    <label htmlFor="altDelivery" className="text-sm font-medium">
                       Abweichende Lieferadresse / Direktlieferung
                     </label>
                   </div>
@@ -1199,7 +1127,6 @@ const projectFiles: File[] = details.files;
                         <label className="block text-[11px] text-gray-600 mb-1">
                           Name / Firma
                         </label>
-
                         <Input
                           value={deliveryName}
                           onChange={(e) => setDeliveryName(e.target.value)}
@@ -1211,7 +1138,6 @@ const projectFiles: File[] = details.files;
                         <label className="block text-[11px] text-gray-600 mb-1">
                           Straße / Nr.
                         </label>
-
                         <Input
                           value={deliveryStreet}
                           onChange={(e) => setDeliveryStreet(e.target.value)}
@@ -1223,7 +1149,6 @@ const projectFiles: File[] = details.files;
                         <label className="block text-[11px] text-gray-600 mb-1">
                           PLZ
                         </label>
-
                         <Input
                           value={deliveryZip}
                           onChange={(e) => setDeliveryZip(e.target.value)}
@@ -1235,7 +1160,6 @@ const projectFiles: File[] = details.files;
                         <label className="block text-[11px] text-gray-600 mb-1">
                           Ort
                         </label>
-
                         <Input
                           value={deliveryCity}
                           onChange={(e) => setDeliveryCity(e.target.value)}
@@ -1247,7 +1171,6 @@ const projectFiles: File[] = details.files;
                         <label className="block text-[11px] text-gray-600 mb-1">
                           Land
                         </label>
-
                         <Input
                           value={deliveryCountry}
                           onChange={(e) => setDeliveryCountry(e.target.value)}
@@ -1259,7 +1182,6 @@ const projectFiles: File[] = details.files;
                         <label className="block text-[11px] text-gray-600 mb-1">
                           Telefon (optional)
                         </label>
-
                         <Input
                           value={deliveryPhone}
                           onChange={(e) => setDeliveryPhone(e.target.value)}
@@ -1271,7 +1193,6 @@ const projectFiles: File[] = details.files;
                         <label className="block text-[11px] text-gray-600 mb-1">
                           E-Mail (optional)
                         </label>
-
                         <Input
                           value={deliveryEmail}
                           onChange={(e) => setDeliveryEmail(e.target.value)}
@@ -1283,7 +1204,7 @@ const projectFiles: File[] = details.files;
                 </div>
               </div>
 
-              {/* Rechte Spalte – PRODUKTLISTE */}
+              {/* Rechts */}
               <div className="flex flex-col min-h-0">
                 <div className="flex-1 overflow-y-auto pr-1">
                   <ProductListProjekt
@@ -1293,7 +1214,6 @@ const projectFiles: File[] = details.files;
                     removeFromCart={removeFromCart}
                   />
 
-                  {/* Sticky Footer */}
                   {projectFiles.length > 0 && (
                     <div className="text-xs text-gray-600 space-y-1">
                       <p className="font-semibold">Angehängte Dateien:</p>
@@ -1325,7 +1245,6 @@ const projectFiles: File[] = details.files;
                         </div>
                       )}
 
-                      {/* Projekt absenden */}
                       <Button
                         onClick={submitProject}
                         disabled={loading}
@@ -1334,12 +1253,7 @@ const projectFiles: File[] = details.files;
                         {loading ? "Wird gesendet…" : "✅ Projekt absenden"}
                       </Button>
 
-                      {/* Weiter bearbeiten */}
-                      <Button
-                        variant="outline"
-                        className="w-full"
-                        onClick={closeCart}
-                      >
+                      <Button variant="outline" className="w-full" onClick={closeCart}>
                         Weiter konfigurieren
                       </Button>
                     </div>

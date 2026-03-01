@@ -20,17 +20,32 @@ export type FormName =
   | "sofortrabatt"
   | "cashback";
 
-type ProjectDetails = {
-  submission_id: number;      // 🔥 Projekt-ID (P-xxx)
-  project_id?: string;        // 🔒 UUID (nur für Navigation)
+// ✅ NUR Metadaten, KEINE File-Objekte hier drin!
+export type ProjectDetails = {
+  submission_id: number; // lokale ID (P-xxx)
+  project_id?: string; // UUID (nur Navigation)
+  project_type?: string | null;
   project_name?: string | null;
   customer?: string | null;
+  location?: string | null;
+  start_date?: string | null;
+  end_date?: string | null;
+  comment?: string | null;
+
+  // optional: nur Namen, falls du im UI anzeigen willst
+  file_names?: string[];
 };
 
-type OrderDetails = {
+// ✅ in-memory Dateien (nicht persistieren!)
+export type OrderDetails = {
+  // Projekt/Bestellung (bestehende Logik)
   files: File[];
-};
+  
 
+  // ✅ neu: Support Belege
+  support_files: File[];
+  sofortrabatt_files: File[];  // ✅ Sofortrabatt
+};
 
 export type CartState = {
   verkauf: any[];
@@ -48,7 +63,7 @@ export type CartContextType = {
   addItem: (form: FormName, item: any) => void;
   removeItem: (form: FormName, index: number) => void;
   clearCart: (form: FormName) => void;
-  openCart: (form: FormName) => void;
+  openCart: (form: FormName, opts?: { fromProject?: boolean }) => void;
   closeCart: () => void;
   getItems: (form: FormName) => any[];
   switchForm: (form: FormName) => void;
@@ -58,11 +73,15 @@ export type CartContextType = {
   projectDetails: ProjectDetails | null;
   setProjectDetails: (d: ProjectDetails | null) => void;
 
-  // 🔥 HIER FEHLTE ES
+  // ✅ in-memory Files
   orderDetails: OrderDetails;
   setOrderDetails: React.Dispatch<React.SetStateAction<OrderDetails>>;
-};
 
+  // ✅ helper: Files je Bereich leeren
+  clearOrderFiles: (
+    which: "project" | "support" | "sofortrabatt"
+  ) => void;
+};
 
 const CartContext = createContext<CartContextType | undefined>(undefined);
 
@@ -79,14 +98,20 @@ function getActingDealerIdFromCookie(): string | null {
   return match ? match.split("=")[1] : null;
 }
 
+function isValidProductItem(item: any) {
+  // ✅ verhindert "Unbekannt"-Items im Projektcart
+  const pid = item?.product_id;
+  return pid !== undefined && pid !== null && String(pid).trim() !== "";
+}
+
 /* ---------------------------------------------------------
    Provider
 --------------------------------------------------------- */
 export function GlobalCartProvider({ children }: { children: ReactNode }) {
-  const dealer = useDealer(); // ✅ jetzt sicher Client ↔ Client
+  const dealer = useDealer();
 
   const actingDealerId = getActingDealerIdFromCookie();
-  const effectiveDealerId = actingDealerId ?? dealer?.dealer_id ?? "none";
+  const effectiveDealerId = actingDealerId ?? (dealer as any)?.dealer_id ?? "none";
   const STORAGE_KEY = `p5-cart-${effectiveDealerId}`;
 
   const emptyState: CartState = {
@@ -103,77 +128,85 @@ export function GlobalCartProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<CartState>(emptyState);
   const [projectDetails, setProjectDetails] =
     useState<ProjectDetails | null>(null);
+
+  // ✅ Files nur in-memory (nicht persistieren!)
   const [orderDetails, setOrderDetails] = useState<OrderDetails>({
     files: [],
+    support_files: [],
+    sofortrabatt_files: [],
   });
-  
 
+  // ✅ Load aus localStorage (NUR state + projectDetails)
   useEffect(() => {
     try {
       const raw = localStorage.getItem(STORAGE_KEY);
       if (!raw) return;
 
       const parsed = JSON.parse(raw);
-      setState({ ...emptyState, ...parsed });
-      // ✅ projectDetails nur übernehmen, wenn Cart tatsächlich im Bestellmodus ist
-      if (parsed?.currentForm === "bestellung") {
-        setProjectDetails(parsed.projectDetails ?? null);
-      } else {
-        setProjectDetails(null);
-      }
 
-      setOrderDetails(parsed.orderDetails ?? { files: [] });
+      setState({ ...emptyState, ...(parsed.state ?? {}) });
+      setProjectDetails(parsed.projectDetails ?? null);
     } catch {
       setState(emptyState);
       setProjectDetails(null);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [STORAGE_KEY]);
 
+  // ✅ Save in localStorage (NUR state + projectDetails)
   useEffect(() => {
-    const safeProjectDetails =
-      state.currentForm === "bestellung" ? projectDetails : null;
-
     localStorage.setItem(
       STORAGE_KEY,
-      JSON.stringify({ ...state, projectDetails: safeProjectDetails, orderDetails })
+      JSON.stringify({ state, projectDetails })
     );
+  }, [state, projectDetails, STORAGE_KEY]);
 
-  }, [state, projectDetails, orderDetails, STORAGE_KEY]);
-
-
-  const addItem = (form: FormName, item: any) =>
+  const addItem = (form: FormName, item: any) => {
+    // ✅ Schutz gegen kaputte Projektitems
+    if (form === "projekt" && !isValidProductItem(item)) {
+      console.warn("Blocked invalid project cart item (missing product_id):", item);
+      return;
+    }
     setState((p) => ({ ...p, [form]: [...p[form], item] }));
+  };
 
   const removeItem = (form: FormName, index: number) =>
     setState((p) => ({
       ...p,
-      [form]: p[form].filter((_, i) => i !== index),
+      [form]: p[form].filter((_: any, i: number) => i !== index),
     }));
 
-  const clearCart = (form: FormName) =>
-    setState((p) => {
-      if (form === "bestellung") {
-        setOrderDetails({ files: [] });
-      }
-      return { ...p, [form]: [] };
-    });
+  const clearCart = (form: FormName) => {
+    setState((p) => ({ ...p, [form]: [] }));
 
+    // ✅ Wenn Projekt geleert wird: auch Meta & Files leeren
+    if (form === "projekt") {
+      setProjectDetails(null);
+      setOrderDetails((prev) => ({ ...prev, files: [] }));
+    }
 
-  const openCart = (form: FormName, opts?: { fromProject?: boolean }) =>
-    setState((p) => {
-      // ✅ Wenn normale Bestellung geöffnet wird → Projekt-Context löschen
-      if (form === "bestellung" && !opts?.fromProject) {
-        setProjectDetails(null);
-      }
+    // ✅ Wenn Support geleert wird: Support-Files leeren
+    if (form === "support") {
+      setOrderDetails((prev) => ({ ...prev, support_files: [] }));
+    }
+  
+    if (form === "sofortrabatt") {
+      setOrderDetails((prev) => ({ ...prev, sofortrabatt_files: [] }));
+    }
+  };
+  const openCart = (form: FormName, opts?: { fromProject?: boolean }) => {
+    // ✅ projectDetails nur dann löschen, wenn wir NICHT im Projekt-Kontext sind
+    if (form === "bestellung" && !opts?.fromProject) {
+      setProjectDetails(null);
+    }
 
-      // ✅ Support / Verkauf / etc. sollen NIE Projekt anzeigen
-      if (form !== "bestellung") {
-        setProjectDetails(null);
-      }
+    // ✅ alle anderen Formulare (verkauf/support/sofortrabatt/cashback) löschen projectDetails
+    if (form !== "projekt" && form !== "bestellung") {
+      setProjectDetails(null);
+    }
 
-      return { ...p, currentForm: form, open: true };
-    });
-
+    setState((p) => ({ ...p, currentForm: form, open: true }));
+  };
 
   const closeCart = () =>
     setState((p) => ({ ...p, currentForm: null, open: false }));
@@ -197,6 +230,18 @@ export function GlobalCartProvider({ children }: { children: ReactNode }) {
       return { ...p, [form]: copy };
     });
 
+  const clearOrderFiles = (
+    which: "project" | "support" | "sofortrabatt"
+  ) => {
+    setOrderDetails((prev) => ({
+      ...prev,
+      files: which === "project" ? [] : prev.files,
+      support_files: which === "support" ? [] : prev.support_files,
+      sofortrabatt_files:
+        which === "sofortrabatt" ? [] : prev.sofortrabatt_files,
+    }));
+  };
+
   return (
     <CartContext.Provider
       value={{
@@ -212,13 +257,11 @@ export function GlobalCartProvider({ children }: { children: ReactNode }) {
         replaceItem,
         projectDetails,
         setProjectDetails,
-
-        // 🔥 HIER FEHLTE ES
         orderDetails,
         setOrderDetails,
+        clearOrderFiles,
       }}
     >
-
       {children}
     </CartContext.Provider>
   );

@@ -11,38 +11,50 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
-const SUPPORT_BUCKET = "support-documents";
+// ✅ Zielbucket
+const SUPPORT_BUCKET = "support-invoices";
 
 /**
  * Hilfsfunktion für saubere Zahlen
  */
 function num(v: any) {
-  const n =
-    typeof v === "string"
-      ? Number(v.replace(",", "."))
-      : Number(v);
+  const n = typeof v === "string" ? Number(v.replace(",", ".")) : Number(v);
   return Number.isFinite(n) ? n : 0;
+}
+
+/**
+ * Cookie helper (acting_dealer_id)
+ */
+function getActingDealerIdFromCookie(req: Request): number | null {
+  const cookie = req.headers.get("cookie") || "";
+  const match = cookie
+    .split(";")
+    .map((c) => c.trim())
+    .find((c) => c.startsWith("acting_dealer_id="));
+
+  if (!match) return null;
+  const raw = decodeURIComponent(match.split("=")[1] || "").trim();
+  const n = Number(raw);
+  return Number.isFinite(n) && n > 0 ? n : null;
 }
 
 /**
  * 📤 Upload eines Support-Belegs
  * Rückgabe: Storage-Pfad (wird in DB gespeichert)
  */
-async function uploadSupportFile(
-  file: File,
-  dealerId: number
-): Promise<string> {
+async function uploadSupportFile(file: File, dealerId: number): Promise<string> {
   const ext = (file.name.split(".").pop() || "bin").toLowerCase();
-  const path = `support/${dealerId}/${Date.now()}-${file.name}`;
+
+  // ✅ einheitliche Struktur im Bucket
+  const safeName = file.name.replace(/[^\w.\-() ]+/g, "_");
+  const path = `support/${dealerId}/${Date.now()}-${safeName}`;
 
   const buffer = Buffer.from(await file.arrayBuffer());
 
-  const { error } = await supabase.storage
-    .from(SUPPORT_BUCKET)
-    .upload(path, buffer, {
-      contentType: file.type,
-      upsert: false,
-    });
+  const { error } = await supabase.storage.from(SUPPORT_BUCKET).upload(path, buffer, {
+    contentType: file.type || "application/octet-stream",
+    upsert: false,
+  });
 
   if (error) {
     throw new Error(`Storage Upload fehlgeschlagen: ${error.message}`);
@@ -64,17 +76,16 @@ export async function POST(req: Request) {
     let file: File | null = null;
 
     // ---------------------------------------------
-    // 1️⃣ Payload lesen (JSON oder multipart)
+    // 1) Payload lesen (JSON oder multipart)
     // ---------------------------------------------
     if (contentType.includes("multipart/form-data")) {
       const form = await req.formData();
 
-      const rawPayload = form.get("payload");
+      // akzeptiere payload oder (legacy) payload als "data"
+      const rawPayload = (form.get("payload") ?? form.get("data")) as any;
+
       if (!rawPayload || typeof rawPayload !== "string") {
-        return NextResponse.json(
-          { error: "payload fehlt" },
-          { status: 400 }
-        );
+        return NextResponse.json({ error: "payload fehlt" }, { status: 400 });
       }
 
       payload = JSON.parse(rawPayload);
@@ -88,25 +99,46 @@ export async function POST(req: Request) {
     }
 
     // ---------------------------------------------
-    // 2️⃣ Pflichtfelder
+    // 2) dealer_id bestimmen
+    //    - aus payload.dealer_id
+    //    - oder aus Cookie acting_dealer_id
     // ---------------------------------------------
-    const dealer_id = Number(payload.dealer_id);
+    const dealerFromPayload = Number(payload?.dealer_id);
+    const dealerFromCookie = getActingDealerIdFromCookie(req);
+
+    const dealer_id =
+      (Number.isFinite(dealerFromPayload) && dealerFromPayload > 0
+        ? dealerFromPayload
+        : null) ?? dealerFromCookie;
+
     if (!dealer_id) {
       return NextResponse.json(
-        { error: "dealer_id fehlt oder ungültig" },
+        { error: "dealer_id fehlt oder ungültig (Payload/Cookie)" },
         { status: 400 }
       );
     }
 
-    const items = Array.isArray(payload.items) ? payload.items : [];
-    const comment = payload.comment ?? null;
-    const support_type = payload.type ?? null;
-    const totalCost = payload.totalCost ?? null;
-    const sonyShare = payload.sonyShare ?? null;
-    const sonyAmount = payload.sonyAmount ?? null;
+    // ---------------------------------------------
+    // 3) Support Meta robust lesen
+    //    (neu: payload.meta.support_type/comment)
+    //    (alt: payload.type/comment)
+    // ---------------------------------------------
+    const meta = payload?.meta ?? {};
+    const support_type =
+      payload?.type ?? meta?.support_type ?? meta?.type ?? null;
+
+    const comment =
+      payload?.comment ?? meta?.comment ?? payload?.meta_comment ?? null;
+
+    const items = Array.isArray(payload?.items) ? payload.items : [];
+
+    // Non-sellout Felder (optional)
+    const totalCost = payload?.totalCost ?? meta?.totalCost ?? null;
+    const sonyShare = payload?.sonyShare ?? meta?.sonyShare ?? null;
+    const sonyAmount = payload?.sonyAmount ?? meta?.sonyAmount ?? null;
 
     // ---------------------------------------------
-    // 3️⃣ Optional: Beleg hochladen
+    // 4) Optional: Beleg hochladen
     // ---------------------------------------------
     let documentPath: string | null = null;
 
@@ -115,7 +147,7 @@ export async function POST(req: Request) {
     }
 
     // ---------------------------------------------
-    // 4️⃣ Submission anlegen
+    // 5) Submission anlegen
     // ---------------------------------------------
     const { data: submission, error: subErr } = await supabase
       .from("submissions")
@@ -124,7 +156,7 @@ export async function POST(req: Request) {
         typ: "support",
         kommentar: comment,
         status: "pending",
-        project_file_path: documentPath, // ✅ EINZIGE WAHRHEIT
+        project_file_path: documentPath, // ✅ bleibt wie bei dir
       })
       .select("submission_id")
       .single();
@@ -136,7 +168,7 @@ export async function POST(req: Request) {
     const submission_id = submission.submission_id;
 
     // ---------------------------------------------
-    // 5️⃣ Items (Sell-Out Support)
+    // 6) Items (Sell-Out Support)
     // ---------------------------------------------
     if (items.length > 0) {
       const mappedItems = items.map((i: any) => ({
@@ -146,6 +178,7 @@ export async function POST(req: Request) {
         product_name: i.product_name ?? null,
         sony_article: i.sony_article ?? null,
         menge: Number(i.quantity ?? i.menge ?? 1),
+        // supportbetrag kommt in preis
         preis: i.supportbetrag != null ? num(i.supportbetrag) : null,
         comment: i.comment ?? null,
         created_at: new Date().toISOString(),
@@ -158,17 +191,13 @@ export async function POST(req: Request) {
 
       if (itemErr) {
         // Rollback Submission
-        await supabase
-          .from("submissions")
-          .delete()
-          .eq("submission_id", submission_id);
-
+        await supabase.from("submissions").delete().eq("submission_id", submission_id);
         throw new Error(itemErr.message);
       }
     }
 
     // ---------------------------------------------
-    // 6️⃣ Non-Sellout Meta (optional)
+    // 7) Non-Sellout Meta (optional)
     // ---------------------------------------------
     if (
       support_type &&
@@ -190,17 +219,18 @@ export async function POST(req: Request) {
     }
 
     // ---------------------------------------------
-    // ✅ ERFOLG
+    // ✅ Erfolg
     // ---------------------------------------------
     return NextResponse.json({
       success: true,
       submission_id,
       document_path: documentPath,
+      bucket: SUPPORT_BUCKET,
     });
   } catch (err: any) {
     console.error("❌ SUPPORT API ERROR:", err);
     return NextResponse.json(
-      { error: err.message || "Serverfehler" },
+      { error: err?.message || "Serverfehler" },
       { status: 500 }
     );
   }

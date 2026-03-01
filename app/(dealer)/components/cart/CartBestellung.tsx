@@ -978,7 +978,7 @@ export default function CartBestellung() {
       setDeliveryCountry("Schweiz");
       setDeliveryEmail("");
       setDeliveryPhone("");
-      setOrderDetails({ files: [] });
+      setOrderDetails((prev) => ({ ...prev, files: [] }));
 
       toast.success("✅ Bestellung gespeichert", {
         description: "Die Bestellung wurde erfolgreich übermittelt.",
@@ -1414,9 +1414,7 @@ export default function CartBestellung() {
                   <div className="mt-3">
                     <ProjectFileUpload
                       files={orderDetails.files}
-                      onChange={(files) =>
-                        setOrderDetails((prev: { files: File[] }) => ({ ...prev, files }))
-                      }
+                      onChange={(files) => setOrderDetails((prev) => ({ ...prev, files }))}
                     />
 
                     {orderDetails.files.length > 0 && (

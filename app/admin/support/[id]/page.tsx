@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { ArrowLeft } from "lucide-react";
 import { toast } from "sonner";
 import { useTheme } from "@/lib/theme/ThemeContext";
-import ThemedActionButtons from "@/lib/theme/ThemedActionButtons"; // ✅ Import angepasst
+import ThemedActionButtons from "@/lib/theme/ThemedActionButtons";
 
 type Produkt = {
   product_name?: string;
@@ -16,12 +16,14 @@ type Produkt = {
   preis?: number;
 };
 
+const SUPPORT_BUCKET = "support-invoices"; // ✅ privater Bucket
+
 export default function SupportDetailPage() {
   const { id: rawId } = useParams();
   const router = useRouter();
   const supabase = createClient();
   const theme = useTheme();
-  const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
+
   const id = rawId ? Number(rawId) : null;
 
   const [data, setData] = useState<{
@@ -36,10 +38,17 @@ export default function SupportDetailPage() {
 
   const [loading, setLoading] = useState(true);
 
+  // ✅ Signed URL State
+  const [fileUrl, setFileUrl] = useState<string | null>(null);
+  const [fileUrlLoading, setFileUrlLoading] = useState(false);
+
   useEffect(() => {
     if (!id) return;
+
     (async () => {
       setLoading(true);
+      setFileUrl(null);
+
       try {
         const { data: submission, error: subError } = await supabase
           .from("submissions")
@@ -56,7 +65,6 @@ export default function SupportDetailPage() {
           .eq("submission_id", id)
           .eq("typ", "support")
           .maybeSingle();
-
 
         if (subError || !submission) {
           console.error("⚠️ Keine Submission:", subError);
@@ -78,26 +86,42 @@ export default function SupportDetailPage() {
             .order("created_at", { ascending: false })
             .limit(1)
             .maybeSingle();
+
           claim = claimData;
         }
 
-        // 🔹 Non-Sell-Out Support (Marketing / Event / etc.)
         const { data: supportDetails } = await supabase
           .from("support_details")
           .select("support_typ, betrag")
           .eq("submission_id", id)
           .maybeSingle();
 
-          setData({
-            submission,
-            items: items ?? [],
-            claim,
-            supportDetails: supportDetails ?? undefined,
-          });
+        setData({
+          submission,
+          items: items ?? [],
+          claim,
+          supportDetails: supportDetails ?? undefined,
+        });
 
+        // ✅ Signed URL erzeugen (privater Bucket)
+        if (submission.project_file_path) {
+          setFileUrlLoading(true);
 
+          const { data: signed, error: signedErr } = await supabase.storage
+            .from(SUPPORT_BUCKET)
+            .createSignedUrl(submission.project_file_path, 60 * 30); // 30 Minuten
+
+          if (signedErr) {
+            console.error("❌ Signed URL Error:", signedErr);
+            setFileUrl(null);
+          } else {
+            setFileUrl(signed?.signedUrl ?? null);
+          }
+
+          setFileUrlLoading(false);
+        }
       } catch (err: any) {
-        console.error("💥 Fehler beim Laden:", err.message);
+        console.error("💥 Fehler beim Laden:", err?.message);
         toast.error("Ein unerwarteter Fehler ist aufgetreten.");
       } finally {
         setLoading(false);
@@ -107,6 +131,7 @@ export default function SupportDetailPage() {
 
   if (loading)
     return <p className="p-6 text-sm text-gray-500">Lade Support-Daten...</p>;
+
   if (!data)
     return (
       <p className="p-6 text-sm text-gray-500">
@@ -114,7 +139,7 @@ export default function SupportDetailPage() {
       </p>
     );
 
-  const { submission, items, claim } = data;
+  const { submission, items } = data;
 
   const produkte: Produkt[] = items || [];
   const totalSupport = produkte.reduce(
@@ -128,15 +153,9 @@ export default function SupportDetailPage() {
     submission?.dealers?.email ||
     "Keine Händler-E-Mail";
 
-  const fileUrl =
-    submission?.project_file_path
-      ? `${SUPABASE_URL}/storage/v1/object/public/support-documents/${submission.project_file_path}`
-      : null;
-
-
-  // 🔹 Status-Update
   const updateStatus = async (newStatus: "approved" | "rejected" | "pending") => {
     if (!submission?.submission_id) return;
+
     const { error } = await supabase
       .from("submissions")
       .update({ status: newStatus, updated_at: new Date().toISOString() })
@@ -152,6 +171,7 @@ export default function SupportDetailPage() {
           ? "❌ Status auf 'Abgelehnt' gesetzt."
           : "🔄 Status auf 'Offen' zurückgesetzt."
       );
+
       setData((prev) =>
         prev
           ? { ...prev, submission: { ...prev.submission, status: newStatus } }
@@ -169,7 +189,6 @@ export default function SupportDetailPage() {
 
   return (
     <div className="p-6 space-y-8 max-w-5xl mx-auto">
-      {/* 🔹 Header */}
       <div className="flex items-center justify-between mb-2">
         <Button
           variant="outline"
@@ -180,7 +199,6 @@ export default function SupportDetailPage() {
         </Button>
       </div>
 
-      {/* 🔹 Card */}
       <Card
         className={`rounded-2xl border ${theme.border} bg-white shadow-[0_2px_12px_rgba(0,0,0,0.06)]`}
       >
@@ -212,7 +230,6 @@ export default function SupportDetailPage() {
             </p>
           </div>
 
-          {/* 🎨 Modernisierte Button-Leiste */}
           <ThemedActionButtons
             onApprove={() => updateStatus("approved")}
             onReject={() => updateStatus("rejected")}
@@ -220,7 +237,6 @@ export default function SupportDetailPage() {
           />
         </CardHeader>
 
-        {/* 🔹 Produkte */}
         <CardContent className="pt-4">
           {produkte.length > 0 ? (
             <div className="overflow-x-auto rounded-xl border">
@@ -275,6 +291,7 @@ export default function SupportDetailPage() {
               <strong>Kommentar:</strong> {submission.kommentar}
             </div>
           )}
+
           {data?.supportDetails && (
             <div className="mt-6 rounded-xl border border-blue-200 bg-blue-50/60 p-4">
               <h3 className="text-sm font-semibold text-blue-800 mb-2">
@@ -299,18 +316,25 @@ export default function SupportDetailPage() {
             </div>
           )}
 
-
-
-          {fileUrl ? (
+          {/* ✅ Beleg (Signed URL) */}
+          {submission?.project_file_path ? (
             <div className="mt-5">
-              <a
-                href={fileUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className={`${theme.color} hover:underline text-sm`}
-              >
-                📎 Beleg anzeigen
-              </a>
+              {fileUrlLoading ? (
+                <p className="text-sm text-gray-500">Beleg wird geladen…</p>
+              ) : fileUrl ? (
+                <a
+                  href={fileUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className={`${theme.color} hover:underline text-sm`}
+                >
+                  📎 Beleg anzeigen
+                </a>
+              ) : (
+                <div className="p-3 bg-gray-50 rounded-md text-sm text-gray-500 italic">
+                  Beleg vorhanden, aber Link konnte nicht erstellt werden.
+                </div>
+              )}
             </div>
           ) : (
             <div className="mt-5 p-3 bg-gray-50 rounded-md text-sm text-gray-500 italic">

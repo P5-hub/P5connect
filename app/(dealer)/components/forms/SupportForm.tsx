@@ -5,73 +5,54 @@ import { useSearchParams } from "next/navigation";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import {
-  HandCoins,
-  Megaphone,
-  CalendarDays,
-  FileText,
-} from "lucide-react";
+import { HandCoins, Megaphone, CalendarDays, FileText } from "lucide-react";
 
-import UnifiedCart from "@/app/(dealer)/components/cart/UnifiedCart";
 import ProductList from "@/app/(dealer)/components/ProductList";
 import ProductCardSupport from "@/app/(dealer)/components/ProductCardSupport";
 
 import { useI18n } from "@/lib/i18n/I18nProvider";
 import { useTheme } from "@/lib/theme/ThemeContext";
 import { useDealer } from "@/app/(dealer)/DealerContext";
-import { createClient } from "@/utils/supabase/client";
+import { useCart } from "@/app/(dealer)/GlobalCartProvider";
 
 type SupportType = "sellout" | "marketing" | "event" | "other";
-
-const supabase = createClient();
-
-/* -------------------------------------------------------
-   FILE UPLOAD
-------------------------------------------------------- */
-async function uploadSupportFile(file: File, dealerId: string) {
-  const ext = file.name.split(".").pop();
-  const path = `support/${dealerId}/${Date.now()}.${ext}`;
-
-  const { error } = await supabase.storage
-    .from("support-documents")
-    .upload(path, file, { upsert: false });
-
-  if (error) throw new Error(error.message);
-  return path;
-}
 
 export default function SupportForm() {
   const { t } = useI18n();
   const theme = useTheme();
   const dealer = useDealer();
 
-  /* 🔥 ENTSCHEIDEND: DEALER AUS URL */
+  const { addItem, openCart, setOrderDetails, orderDetails } = useCart();
+
+  // Dealer aus URL (dein bestehendes Verhalten)
   const searchParams = useSearchParams();
   const dealerIdFromUrl = searchParams.get("dealer_id");
   const effectiveDealerId = dealerIdFromUrl
     ? Number(dealerIdFromUrl)
-    : dealer?.dealer_id ?? null;
+    : (dealer as any)?.dealer_id ?? null;
 
   const [details, setDetails] = useState({
     type: "sellout" as SupportType,
     comment: "",
-    file: null as File | null,
     totalCost: 0,
     sonyShare: 0,
   });
 
-  const [cart, setCart] = useState<any[]>([]);
-  const [cartOpen, setCartOpen] = useState(false);
   const [loading, setLoading] = useState(false);
 
   const activeBtn = `${theme.color.replace("text-", "bg-")} text-white`;
   const inactiveBtn = `border ${theme.border} hover:${theme.bgLight}`;
 
-  const sonyAmount =
-    (details.totalCost * details.sonyShare) / 100;
+  const sonyAmount = (details.totalCost * details.sonyShare) / 100;
+
+  const selectedFileName =
+    (orderDetails?.support_files?.length ?? 0) > 0
+      ? orderDetails.support_files[0].name
+      : null;
 
   /* -------------------------------------------------------
-     NON-SELLOUT SUBMIT
+     NON-SELLOUT SUBMIT (ohne Produkte)
+     -> sendet FormData (payload + optional file)
   ------------------------------------------------------- */
   const submitNonSelloutSupport = async () => {
     if (!effectiveDealerId) {
@@ -84,15 +65,21 @@ export default function SupportForm() {
       return;
     }
 
+    const files = orderDetails?.support_files ?? [];
+    if (files.length > 1) {
+      alert("Bitte nur 1 Beleg anhängen (aktuell).");
+      return;
+    }
+
     setLoading(true);
 
     try {
-      const formData = new FormData();
+      const fd = new FormData();
 
-      formData.append(
+      fd.append(
         "payload",
         JSON.stringify({
-          dealer_id: effectiveDealerId, // ✅ IMMER AUS URL
+          dealer_id: effectiveDealerId,
           type: details.type,
           comment: details.comment || null,
           totalCost: details.totalCost,
@@ -102,31 +89,33 @@ export default function SupportForm() {
         })
       );
 
-      if (details.file) {
-        formData.append("file", details.file);
+      if (files[0] instanceof File) {
+        fd.append("file", files[0]);
       }
 
       const res = await fetch("/api/support", {
         method: "POST",
-        body: formData,
+        body: fd,
       });
 
       if (!res.ok) {
-        const t = await res.text();
-        throw new Error(t || "Support konnte nicht gespeichert werden");
+        const txt = await res.text().catch(() => "");
+        throw new Error(txt || "Support konnte nicht gespeichert werden");
       }
 
       alert("Support erfolgreich eingereicht");
 
+      // Reset
       setDetails({
         type: "sellout",
         comment: "",
-        file: null,
         totalCost: 0,
         sonyShare: 0,
       });
+
+      setOrderDetails((prev) => ({ ...prev, support_files: [] }));
     } catch (err: any) {
-      alert(err.message || "Fehler beim Absenden");
+      alert(err?.message || "Fehler beim Absenden");
     } finally {
       setLoading(false);
     }
@@ -141,9 +130,7 @@ export default function SupportForm() {
       {/* SUPPORT ART */}
       <Card className={theme.border}>
         <CardContent className="pt-6 space-y-4">
-          <h3 className="font-semibold text-sm text-gray-700">
-            Support-Art
-          </h3>
+          <h3 className="font-semibold text-sm text-gray-700">Support-Art</h3>
 
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
             {[
@@ -156,11 +143,9 @@ export default function SupportForm() {
                 key={key}
                 size="sm"
                 onClick={() =>
-                  setDetails((d) => ({ ...d, type: key }))
+                  setDetails((d) => ({ ...d, type: key as SupportType }))
                 }
-                className={
-                  details.type === key ? activeBtn : inactiveBtn
-                }
+                className={details.type === key ? activeBtn : inactiveBtn}
               >
                 <Icon className="w-4 h-4 mr-1" />
                 {label}
@@ -169,9 +154,7 @@ export default function SupportForm() {
           </div>
 
           <div>
-            <label className="text-sm text-gray-600">
-              Beschreibung / Kommentar
-            </label>
+            <label className="text-sm text-gray-600">Beschreibung / Kommentar</label>
             <textarea
               rows={3}
               className="border rounded-md px-3 py-2 w-full mt-1"
@@ -192,52 +175,55 @@ export default function SupportForm() {
             <Input
               type="file"
               accept=".pdf,.jpg,.jpeg,.png"
-              onChange={(e) =>
-                setDetails((d) => ({
-                  ...d,
-                  file: e.target.files?.[0] ?? null,
-                }))
-              }
+              onChange={(e) => {
+                const f = e.target.files?.[0] ?? null;
+                setOrderDetails((prev) => ({
+                  ...prev,
+                  support_files: f ? [f] : [],
+                }));
+              }}
             />
+
+            {selectedFileName && (
+              <p className="text-xs text-gray-500 mt-1">
+                Ausgewählt: <span className="font-medium">{selectedFileName}</span>
+              </p>
+            )}
+
+            <div className="pt-2">
+              <Button
+                variant="outline"
+                className="w-full"
+                onClick={() => openCart("support")}
+              >
+                Support-Cart öffnen
+              </Button>
+            </div>
           </div>
         </CardContent>
       </Card>
 
       {/* SELLOUT */}
       {details.type === "sellout" && (
-        <>
-          <Card className={theme.border}>
-            <CardContent className="pt-6">
-              <h3 className="font-semibold text-sm text-gray-700 mb-4">
-                Produkte auswählen
-              </h3>
+        <Card className={theme.border}>
+          <CardContent className="pt-6">
+            <h3 className="font-semibold text-sm text-gray-700 mb-4">
+              Produkte auswählen
+            </h3>
 
-              <ProductList
-                CardComponent={ProductCardSupport}
-                cardProps={{
-                  onAddToCart: (item: any) => {
-                    setCart((prev) => [...prev, item]);
-                    setCartOpen(true);
-                  },
-                }}
-                supportType="sellout"
-              />
-            </CardContent>
-          </Card>
-
-          <UnifiedCart
-            mode="support"
-            cart={cart}
-            setCart={setCart}
-            open={cartOpen}
-            setOpen={setCartOpen}
-            details={{
-              type: details.type,
-              comment: details.comment,
-            }}
-            onSuccess={() => setCart([])}
-          />
-        </>
+            <ProductList
+              CardComponent={ProductCardSupport}
+              cardProps={{
+                onAddToCart: (item: any) => {
+                  // ✅ globaler Support Cart
+                  addItem("support", item);
+                  openCart("support");
+                },
+              }}
+              supportType="sellout"
+            />
+          </CardContent>
+        </Card>
       )}
 
       {/* NON-SELLOUT */}

@@ -4,29 +4,19 @@ import { useState, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import ProjectFileUpload from "@/app/(dealer)/components/project/ProjectFileUpload";
 import { Button } from "@/components/ui/button";
-import {
-  ArrowLeft,
-  ClipboardList,
-  Briefcase,
-  FolderKanban,
-  User,
-  MapPin,
-  Folder,
-  CalendarRange,
-  MessageSquare,
-} from "lucide-react";
+import { ArrowLeft, ClipboardList, Briefcase, User, MapPin } from "lucide-react";
 
 import ProductList from "@/app/(dealer)/components/ProductList";
 import ProductCardProject from "@/app/(dealer)/components/ProductCardProject";
 
-// WICHTIG: GlobalCartProvider
 import { useCart } from "@/app/(dealer)/GlobalCartProvider";
-
 import { useI18n } from "@/lib/i18n/I18nProvider";
 
 export default function ProjectForm() {
   const { t } = useI18n();
-  const { addItem, openCart, setProjectDetails, getItems } = useCart();
+
+  const { addItem, openCart, setProjectDetails, setOrderDetails, getItems } =
+    useCart();
 
   /* ------------------------------
      Lokale States
@@ -53,17 +43,13 @@ export default function ProjectForm() {
     files: [],
   });
 
-  const patchDetails = (
-    patch: Partial<typeof details>
-  ) => setDetails((d) => ({ ...d, ...patch }));
+  const patchDetails = (patch: Partial<typeof details>) =>
+    setDetails((d) => ({ ...d, ...patch }));
 
   /* ------------------------------
      Cart Count (Badge)
   ------------------------------ */
-  const projectItemCount = useMemo(
-    () => getItems("projekt")?.length || 0,
-    [getItems]
-  );
+  const projectItemCount = (getItems("projekt") || []).length;
 
   /* ------------------------------
      VALIDIERUNG
@@ -79,13 +65,26 @@ export default function ProjectForm() {
   const goToProducts = () => {
     if (!canProceed) return;
 
-    // ✅ Projekt-Details inkl. Dateien in GLOBALEN Cart speichern
+    // ✅ 1) Files IN-MEMORY transportieren (MERGE!)
+    setOrderDetails((prev) => ({
+      ...prev,
+      files: details.files ?? [],
+    }));
+
+    // ✅ 2) ProjectDetails NUR META
     setProjectDetails({
-      submission_id: Date.now(), // oder echte ID, wenn vorhanden
+      submission_id: Date.now(),
+
       project_name: details.name || null,
       customer: details.customer || null,
-    });
+      location: details.location || null,
+      project_type: details.type || null,
+      start_date: details.start || null,
+      end_date: details.end || null,
+      comment: details.comment || null,
 
+      file_names: (details.files ?? []).map((f) => f.name),
+    });
 
     setStep("products");
   };
@@ -116,16 +115,12 @@ export default function ProjectForm() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {/* Projektname */}
               <div>
-                <label className="block text-sm mb-1">
-                  {t("project.name")}
-                </label>
+                <label className="block text-sm mb-1">{t("project.name")}</label>
                 <input
                   type="text"
                   className="border px-2 py-1 rounded w-full"
                   value={details.name}
-                  onChange={(e) =>
-                    patchDetails({ name: e.target.value })
-                  }
+                  onChange={(e) => patchDetails({ name: e.target.value })}
                 />
               </div>
 
@@ -138,9 +133,7 @@ export default function ProjectForm() {
                   type="text"
                   className="border px-2 py-1 rounded w-full"
                   value={details.customer}
-                  onChange={(e) =>
-                    patchDetails({ customer: e.target.value })
-                  }
+                  onChange={(e) => patchDetails({ customer: e.target.value })}
                 />
               </div>
 
@@ -153,83 +146,59 @@ export default function ProjectForm() {
                   type="text"
                   className="border px-2 py-1 rounded w-full"
                   value={details.location}
-                  onChange={(e) =>
-                    patchDetails({ location: e.target.value })
-                  }
+                  onChange={(e) => patchDetails({ location: e.target.value })}
                 />
               </div>
 
               {/* Projekt-Typ */}
               <div>
-                <label className="block text-sm mb-1">
-                  {t("project.type")}
-                </label>
+                <label className="block text-sm mb-1">{t("project.type")}</label>
                 <select
                   value={details.type}
-                  onChange={(e) =>
-                    patchDetails({ type: e.target.value })
-                  }
+                  onChange={(e) => patchDetails({ type: e.target.value })}
                   className="border px-2 py-1 rounded w-full"
                 >
-                  <option value="standard">
-                    {t("project.type.standard")}
-                  </option>
-                  <option value="ausschreibung">
-                    {t("project.type.tender")}
-                  </option>
-                  <option value="promotion">
-                    {t("project.type.promo")}
-                  </option>
+                  <option value="standard">{t("project.type.standard")}</option>
+                  <option value="ausschreibung">{t("project.type.tender")}</option>
+                  <option value="promotion">{t("project.type.promo")}</option>
                 </select>
               </div>
 
               {/* Start */}
               <div>
-                <label className="block text-sm mb-1">
-                  {t("project.start")}
-                </label>
+                <label className="block text-sm mb-1">{t("project.start")}</label>
                 <input
                   type="date"
                   className="border px-2 py-1 rounded w-full"
                   value={details.start}
-                  onChange={(e) =>
-                    patchDetails({ start: e.target.value })
-                  }
+                  onChange={(e) => patchDetails({ start: e.target.value })}
                 />
               </div>
 
               {/* Ende */}
               <div>
-                <label className="block text-sm mb-1">
-                  {t("project.end")}
-                </label>
+                <label className="block text-sm mb-1">{t("project.end")}</label>
                 <input
                   type="date"
                   className="border px-2 py-1 rounded w-full"
                   value={details.end}
-                  onChange={(e) =>
-                    patchDetails({ end: e.target.value })
-                  }
+                  onChange={(e) => patchDetails({ end: e.target.value })}
                 />
               </div>
             </div>
 
             {/* Kommentar */}
             <div>
-              <label className="block text-sm mb-1">
-                {t("project.comment")}
-              </label>
+              <label className="block text-sm mb-1">{t("project.comment")}</label>
               <textarea
                 rows={3}
                 className="border px-2 py-1 rounded w-full"
                 value={details.comment}
-                onChange={(e) =>
-                  patchDetails({ comment: e.target.value })
-                }
+                onChange={(e) => patchDetails({ comment: e.target.value })}
               />
             </div>
 
-            {/* 📎 FILE UPLOAD – HIER GEHÖRT ER HIN */}
+            {/* 📎 FILE UPLOAD */}
             <ProjectFileUpload
               files={details.files}
               onChange={(files) => patchDetails({ files })}
@@ -263,9 +232,7 @@ export default function ProjectForm() {
               </Button>
             </div>
 
-            <h2 className="text-xl font-semibold">
-              {t("project.products")}
-            </h2>
+            <h2 className="text-xl font-semibold">{t("project.products")}</h2>
 
             {/* Projekt-Zusammenfassung */}
             <div className="border rounded-xl p-3 bg-purple-50 text-sm space-y-2">
@@ -273,7 +240,6 @@ export default function ProjectForm() {
                 <ClipboardList className="w-4 h-4" />
                 {t("project.summary.title")}
               </p>
-
 
               <div className="flex items-center gap-2">
                 <Briefcase className="w-4 h-4 text-gray-500" />
@@ -292,9 +258,9 @@ export default function ProjectForm() {
 
               {details.files.length > 0 && (
                 <div className="text-xs text-gray-600">
-                  📎 {t("project.filesAttached", { count: details.files.length })}
+                  📎{" "}
+                  {t("project.filesAttached", { count: details.files.length })}
                 </div>
-
               )}
             </div>
 
