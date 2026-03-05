@@ -1,11 +1,17 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useSearchParams } from "next/navigation";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { HandCoins, Megaphone, CalendarDays, FileText } from "lucide-react";
+import {
+  HandCoins,
+  Megaphone,
+  CalendarDays,
+  FileText,
+  ShoppingCart,
+} from "lucide-react";
 
 import ProductList from "@/app/(dealer)/components/ProductList";
 import ProductCardSupport from "@/app/(dealer)/components/ProductCardSupport";
@@ -22,7 +28,26 @@ export default function SupportForm() {
   const theme = useTheme();
   const dealer = useDealer();
 
-  const { addItem, openCart, setOrderDetails, orderDetails } = useCart();
+  const {
+    addItem,
+    openCart,
+    setOrderDetails,
+    orderDetails,
+    getItems,
+    supportMeta,
+    setSupportMeta,
+  } = useCart();
+
+  const supportItems = getItems("support") ?? [];
+  const supportCount = supportItems.length;
+
+  const supportTotal = useMemo(() => {
+    return supportItems.reduce((s: number, i: any) => {
+      const qty = Number(i.quantity) || 1;
+      const betrag = Number(i.supportbetrag) || 0;
+      return s + qty * betrag;
+    }, 0);
+  }, [supportItems]);
 
   // Dealer aus URL (dein bestehendes Verhalten)
   const searchParams = useSearchParams();
@@ -31,9 +56,8 @@ export default function SupportForm() {
     ? Number(dealerIdFromUrl)
     : (dealer as any)?.dealer_id ?? null;
 
-  const [details, setDetails] = useState({
-    type: "sellout" as SupportType,
-    comment: "",
+  // ✅ Non-sellout Werte lokal
+  const [nonSellout, setNonSellout] = useState({
     totalCost: 0,
     sonyShare: 0,
   });
@@ -43,24 +67,25 @@ export default function SupportForm() {
   const activeBtn = `${theme.color.replace("text-", "bg-")} text-white`;
   const inactiveBtn = `border ${theme.border} hover:${theme.bgLight}`;
 
-  const sonyAmount = (details.totalCost * details.sonyShare) / 100;
+  const sonyAmount = (nonSellout.totalCost * nonSellout.sonyShare) / 100;
 
   const selectedFileName =
     (orderDetails?.support_files?.length ?? 0) > 0
       ? orderDetails.support_files[0].name
       : null;
 
-  /* -------------------------------------------------------
-     NON-SELLOUT SUBMIT (ohne Produkte)
-     -> sendet FormData (payload + optional file)
-  ------------------------------------------------------- */
   const submitNonSelloutSupport = async () => {
     if (!effectiveDealerId) {
       alert("Kein Händler gefunden (URL)");
       return;
     }
 
-    if (!details.totalCost || !details.sonyShare) {
+    if (!supportMeta.type) {
+      alert("Bitte Support-Art auswählen");
+      return;
+    }
+
+    if (!nonSellout.totalCost || !nonSellout.sonyShare) {
       alert("Bitte Kosten und Beteiligung eingeben");
       return;
     }
@@ -80,10 +105,10 @@ export default function SupportForm() {
         "payload",
         JSON.stringify({
           dealer_id: effectiveDealerId,
-          type: details.type,
-          comment: details.comment || null,
-          totalCost: details.totalCost,
-          sonyShare: details.sonyShare,
+          type: supportMeta.type, // ✅ global
+          comment: supportMeta.comment || null, // ✅ global
+          totalCost: nonSellout.totalCost,
+          sonyShare: nonSellout.sonyShare,
           sonyAmount,
           items: [],
         })
@@ -106,13 +131,8 @@ export default function SupportForm() {
       alert("Support erfolgreich eingereicht");
 
       // Reset
-      setDetails({
-        type: "sellout",
-        comment: "",
-        totalCost: 0,
-        sonyShare: 0,
-      });
-
+      setNonSellout({ totalCost: 0, sonyShare: 0 });
+      setSupportMeta({ type: "", comment: "" });
       setOrderDetails((prev) => ({ ...prev, support_files: [] }));
     } catch (err: any) {
       alert(err?.message || "Fehler beim Absenden");
@@ -122,7 +142,7 @@ export default function SupportForm() {
   };
 
   return (
-    <div className="mx-auto w-full max-w-[1600px] space-y-10 px-6">
+    <div className="mx-auto w-full max-w-[1600px] space-y-10 px-6 pb-24">
       <h2 className="text-2xl font-semibold">
         {t("support.heading", { defaultValue: "Support-Antrag" })}
       </h2>
@@ -143,9 +163,9 @@ export default function SupportForm() {
                 key={key}
                 size="sm"
                 onClick={() =>
-                  setDetails((d) => ({ ...d, type: key as SupportType }))
+                  setSupportMeta((m) => ({ ...m, type: key as SupportType }))
                 }
-                className={details.type === key ? activeBtn : inactiveBtn}
+                className={supportMeta.type === key ? activeBtn : inactiveBtn}
               >
                 <Icon className="w-4 h-4 mr-1" />
                 {label}
@@ -154,14 +174,16 @@ export default function SupportForm() {
           </div>
 
           <div>
-            <label className="text-sm text-gray-600">Beschreibung / Kommentar</label>
+            <label className="text-sm text-gray-600">
+              Beschreibung / Kommentar
+            </label>
             <textarea
               rows={3}
               className="border rounded-md px-3 py-2 w-full mt-1"
-              value={details.comment}
+              value={supportMeta.comment}
               onChange={(e) =>
-                setDetails((d) => ({
-                  ...d,
+                setSupportMeta((m) => ({
+                  ...m,
                   comment: e.target.value,
                 }))
               }
@@ -186,25 +208,16 @@ export default function SupportForm() {
 
             {selectedFileName && (
               <p className="text-xs text-gray-500 mt-1">
-                Ausgewählt: <span className="font-medium">{selectedFileName}</span>
+                Ausgewählt:{" "}
+                <span className="font-medium">{selectedFileName}</span>
               </p>
             )}
-
-            <div className="pt-2">
-              <Button
-                variant="outline"
-                className="w-full"
-                onClick={() => openCart("support")}
-              >
-                Support-Cart öffnen
-              </Button>
-            </div>
           </div>
         </CardContent>
       </Card>
 
       {/* SELLOUT */}
-      {details.type === "sellout" && (
+      {supportMeta.type === "sellout" && (
         <Card className={theme.border}>
           <CardContent className="pt-6">
             <h3 className="font-semibold text-sm text-gray-700 mb-4">
@@ -215,7 +228,6 @@ export default function SupportForm() {
               CardComponent={ProductCardSupport}
               cardProps={{
                 onAddToCart: (item: any) => {
-                  // ✅ globaler Support Cart
                   addItem("support", item);
                   openCart("support");
                 },
@@ -227,7 +239,7 @@ export default function SupportForm() {
       )}
 
       {/* NON-SELLOUT */}
-      {details.type !== "sellout" && (
+      {supportMeta.type !== "sellout" && supportMeta.type !== "" && (
         <Card className={theme.border}>
           <CardContent className="pt-6">
             <div className="max-w-lg space-y-4">
@@ -238,9 +250,9 @@ export default function SupportForm() {
               <Input
                 type="number"
                 placeholder="Gesamtkosten (CHF)"
-                value={details.totalCost || ""}
+                value={nonSellout.totalCost || ""}
                 onChange={(e) =>
-                  setDetails((d) => ({
+                  setNonSellout((d) => ({
                     ...d,
                     totalCost: Number(e.target.value),
                   }))
@@ -250,9 +262,9 @@ export default function SupportForm() {
               <Input
                 type="number"
                 placeholder="Sony Beteiligung (%)"
-                value={details.sonyShare || ""}
+                value={nonSellout.sonyShare || ""}
                 onChange={(e) =>
-                  setDetails((d) => ({
+                  setNonSellout((d) => ({
                     ...d,
                     sonyShare: Number(e.target.value),
                   }))
@@ -280,6 +292,27 @@ export default function SupportForm() {
           </CardContent>
         </Card>
       )}
+
+      {/* ✅ FLOATING SUPPORT CART BUTTON (rechts unten) */}
+      <button
+        type="button"
+        onClick={() => openCart("support")}
+        className="fixed bottom-6 right-6 z-50 shadow-lg rounded-full bg-teal-600 hover:bg-teal-700 text-white px-4 py-3 flex items-center gap-2"
+        title="Support-Cart öffnen"
+      >
+        <ShoppingCart className="w-5 h-5" />
+        <span className="font-semibold">Support</span>
+
+        {supportCount > 0 && (
+          <span className="ml-1 text-xs bg-white/20 rounded-full px-2 py-1">
+            {supportCount} ·{" "}
+            {supportTotal.toLocaleString("de-CH", {
+              style: "currency",
+              currency: "CHF",
+            })}
+          </span>
+        )}
+      </button>
     </div>
   );
 }

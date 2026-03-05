@@ -18,6 +18,32 @@ type Produkt = {
 
 const SUPPORT_BUCKET = "support-invoices"; // ✅ privater Bucket
 
+function normalizeSupportKind(supportTyp?: string | null) {
+  const s = String(supportTyp ?? "").toLowerCase();
+
+  if (s.includes("sellout") || s.includes("sell-out")) return "sellout";
+  if (s.includes("marketing") || s.includes("werbung")) return "marketing";
+  if (s.includes("event")) return "event";
+  if (s.includes("other") || s.includes("sonstig")) return "other";
+
+  return "unknown";
+}
+
+function supportLabelFromKind(kind: string) {
+  switch (kind) {
+    case "sellout":
+      return "Sell-Out Support";
+    case "marketing":
+      return "Marketing Support";
+    case "event":
+      return "Event Support";
+    case "other":
+      return "Sonstiger Support";
+    default:
+      return "Support";
+  }
+}
+
 export default function SupportDetailPage() {
   const { id: rawId } = useParams();
   const router = useRouter();
@@ -129,15 +155,17 @@ export default function SupportDetailPage() {
     })();
   }, [id, supabase]);
 
-  if (loading)
+  if (loading) {
     return <p className="p-6 text-sm text-gray-500">Lade Support-Daten...</p>;
+  }
 
-  if (!data)
+  if (!data) {
     return (
       <p className="p-6 text-sm text-gray-500">
         Kein Support-Datensatz gefunden.
       </p>
     );
+  }
 
   const { submission, items } = data;
 
@@ -146,6 +174,19 @@ export default function SupportDetailPage() {
     (sum, p) => sum + (Number(p.preis) || 0) * (Number(p.menge) || 1),
     0
   );
+
+  // ✅ Support-Art ableiten
+  let supportKind = normalizeSupportKind(data?.supportDetails?.support_typ);
+
+  // Fallback für alte Datensätze ohne support_details:
+  if (supportKind === "unknown") {
+    supportKind = produkte.length > 0 ? "sellout" : "unknown";
+  }
+
+  const supportTitle = supportLabelFromKind(supportKind);
+
+  // ✅ Non-Sell-Out Box nur anzeigen wenn NICHT sellout
+  const showNonSelloutBox = Boolean(data?.supportDetails) && supportKind !== "sellout";
 
   const dealerName = submission?.dealers?.name ?? "Unbekannt";
   const dealerMail =
@@ -204,7 +245,7 @@ export default function SupportDetailPage() {
       >
         <CardHeader className="pb-4 border-b bg-white rounded-t-2xl">
           <h2 className="text-xl font-semibold">
-            Sell-Out Support – Submission #{submission?.submission_id}
+            {supportTitle} – Submission #{submission?.submission_id}
           </h2>
 
           <div className="text-sm text-gray-700 mt-1 space-y-1">
@@ -292,10 +333,11 @@ export default function SupportDetailPage() {
             </div>
           )}
 
-          {data?.supportDetails && (
+          {/* ✅ Nur bei Non-Sell-Out anzeigen */}
+          {showNonSelloutBox && data?.supportDetails && (
             <div className="mt-6 rounded-xl border border-blue-200 bg-blue-50/60 p-4">
               <h3 className="text-sm font-semibold text-blue-800 mb-2">
-                Marketing / Non-Sell-Out Support
+                Non-Sell-Out Support Details
               </h3>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
@@ -309,7 +351,7 @@ export default function SupportDetailPage() {
                 <div>
                   <p className="text-gray-500">Sony Kostenanteil</p>
                   <p className="text-lg font-semibold text-blue-700">
-                    {Number(data.supportDetails.betrag).toFixed(2)} CHF
+                    {Number(data.supportDetails.betrag ?? 0).toFixed(2)} CHF
                   </p>
                 </div>
               </div>
