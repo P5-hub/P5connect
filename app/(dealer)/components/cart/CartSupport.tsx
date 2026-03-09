@@ -14,6 +14,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useCart } from "@/app/(dealer)/GlobalCartProvider";
 import { useDealer } from "@/app/(dealer)/DealerContext";
 import { FileText, Trash2 } from "lucide-react";
+import { useI18n } from "@/lib/i18n/I18nProvider";
 
 type SupportItem = {
   product_id?: string | number;
@@ -23,6 +24,8 @@ type SupportItem = {
   quantity?: number;
   supportbetrag?: number;
 };
+
+const MAX_FILES = 5;
 
 function getActingDealerIdFromCookie(): number | null {
   if (typeof document === "undefined") return null;
@@ -34,7 +37,21 @@ function getActingDealerIdFromCookie(): number | null {
   return Number.isFinite(v) ? v : null;
 }
 
+function mergeFiles(existing: File[], incoming: File[]) {
+  const map = new Map<string, File>();
+
+  [...existing, ...incoming].forEach((file) => {
+    const key = `${file.name}__${file.size}__${file.lastModified}`;
+    if (!map.has(key)) {
+      map.set(key, file);
+    }
+  });
+
+  return Array.from(map.values()).slice(0, MAX_FILES);
+}
+
 export default function CartSupport() {
+  const { t } = useI18n();
   const dealer = useDealer();
   const actingDealerId = getActingDealerIdFromCookie();
   const dealerId = actingDealerId ?? (dealer as any)?.dealer_id ?? null;
@@ -43,6 +60,7 @@ export default function CartSupport() {
     state,
     getItems,
     updateItem,
+    removeItem,
     clearCart,
     closeCart,
     orderDetails,
@@ -50,6 +68,7 @@ export default function CartSupport() {
     clearOrderFiles,
     supportMeta,
     setSupportMeta,
+    resetSupportMeta,
   } = useCart();
 
   const cart = (getItems("support") as SupportItem[]) ?? [];
@@ -58,7 +77,6 @@ export default function CartSupport() {
 
   const [loading, setLoading] = useState(false);
 
-  // ✅ UX: wenn schon Items im Warenkorb sind und Typ leer ist -> Sell-Out vorauswählen
   useEffect(() => {
     if (cart.length > 0 && !supportMeta.type) {
       setSupportMeta((d) => ({ ...d, type: "sellout" }));
@@ -76,31 +94,66 @@ export default function CartSupport() {
     [cart]
   );
 
-  const removeSupportFile = () => {
-    setOrderDetails((prev) => ({ ...prev, support_files: [] }));
-    toast.success("Beleg entfernt");
+  const handleSupportFilesChange = (
+    e: React.ChangeEvent<HTMLInputElement>
+  ) => {
+    const incomingFiles = Array.from(e.target.files ?? []);
+
+    setOrderDetails((prev: any) => {
+      const merged = mergeFiles(prev.support_files ?? [], incomingFiles);
+
+      if ((prev.support_files?.length ?? 0) + incomingFiles.length > MAX_FILES) {
+        toast.error(
+          t("support.error.tooManyFiles") || `Maximal ${MAX_FILES} Belege erlaubt`
+        );
+      }
+
+      return {
+        ...prev,
+        support_files: merged,
+      };
+    });
+
+    toast.success(t("support.states.selectedFile"));
+    e.target.value = "";
+  };
+
+  const removeSupportFileAtIndex = (index: number) => {
+    setOrderDetails((prev: any) => ({
+      ...prev,
+      support_files: prev.support_files.filter((_: File, i: number) => i !== index),
+    }));
+    toast.success(t("support.files.removed"));
+  };
+
+  const handleRemoveCartItem = (index: number) => {
+    if (typeof removeItem !== "function") {
+      toast.error("removeItem fehlt im GlobalCartProvider.");
+      return;
+    }
+
+    removeItem("support", index);
+    toast.success(t("support.product.removedFromCart") || "Position entfernt");
   };
 
   const handleSubmit = async () => {
     if (!dealerId || !Number.isFinite(Number(dealerId))) {
-      toast.error("Fehler beim Speichern", {
-        description: "dealer_id fehlt (Login/DealerContext/Cookie).",
+      toast.error(t("support.error.save"), {
+        description: t("support.error.missingDealerId"),
       });
       return;
     }
 
     if (!supportMeta.type) {
-      toast.error("Bitte Support-Typ auswählen.");
+      toast.error(t("support.error.missingSupportType"));
       return;
     }
 
-    // Sellout braucht Items
     if (supportMeta.type === "sellout" && cart.length === 0) {
-      toast.error("Keine Support-Positionen vorhanden.");
+      toast.error(t("support.error.missingPositions"));
       return;
     }
 
-    // Sellout validieren
     if (supportMeta.type === "sellout") {
       const invalid = cart.some(
         (i) =>
@@ -111,14 +164,15 @@ export default function CartSupport() {
       );
 
       if (invalid) {
-        toast.error("Bitte Menge und Supportbetrag korrekt ausfüllen.");
+        toast.error(t("support.error.invalidValues"));
         return;
       }
     }
 
-    // optional: aktuell 1 File
-    if (files.length > 1) {
-      toast.error("Bitte nur 1 Beleg anhängen (aktuell).");
+    if (files.length > MAX_FILES) {
+      toast.error(
+        t("support.error.tooManyFiles") || `Maximal ${MAX_FILES} Belege erlaubt`
+      );
       return;
     }
 
@@ -127,7 +181,6 @@ export default function CartSupport() {
     try {
       const payload = {
         dealer_id: Number(dealerId),
-
         items:
           supportMeta.type === "sellout"
             ? cart.map((i) => ({
@@ -136,7 +189,6 @@ export default function CartSupport() {
                 supportbetrag: Number(i.supportbetrag) || 0,
               }))
             : [],
-
         meta: {
           support_type: supportMeta.type,
           comment: supportMeta.comment || "",
@@ -146,9 +198,11 @@ export default function CartSupport() {
       const fd = new FormData();
       fd.append("payload", JSON.stringify(payload));
 
-      if (files[0] instanceof File) {
-        fd.append("file", files[0]);
-      }
+      files.forEach((file) => {
+        if (file instanceof File) {
+          fd.append("files", file);
+        }
+      });
 
       const res = await fetch("/api/support", {
         method: "POST",
@@ -157,17 +211,18 @@ export default function CartSupport() {
 
       if (!res.ok) {
         const txt = await res.text().catch(() => "");
-        throw new Error(txt || "Support konnte nicht gespeichert werden");
+        throw new Error(txt || t("support.error.submitFailed"));
       }
 
-      clearCart("support");        // ✅ resettet jetzt auch supportMeta (in deinem Provider)
+      clearCart("support");
       clearOrderFiles?.("support");
+      resetSupportMeta();
 
-      toast.success("Support-Antrag erfolgreich gespeichert");
+      toast.success(t("support.states.success"));
       closeCart();
     } catch (err: any) {
-      toast.error("Fehler beim Speichern", {
-        description: err?.message ?? "Unbekannter Fehler",
+      toast.error(t("support.error.save"), {
+        description: err?.message ?? t("support.error.unknown"),
       });
     } finally {
       setLoading(false);
@@ -183,32 +238,54 @@ export default function CartSupport() {
     >
       <SheetContent side="right" className="w-full sm:w-[600px] flex flex-col">
         <SheetHeader>
-          <SheetTitle>Support senden</SheetTitle>
+          <SheetTitle>{t("support.states.sendTitle")}</SheetTitle>
         </SheetHeader>
 
-        {/* ✅ ITEMS IMMER SICHTBAR */}
         <div className="mt-4 space-y-2">
-          <div className="text-sm font-semibold">Positionen</div>
+          <div className="text-sm font-semibold">
+            {t("support.states.positions")}
+          </div>
 
           {cart.length === 0 ? (
             <div className="text-sm text-gray-500 border rounded-xl p-3 bg-white">
-              Noch keine Produkte im Support.
+              {t("support.states.noSupportProducts")}
             </div>
           ) : (
             <div className="space-y-3">
               {cart.map((item, index) => (
                 <div
-                  key={`${item.product_id ?? "x"}-${index}`} // ✅ unique key
-                  className="border rounded-xl p-3 bg-white shadow space-y-2"
+                  key={`${item.product_id ?? "x"}-${index}`}
+                  className="border rounded-xl p-3 bg-white shadow space-y-3"
                 >
-                  <p className="font-semibold">
-                    {item.product_name || item.sony_article || "Unbekannt"}
-                  </p>
-                  <p className="text-xs text-gray-500">EAN: {item.ean || "-"}</p>
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="font-semibold">
+                        {item.product_name ||
+                          item.sony_article ||
+                          t("support.product.unknown")}
+                      </p>
+
+                      <p className="text-xs text-gray-500">
+                        {t("support.product.ean")}: {item.ean || "-"}
+                      </p>
+                    </div>
+
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      type="button"
+                      onClick={() => handleRemoveCartItem(index)}
+                      title={t("support.actions.remove") || "Entfernen"}
+                    >
+                      <Trash2 className="w-4 h-4 text-red-500" />
+                    </Button>
+                  </div>
 
                   <div className="grid grid-cols-2 gap-2">
                     <div className="space-y-1">
-                      <div className="text-xs text-gray-500">Menge</div>
+                      <div className="text-xs text-gray-500">
+                        {t("support.fields.quantity")}
+                      </div>
                       <Input
                         type="number"
                         min={1}
@@ -224,7 +301,7 @@ export default function CartSupport() {
 
                     <div className="space-y-1">
                       <div className="text-xs text-gray-500">
-                        Support / Stk (CHF)
+                        {t("support.fields.amountPerUnit")}
                       </div>
                       <Input
                         type="number"
@@ -242,8 +319,7 @@ export default function CartSupport() {
 
                   {supportMeta.type !== "sellout" && (
                     <div className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg p-2">
-                      Hinweis: Positionen sind nur für <b>Sell-Out</b> relevant.
-                      Wähle oben „Sell-Out“, um Mengen/Beträge zu bearbeiten.
+                      {t("support.hints.selloutOnly")}
                     </div>
                   )}
                 </div>
@@ -252,9 +328,11 @@ export default function CartSupport() {
           )}
         </div>
 
-        {/* META */}
         <div className="border rounded-xl p-4 bg-gray-50 space-y-3 mt-4">
-          <label className="text-sm font-semibold">Support-Typ</label>
+          <label className="text-sm font-semibold">
+            {t("support.fields.supportType")}
+          </label>
+
           <select
             className="w-full border rounded px-2 py-1"
             value={supportMeta.type}
@@ -265,55 +343,77 @@ export default function CartSupport() {
               }))
             }
           >
-            <option value="">Bitte wählen…</option>
-            <option value="sellout">Sell-Out</option>
-            <option value="marketing">Werbung</option>
-            <option value="event">Event</option>
-            <option value="other">Sonstiges</option>
+            <option value="">{t("support.actions.choose")}</option>
+            <option value="sellout">{t("support.type.sellout")}</option>
+            <option value="marketing">{t("support.type.werbung")}</option>
+            <option value="event">{t("support.type.event")}</option>
+            <option value="other">{t("support.type.sonstiges")}</option>
           </select>
 
-          <label className="text-sm font-semibold">Kommentar</label>
+          <label className="text-sm font-semibold">
+            {t("support.fields.comment")}
+          </label>
+
           <Input
             value={supportMeta.comment}
             onChange={(e) =>
               setSupportMeta((d) => ({ ...d, comment: e.target.value }))
             }
-            placeholder="Optionaler Kommentar"
+            placeholder={t("support.hints.optionalComment")}
           />
 
-          {/* FILE */}
-          <div className="pt-2">
-            <label className="text-sm font-semibold">Beleg / Nachweis</label>
+          <div className="pt-2 space-y-2">
+            <label className="text-sm font-semibold">
+              {t("support.fields.receipt")}
+            </label>
+
+            <Input
+              type="file"
+              accept=".pdf,.jpg,.jpeg,.png"
+              multiple
+              onChange={handleSupportFilesChange}
+            />
 
             {files.length === 0 ? (
               <p className="text-xs text-gray-500 mt-1">
-                Kein Beleg ausgewählt.
+                {t("support.states.noReceipt")}
               </p>
             ) : (
-              <div className="mt-2 text-sm border rounded-lg p-2 bg-white flex items-center justify-between gap-2">
-                <div className="flex items-center gap-2 min-w-0">
-                  <FileText className="w-4 h-4 text-gray-500" />
-                  <span className="truncate">{files[0].name}</span>
-                </div>
+              <div className="mt-2 space-y-2">
+                {files.map((file, index) => (
+                  <div
+                    key={`${file.name}-${file.size}-${file.lastModified}-${index}`}
+                    className="text-sm border rounded-lg p-2 bg-white flex items-center justify-between gap-2"
+                  >
+                    <div className="flex items-center gap-2 min-w-0">
+                      <FileText className="w-4 h-4 text-gray-500" />
+                      <span className="truncate">{file.name}</span>
+                    </div>
 
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={removeSupportFile}
-                  title="Beleg entfernen"
-                >
-                  <Trash2 className="w-4 h-4 text-red-500" />
-                </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => removeSupportFileAtIndex(index)}
+                      title={t("support.hints.removeReceipt")}
+                      type="button"
+                    >
+                      <Trash2 className="w-4 h-4 text-red-500" />
+                    </Button>
+                  </div>
+                ))}
+
+                <p className="text-xs text-gray-500">
+                  {files.length} / {MAX_FILES} {t("support.fields.receipt")}
+                </p>
               </div>
             )}
           </div>
         </div>
 
-        {/* FOOTER */}
         <div className="border-t pt-4 space-y-3 mt-4">
           {supportMeta.type === "sellout" && cart.length > 0 && (
             <p className="text-sm">
-              <b>Supportbetrag gesamt:</b>{" "}
+              <b>{t("support.states.totalAmount")}:</b>{" "}
               {totalBetrag.toLocaleString("de-CH", {
                 style: "currency",
                 currency: "CHF",
@@ -325,13 +425,21 @@ export default function CartSupport() {
             onClick={handleSubmit}
             disabled={loading}
             className="w-full bg-teal-600 hover:bg-teal-700 text-white"
+            type="button"
           >
-            {loading ? "Wird gesendet…" : "Support absenden"}
+            {loading
+              ? t("support.actions.sending")
+              : t("support.actions.submitButton")}
           </Button>
 
           <SheetClose asChild>
-            <Button variant="outline" onClick={closeCart}>
-              Abbrechen
+            <Button
+              variant="outline"
+              onClick={closeCart}
+              className="w-full"
+              type="button"
+            >
+              {t("support.actions.cancel")}
             </Button>
           </SheetClose>
         </div>

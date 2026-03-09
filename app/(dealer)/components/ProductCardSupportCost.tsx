@@ -27,20 +27,22 @@ export default function ProductCardSupportCost({
   const [amount, setAmount] = useState(0);
   const [comment, setComment] = useState("");
 
-  const toInt = (v: any) => (Number.isFinite(+v) ? Math.max(0, Math.round(+v)) : 0);
+  const toInt = (v: any) =>
+    Number.isFinite(+v) ? Math.max(0, Math.round(+v)) : 0;
 
   const handleAdd = () => {
     if (!name.trim() || !type) return;
 
-    onAddToCart?.({
+    onAddToCart({
       product_id: `cost_${Date.now()}`,
-      product_name: name,
+      product_name: name.trim(),
       sony_article: type,
       ean: null,
-      quantity: toInt(quantity),
+      quantity: Math.max(1, toInt(quantity)),
       supportbetrag: toInt(amount),
-      comment,
-      support_type: "manual_cost", // ⭐ KORRIGIERT
+      price: toInt(amount),
+      comment: comment.trim() || null,
+      support_type: "manual_cost",
     });
 
     setName("");
@@ -55,44 +57,46 @@ export default function ProductCardSupportCost({
       <CardHeader className="pb-2">
         <div className="flex justify-between items-start">
           <h3 className="text-base font-semibold text-amber-800 leading-tight">
-            {t("support.customcost.title", { defaultValue: "Individuelle Support-Anfrage" })}
+            {t("support.customcost.title")}
           </h3>
           <PlusCircle className="w-5 h-5 text-amber-600" />
         </div>
+
         <p className="text-xs text-amber-700 mt-1">
-          {t("support.customcost.subtitle", {
-            defaultValue: "Wählen Sie die Art des Supports und fügen Sie Details hinzu",
-          })}
+          {t("support.customcost.subtitle")}
         </p>
       </CardHeader>
 
       <CardContent className="space-y-3">
-        {/* Auswahltyp */}
         <div>
           <label className="block text-xs text-gray-600 mb-1">
-            {t("support.customcost.type", { defaultValue: "Art des Supports" })}
+            {t("support.customcost.type")}
           </label>
+
           <Select value={type} onValueChange={setType}>
             <SelectTrigger className="w-full text-sm">
-              <SelectValue
-                placeholder={t("support.customcost.select", {
-                  defaultValue: "Bitte Art des Supports auswählen",
-                })}
-              />
+              <SelectValue placeholder={t("support.customcost.select")} />
             </SelectTrigger>
+
             <SelectContent>
-              <SelectItem value="werbung">{t("support.type.werbung")}</SelectItem>
-              <SelectItem value="event">{t("support.type.event")}</SelectItem>
-              <SelectItem value="sonstiges">{t("support.type.sonstiges")}</SelectItem>
+              <SelectItem value="werbung">
+                {t("support.type.werbung")}
+              </SelectItem>
+              <SelectItem value="event">
+                {t("support.type.event")}
+              </SelectItem>
+              <SelectItem value="sonstiges">
+                {t("support.type.sonstiges")}
+              </SelectItem>
             </SelectContent>
           </Select>
         </div>
 
-        {/* Beschreibung */}
         <div>
           <label className="block text-xs text-gray-600 mb-1">
-            {t("support.customcost.name", { defaultValue: "Beschreibung" })}
+            {t("support.customcost.name")}
           </label>
+
           <Input
             type="text"
             value={name}
@@ -101,20 +105,24 @@ export default function ProductCardSupportCost({
           />
         </div>
 
-        {/* Menge + Betrag */}
         <div className="grid grid-cols-2 gap-2">
           <div>
-            <label className="block text-xs text-gray-600 mb-1">{t("support.quantity")}</label>
+            <label className="block text-xs text-gray-600 mb-1">
+              {t("support.fields.quantity")}
+            </label>
             <Input
               type="number"
               min={1}
               value={quantity}
-              onChange={(e) => setQuantity(toInt(e.target.value))}
+              onChange={(e) => setQuantity(Math.max(1, toInt(e.target.value)))}
               className="text-center"
             />
           </div>
+
           <div>
-            <label className="block text-xs text-gray-600 mb-1">{t("support.amountperunit")}</label>
+            <label className="block text-xs text-gray-600 mb-1">
+              {t("support.fields.amountPerUnit")}
+            </label>
             <Input
               type="number"
               min={0}
@@ -125,25 +133,28 @@ export default function ProductCardSupportCost({
           </div>
         </div>
 
-        {/* Kommentar */}
         <div>
-          <label className="block text-xs text-gray-600 mb-1">{t("support.comment")}</label>
+          <label className="block text-xs text-gray-600 mb-1">
+            {t("support.fields.comment")}
+          </label>
           <Textarea
             rows={3}
             value={comment}
             onChange={(e) => setComment(e.target.value)}
+            placeholder={t("support.hints.optionalComment")}
           />
         </div>
       </CardContent>
 
       <CardFooter>
         <Button
+          type="button"
           onClick={handleAdd}
           disabled={!name.trim() || !type}
           className="w-full bg-amber-600 hover:bg-amber-700 text-white flex items-center gap-2"
         >
           <HandCoins className="w-4 h-4" />
-          {t("support.add")}
+          {t("support.actions.add")}
         </Button>
       </CardFooter>
     </Card>

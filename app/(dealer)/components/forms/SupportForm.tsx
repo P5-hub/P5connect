@@ -5,12 +5,14 @@ import { useSearchParams } from "next/navigation";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { toast } from "sonner";
 import {
   HandCoins,
   Megaphone,
   CalendarDays,
   FileText,
   ShoppingCart,
+  Trash2,
 } from "lucide-react";
 
 import ProductList from "@/app/(dealer)/components/ProductList";
@@ -22,6 +24,21 @@ import { useDealer } from "@/app/(dealer)/DealerContext";
 import { useCart } from "@/app/(dealer)/GlobalCartProvider";
 
 type SupportType = "sellout" | "marketing" | "event" | "other";
+
+const MAX_FILES = 5;
+
+function mergeFiles(existing: File[], incoming: File[]) {
+  const map = new Map<string, File>();
+
+  [...existing, ...incoming].forEach((file) => {
+    const key = `${file.name}__${file.size}__${file.lastModified}`;
+    if (!map.has(key)) {
+      map.set(key, file);
+    }
+  });
+
+  return Array.from(map.values()).slice(0, MAX_FILES);
+}
 
 export default function SupportForm() {
   const { t } = useI18n();
@@ -49,14 +66,12 @@ export default function SupportForm() {
     }, 0);
   }, [supportItems]);
 
-  // Dealer aus URL (dein bestehendes Verhalten)
   const searchParams = useSearchParams();
   const dealerIdFromUrl = searchParams.get("dealer_id");
   const effectiveDealerId = dealerIdFromUrl
     ? Number(dealerIdFromUrl)
     : (dealer as any)?.dealer_id ?? null;
 
-  // ✅ Non-sellout Werte lokal
   const [nonSellout, setNonSellout] = useState({
     totalCost: 0,
     sonyShare: 0,
@@ -68,31 +83,62 @@ export default function SupportForm() {
   const inactiveBtn = `border ${theme.border} hover:${theme.bgLight}`;
 
   const sonyAmount = (nonSellout.totalCost * nonSellout.sonyShare) / 100;
+  const selectedFiles = orderDetails?.support_files ?? [];
 
-  const selectedFileName =
-    (orderDetails?.support_files?.length ?? 0) > 0
-      ? orderDetails.support_files[0].name
-      : null;
+  const handleSupportFilesChange = (
+    e: React.ChangeEvent<HTMLInputElement>
+  ) => {
+    const incomingFiles = Array.from(e.target.files ?? []);
+
+    setOrderDetails((prev) => {
+      const merged = mergeFiles(prev.support_files ?? [], incomingFiles);
+
+      if ((prev.support_files?.length ?? 0) + incomingFiles.length > MAX_FILES) {
+        toast.error(
+          t("support.error.tooManyFiles") || `Maximal ${MAX_FILES} Belege erlaubt`
+        );
+      }
+
+      return {
+        ...prev,
+        support_files: merged,
+      };
+    });
+
+    // damit dieselbe Datei später nochmals gewählt werden kann
+    e.target.value = "";
+  };
+
+  const removeSupportFileAtIndex = (index: number) => {
+    setOrderDetails((prev) => ({
+      ...prev,
+      support_files: prev.support_files.filter((_, i) => i !== index),
+    }));
+
+    toast.success(t("support.files.removed"));
+  };
 
   const submitNonSelloutSupport = async () => {
     if (!effectiveDealerId) {
-      alert("Kein Händler gefunden (URL)");
+      toast.error(t("support.error.missingDealerFromUrl"));
       return;
     }
 
     if (!supportMeta.type) {
-      alert("Bitte Support-Art auswählen");
+      toast.error(t("support.error.missingSupportType"));
       return;
     }
 
     if (!nonSellout.totalCost || !nonSellout.sonyShare) {
-      alert("Bitte Kosten und Beteiligung eingeben");
+      toast.error(t("support.error.missingCosts"));
       return;
     }
 
     const files = orderDetails?.support_files ?? [];
-    if (files.length > 1) {
-      alert("Bitte nur 1 Beleg anhängen (aktuell).");
+    if (files.length > MAX_FILES) {
+      toast.error(
+        t("support.error.tooManyFiles") || `Maximal ${MAX_FILES} Belege erlaubt`
+      );
       return;
     }
 
@@ -105,8 +151,8 @@ export default function SupportForm() {
         "payload",
         JSON.stringify({
           dealer_id: effectiveDealerId,
-          type: supportMeta.type, // ✅ global
-          comment: supportMeta.comment || null, // ✅ global
+          type: supportMeta.type,
+          comment: supportMeta.comment || null,
           totalCost: nonSellout.totalCost,
           sonyShare: nonSellout.sonyShare,
           sonyAmount,
@@ -114,9 +160,11 @@ export default function SupportForm() {
         })
       );
 
-      if (files[0] instanceof File) {
-        fd.append("file", files[0]);
-      }
+      files.forEach((file) => {
+        if (file instanceof File) {
+          fd.append("files", file);
+        }
+      });
 
       const res = await fetch("/api/support", {
         method: "POST",
@@ -125,17 +173,16 @@ export default function SupportForm() {
 
       if (!res.ok) {
         const txt = await res.text().catch(() => "");
-        throw new Error(txt || "Support konnte nicht gespeichert werden");
+        throw new Error(txt || t("support.error.submitFailed"));
       }
 
-      alert("Support erfolgreich eingereicht");
+      toast.success(t("support.success.submitted"));
 
-      // Reset
       setNonSellout({ totalCost: 0, sonyShare: 0 });
       setSupportMeta({ type: "", comment: "" });
       setOrderDetails((prev) => ({ ...prev, support_files: [] }));
     } catch (err: any) {
-      alert(err?.message || "Fehler beim Absenden");
+      toast.error(err?.message || t("support.error.unknown"));
     } finally {
       setLoading(false);
     }
@@ -143,25 +190,25 @@ export default function SupportForm() {
 
   return (
     <div className="mx-auto w-full max-w-[1600px] space-y-10 px-6 pb-24">
-      <h2 className="text-2xl font-semibold">
-        {t("support.heading", { defaultValue: "Support-Antrag" })}
-      </h2>
+      <h2 className="text-2xl font-semibold">{t("support.heading")}</h2>
 
-      {/* SUPPORT ART */}
       <Card className={theme.border}>
         <CardContent className="pt-6 space-y-4">
-          <h3 className="font-semibold text-sm text-gray-700">Support-Art</h3>
+          <h3 className="font-semibold text-sm text-gray-700">
+            {t("support.fields.supportType")}
+          </h3>
 
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
             {[
-              ["sellout", "Sell-Out", HandCoins],
-              ["marketing", "Werbung", Megaphone],
-              ["event", "Event", CalendarDays],
-              ["other", "Sonstiges", FileText],
+              ["sellout", t("support.type.sellout"), HandCoins],
+              ["marketing", t("support.type.werbung"), Megaphone],
+              ["event", t("support.type.event"), CalendarDays],
+              ["other", t("support.type.sonstiges"), FileText],
             ].map(([key, label, Icon]: any) => (
               <Button
                 key={key}
                 size="sm"
+                type="button"
                 onClick={() =>
                   setSupportMeta((m) => ({ ...m, type: key as SupportType }))
                 }
@@ -175,7 +222,7 @@ export default function SupportForm() {
 
           <div>
             <label className="text-sm text-gray-600">
-              Beschreibung / Kommentar
+              {t("support.fields.comment")}
             </label>
             <textarea
               rows={3}
@@ -187,41 +234,64 @@ export default function SupportForm() {
                   comment: e.target.value,
                 }))
               }
+              placeholder={t("support.hints.optionalComment")}
             />
           </div>
 
           <div>
             <label className="text-sm text-gray-600">
-              Beleg / Nachweis (PDF, JPG, PNG)
+              {t("support.fields.receipt")}
             </label>
+
             <Input
               type="file"
               accept=".pdf,.jpg,.jpeg,.png"
-              onChange={(e) => {
-                const f = e.target.files?.[0] ?? null;
-                setOrderDetails((prev) => ({
-                  ...prev,
-                  support_files: f ? [f] : [],
-                }));
-              }}
+              multiple
+              onChange={handleSupportFilesChange}
             />
 
-            {selectedFileName && (
+            {selectedFiles.length > 0 ? (
+              <div className="mt-2 space-y-2">
+                {selectedFiles.map((file, index) => (
+                  <div
+                    key={`${file.name}-${file.size}-${file.lastModified}-${index}`}
+                    className="text-sm border rounded-lg p-2 bg-white flex items-center justify-between gap-2"
+                  >
+                    <div className="flex items-center gap-2 min-w-0">
+                      <FileText className="w-4 h-4 text-gray-500" />
+                      <span className="truncate">{file.name}</span>
+                    </div>
+
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      type="button"
+                      onClick={() => removeSupportFileAtIndex(index)}
+                      title={t("support.hints.removeReceipt")}
+                    >
+                      <Trash2 className="w-4 h-4 text-red-500" />
+                    </Button>
+                  </div>
+                ))}
+
+                <p className="text-xs text-gray-500">
+                  {selectedFiles.length} / {MAX_FILES} {t("support.fields.receipt")}
+                </p>
+              </div>
+            ) : (
               <p className="text-xs text-gray-500 mt-1">
-                Ausgewählt:{" "}
-                <span className="font-medium">{selectedFileName}</span>
+                {t("support.states.noReceipt")}
               </p>
             )}
           </div>
         </CardContent>
       </Card>
 
-      {/* SELLOUT */}
       {supportMeta.type === "sellout" && (
         <Card className={theme.border}>
           <CardContent className="pt-6">
             <h3 className="font-semibold text-sm text-gray-700 mb-4">
-              Produkte auswählen
+              {t("support.states.selectProducts")}
             </h3>
 
             <ProductList
@@ -238,18 +308,17 @@ export default function SupportForm() {
         </Card>
       )}
 
-      {/* NON-SELLOUT */}
       {supportMeta.type !== "sellout" && supportMeta.type !== "" && (
         <Card className={theme.border}>
           <CardContent className="pt-6">
             <div className="max-w-lg space-y-4">
               <h3 className="font-semibold text-sm text-gray-700">
-                Kostenbeteiligung
+                {t("support.states.costSharing")}
               </h3>
 
               <Input
                 type="number"
-                placeholder="Gesamtkosten (CHF)"
+                placeholder={t("support.fields.totalCost")}
                 value={nonSellout.totalCost || ""}
                 onChange={(e) =>
                   setNonSellout((d) => ({
@@ -261,7 +330,7 @@ export default function SupportForm() {
 
               <Input
                 type="number"
-                placeholder="Sony Beteiligung (%)"
+                placeholder={t("support.fields.sonyShare")}
                 value={nonSellout.sonyShare || ""}
                 onChange={(e) =>
                   setNonSellout((d) => ({
@@ -272,7 +341,7 @@ export default function SupportForm() {
               />
 
               <div className="flex justify-between border rounded-md px-3 py-2 bg-gray-50 text-sm">
-                <span>Sony Support (CHF)</span>
+                <span>{t("support.fields.sonyAmount")}</span>
                 <span className="font-semibold">
                   {sonyAmount.toLocaleString("de-CH", {
                     style: "currency",
@@ -285,23 +354,25 @@ export default function SupportForm() {
                 className={`${activeBtn} mt-2`}
                 onClick={submitNonSelloutSupport}
                 disabled={loading}
+                type="button"
               >
-                {loading ? "Wird gesendet…" : "Support absenden"}
+                {loading
+                  ? t("support.actions.sending")
+                  : t("support.actions.submitButton")}
               </Button>
             </div>
           </CardContent>
         </Card>
       )}
 
-      {/* ✅ FLOATING SUPPORT CART BUTTON (rechts unten) */}
       <button
         type="button"
         onClick={() => openCart("support")}
         className="fixed bottom-6 right-6 z-50 shadow-lg rounded-full bg-teal-600 hover:bg-teal-700 text-white px-4 py-3 flex items-center gap-2"
-        title="Support-Cart öffnen"
+        title={t("support.actions.openCart")}
       >
         <ShoppingCart className="w-5 h-5" />
-        <span className="font-semibold">Support</span>
+        <span className="font-semibold">{t("support.states.cartLabel")}</span>
 
         {supportCount > 0 && (
           <span className="ml-1 text-xs bg-white/20 rounded-full px-2 py-1">

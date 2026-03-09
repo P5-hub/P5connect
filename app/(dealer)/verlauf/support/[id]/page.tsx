@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { getSupabaseBrowser } from "@/lib/supabaseClient";
 import { useActiveDealer } from "@/app/(dealer)/hooks/useActiveDealer";
@@ -31,6 +31,56 @@ type SupportMeta = {
   betrag: number | null;
 };
 
+type SubmissionLog = {
+  id?: number;
+  action: string | null;
+  old_status: string | null;
+  new_status: string | null;
+  changed: boolean | null;
+  counter_amount: number | null;
+  note: string | null;
+  created_at: string;
+};
+
+const SUPPORT_BUCKET = "support-invoices";
+
+/* ================= HELPERS ================= */
+
+function getDisplayStatus(
+  status: string | null,
+  latestAction: string | null | undefined
+) {
+  if (status === "approved" && latestAction === "approved_with_counter_offer") {
+    return "Geändert und genehmigt";
+  }
+
+  if (status === "approved") {
+    return "Genehmigt";
+  }
+
+  if (status === "rejected") {
+    return "Abgelehnt";
+  }
+
+  if (status === "pending" || latestAction === "reset_to_pending") {
+    return "Offen";
+  }
+
+  return status ?? "—";
+}
+
+function getStatusClass(status: string | null) {
+  if (status === "approved") {
+    return "bg-green-100 text-green-700";
+  }
+
+  if (status === "rejected") {
+    return "bg-red-100 text-red-700";
+  }
+
+  return "bg-gray-100 text-gray-600";
+}
+
 /* ================= COMPONENT ================= */
 
 export default function SupportDetailPage() {
@@ -43,26 +93,33 @@ export default function SupportDetailPage() {
   const [header, setHeader] = useState<SupportHeader | null>(null);
   const [items, setItems] = useState<SupportItem[]>([]);
   const [meta, setMeta] = useState<SupportMeta | null>(null);
+  const [logs, setLogs] = useState<SubmissionLog[]>([]);
   const [loading, setLoading] = useState(true);
+
+  const [fileUrl, setFileUrl] = useState<string | null>(null);
+  const [fileUrlLoading, setFileUrlLoading] = useState(false);
 
   useEffect(() => {
     if (!id || dealerLoading || !dealer?.dealer_id) return;
 
     (async () => {
       setLoading(true);
+      setFileUrl(null);
 
-      /* ===== HEADER (Submission!) ===== */
+      const numericId = Number(id);
+
       const { data: headerData, error: headerErr } = await supabase
         .from("submissions")
         .select(
           "submission_id, dealer_id, created_at, status, kommentar, project_file_path"
         )
-        .eq("submission_id", Number(id))
+        .eq("submission_id", numericId)
         .eq("typ", "support")
         .eq("dealer_id", dealer.dealer_id)
         .single();
 
       if (headerErr || !headerData) {
+        console.error("headerErr:", headerErr);
         setHeader(null);
         setLoading(false);
         return;
@@ -70,31 +127,78 @@ export default function SupportDetailPage() {
 
       setHeader(headerData as SupportHeader);
 
-      /* ===== ITEMS (Sell-Out Support) ===== */
-      const { data: itemsData } = await supabase
+      const { data: itemsData, error: itemsErr } = await supabase
         .from("submission_items")
-        .select(
-          "item_id, product_name, ean, menge, preis, comment"
-        )
-        .eq("submission_id", Number(id))
-        .order("item_id");
+        .select("item_id, product_name, ean, menge, preis, comment")
+        .eq("submission_id", numericId)
+        .order("item_id", { ascending: true });
+
+      if (itemsErr) {
+        console.error("itemsErr:", itemsErr);
+      }
 
       setItems((itemsData ?? []) as SupportItem[]);
 
-      /* ===== META (Non-Sell-Out Support, optional) ===== */
-      const { data: metaData } = await supabase
+      const { data: metaData, error: metaErr } = await supabase
         .from("support_details")
         .select("support_typ, betrag")
-        .eq("submission_id", Number(id))
-        .single();
+        .eq("submission_id", numericId)
+        .maybeSingle();
+
+      if (metaErr) {
+        console.error("metaErr:", metaErr);
+      }
 
       if (metaData) {
         setMeta(metaData as SupportMeta);
+      } else {
+        setMeta(null);
+      }
+
+      const { data: logsData, error: logsErr } = await supabase
+        .from("submission_logs")
+        .select("id, action, old_status, new_status, changed, counter_amount, note, created_at")
+        .eq("submission_id", numericId)
+        .eq("typ", "support")
+        .order("created_at", { ascending: true });
+
+      if (logsErr) {
+        console.error("logsErr:", logsErr);
+      }
+
+      setLogs((logsData ?? []) as SubmissionLog[]);
+
+      if (headerData.project_file_path) {
+        setFileUrlLoading(true);
+
+        const { data: signed, error: signedErr } = await supabase.storage
+          .from(SUPPORT_BUCKET)
+          .createSignedUrl(headerData.project_file_path, 60 * 30);
+
+        if (signedErr) {
+          console.error("signedErr:", signedErr);
+          setFileUrl(null);
+        } else {
+          setFileUrl(signed?.signedUrl ?? null);
+        }
+
+        setFileUrlLoading(false);
       }
 
       setLoading(false);
     })();
   }, [id, dealer?.dealer_id, dealerLoading, supabase]);
+
+  const totalAmount = useMemo(() => {
+    return items.reduce(
+      (s, i) => s + Number(i.preis ?? 0) * Number(i.menge ?? 0),
+      0
+    );
+  }, [items]);
+
+  const latestAction = logs.length > 0 ? logs[logs.length - 1]?.action : null;
+  const displayStatus = getDisplayStatus(header?.status ?? null, latestAction);
+  const statusClass = getStatusClass(header?.status ?? null);
 
   if (dealerLoading || loading) {
     return <p className="text-gray-500">⏳ Support-Details werden geladen…</p>;
@@ -108,19 +212,12 @@ export default function SupportDetailPage() {
     );
   }
 
-  const totalAmount = items.reduce(
-    (s, i) => s + Number(i.preis ?? 0) * Number(i.menge ?? 0),
-    0
-  );
-
   return (
     <div className="space-y-6">
       {/* ===== HEADER ===== */}
       <div className="flex items-center gap-3">
         <button
-          onClick={() =>
-            router.push(`/verlauf?dealer_id=${dealer?.dealer_id}`)
-          }
+          onClick={() => router.push(`/verlauf?dealer_id=${dealer?.dealer_id}`)}
           className="p-2 rounded hover:bg-gray-100"
         >
           <ArrowLeft className="w-4 h-4" />
@@ -141,17 +238,34 @@ export default function SupportDetailPage() {
             })}{" "}
             · {new Date(header.created_at).toLocaleString("de-CH")}
           </p>
+
+          <div className="mt-2">
+            <span
+              className={`inline-block text-xs px-2 py-0.5 rounded-full ${statusClass}`}
+            >
+              {displayStatus}
+            </span>
+          </div>
         </div>
 
         {header.project_file_path && (
-          <a
-            href={`${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/support-documents/${header.project_file_path}`}
-            target="_blank"
-            className="flex items-center gap-1 text-sm text-blue-600 hover:underline"
-          >
-            <Paperclip className="w-4 h-4" />
-            Beleg
-          </a>
+          <div>
+            {fileUrlLoading ? (
+              <span className="text-sm text-gray-500">Beleg wird geladen…</span>
+            ) : fileUrl ? (
+              <a
+                href={fileUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-1 text-sm text-blue-600 hover:underline"
+              >
+                <Paperclip className="w-4 h-4" />
+                Beleg
+              </a>
+            ) : (
+              <span className="text-sm text-gray-400">Kein Link</span>
+            )}
+          </div>
         )}
       </div>
 
@@ -207,6 +321,37 @@ export default function SupportDetailPage() {
               ))}
             </tbody>
           </table>
+        </div>
+      )}
+
+      {/* ===== LOGS ===== */}
+      {logs.length > 0 && (
+        <div className="rounded-md border bg-white p-3 text-sm space-y-2">
+          <p className="font-semibold">Verlauf</p>
+
+      {logs.map((log, index) => {
+        let label = log.action ?? "-";
+
+        if (log.action === "approved_with_counter_offer") {
+          label = "Geändert und genehmigt";
+        } else if (log.action === "approved") {
+          label = "Genehmigt";
+        } else if (log.action === "rejected") {
+          label = "Abgelehnt";
+        } else if (log.action === "reset_to_pending") {
+          label = "Offen";
+        }
+
+        const safeKey =
+          log.id ??
+          `${log.action ?? "log"}-${log.created_at ?? "no-date"}-${index}`;
+
+        return (
+          <p key={safeKey} className="text-gray-700">
+            {new Date(log.created_at).toLocaleString("de-CH")} – {label}
+          </p>
+        );
+      })}
         </div>
       )}
     </div>

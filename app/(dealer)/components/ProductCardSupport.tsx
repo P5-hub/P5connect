@@ -7,7 +7,13 @@ import { Input } from "@/components/ui/input";
 import { useI18n } from "@/lib/i18n/I18nProvider";
 import { HandCoins } from "lucide-react";
 
-export default function ProductCardSupport({ product, onAddToCart }: any) {
+export default function ProductCardSupport({
+  product,
+  onAddToCart,
+}: {
+  product: any;
+  onAddToCart: (item: any) => void;
+}) {
   const { t } = useI18n();
   const [quantity, setQuantity] = useState(1);
   const [supportAmount, setSupportAmount] = useState(0);
@@ -18,21 +24,16 @@ export default function ProductCardSupport({ product, onAddToCart }: any) {
   const handleAdd = () => {
     if (typeof onAddToCart !== "function") return;
 
-    const qty = toInt(quantity);
+    const qty = Math.max(1, toInt(quantity));
     const amount = toInt(supportAmount);
 
     onAddToCart({
       ...product,
       quantity: qty,
-
-      // ✅ SUPPORT
       supportbetrag: amount,
-
-      // ✅ WICHTIG: UnifiedCart braucht price
       price: amount,
     });
 
-    // Reset
     setQuantity(1);
     setSupportAmount(0);
   };
@@ -40,15 +41,24 @@ export default function ProductCardSupport({ product, onAddToCart }: any) {
   return (
     <Card className="border-amber-200 bg-white shadow-sm hover:shadow-md transition-all duration-200">
       <CardHeader className="pb-2">
-        <div className="flex justify-between items-start">
+        <div className="flex justify-between items-start gap-3">
           <h3 className="text-base font-semibold text-gray-800 leading-tight">
             {product?.product_name ||
               product?.sony_article ||
               t("support.product.unknown")}
           </h3>
-          <div className="text-xs text-gray-500 text-right">
-            {product?.sony_article && <p>SKU: {product.sony_article}</p>}
-            {product?.ean && <p>EAN: {product.ean}</p>}
+
+          <div className="text-xs text-gray-500 text-right shrink-0">
+            {product?.sony_article && (
+              <p>
+                {t("support.product.sku")}: {product.sony_article}
+              </p>
+            )}
+            {product?.ean && (
+              <p>
+                {t("support.product.ean")}: {product.ean}
+              </p>
+            )}
           </div>
         </div>
       </CardHeader>
@@ -57,20 +67,20 @@ export default function ProductCardSupport({ product, onAddToCart }: any) {
         <div className="grid grid-cols-2 gap-2">
           <div>
             <label className="block text-xs text-gray-600 mb-1">
-              {t("support.quantity")}
+              {t("support.fields.quantity")}
             </label>
             <Input
               type="number"
               min={1}
               value={quantity}
-              onChange={(e) => setQuantity(toInt(e.target.value))}
+              onChange={(e) => setQuantity(Math.max(1, toInt(e.target.value)))}
               className="text-center"
             />
           </div>
 
           <div>
             <label className="block text-xs text-gray-600 mb-1">
-              {t("support.amountperunit")} (CHF)
+              {t("support.fields.amountPerUnit")} (CHF)
             </label>
             <Input
               type="number"
@@ -85,11 +95,12 @@ export default function ProductCardSupport({ product, onAddToCart }: any) {
 
       <CardFooter className="pt-2">
         <Button
+          type="button"
           onClick={handleAdd}
           className="w-full bg-amber-600 hover:bg-amber-700 text-white flex items-center gap-2"
         >
           <HandCoins className="w-4 h-4" />
-          {t("support.add")}
+          {t("support.actions.add")}
         </Button>
       </CardFooter>
     </Card>

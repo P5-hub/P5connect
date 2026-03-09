@@ -14,10 +14,21 @@ const supabaseAdmin = createClient(
 );
 
 const SUPPORT_BUCKET = "support-invoices";
+const MAX_FILES = 5;
+const ALLOWED_MIME_TYPES = [
+  "application/pdf",
+  "image/jpeg",
+  "image/jpg",
+  "image/png",
+];
 
 function num(v: any) {
   const n = typeof v === "string" ? Number(v.replace(",", ".")) : Number(v);
   return Number.isFinite(n) ? n : 0;
+}
+
+function sanitizeFilename(name: string) {
+  return name.replace(/[^\w.\-() ]+/g, "_");
 }
 
 function getActingDealerIdFromCookie(req: Request): number | null {
@@ -66,29 +77,48 @@ async function getDealerIdFromSupabaseSession(): Promise<number | null> {
   return Number(dealer.dealer_id) || null;
 }
 
-async function uploadSupportFile(file: File, dealerId: number): Promise<string> {
-  const safeName = file.name.replace(/[^\w.\-() ]+/g, "_");
-  const path = `support/${dealerId}/${Date.now()}-${safeName}`;
+async function uploadSupportFile(
+  file: File,
+  dealerId: number,
+  submissionId?: number
+): Promise<{
+  file_name: string;
+  file_path: string;
+  bucket: string;
+}> {
+  const safeName = sanitizeFilename(file.name);
+  const baseFolder = submissionId ? `${submissionId}` : `support/${dealerId}`;
+  const file_path = `${baseFolder}/${Date.now()}-${safeName}`;
 
   const buffer = Buffer.from(await file.arrayBuffer());
 
   const { error } = await supabaseAdmin.storage
     .from(SUPPORT_BUCKET)
-    .upload(path, buffer, {
+    .upload(file_path, buffer, {
       contentType: file.type || "application/octet-stream",
       upsert: false,
     });
 
-  if (error) throw new Error(`Storage Upload fehlgeschlagen: ${error.message}`);
-  return path;
+  if (error) {
+    throw new Error(`Storage Upload fehlgeschlagen: ${error.message}`);
+  }
+
+  return {
+    file_name: file.name,
+    file_path,
+    bucket: SUPPORT_BUCKET,
+  };
 }
 
 export async function POST(req: Request) {
+  let uploadedPaths: string[] = [];
+  let submission_id: number | null = null;
+
   try {
     const contentType = req.headers.get("content-type") || "";
 
     let payload: any = null;
-    let file: File | null = null;
+    let files: File[] = [];
 
     // 1) Payload lesen
     if (contentType.includes("multipart/form-data")) {
@@ -101,9 +131,16 @@ export async function POST(req: Request) {
 
       payload = JSON.parse(rawPayload);
 
-      const maybeFile = form.get("file");
-      if (maybeFile && typeof maybeFile !== "string") {
-        file = maybeFile as File;
+      files = form
+        .getAll("files")
+        .filter((entry): entry is File => entry instanceof File);
+
+      // Fallback für alte Logik mit "file"
+      if (files.length === 0) {
+        const maybeFile = form.get("file");
+        if (maybeFile && typeof maybeFile !== "string") {
+          files = [maybeFile as File];
+        }
       }
     } else {
       payload = await req.json();
@@ -130,7 +167,26 @@ export async function POST(req: Request) {
       );
     }
 
-    // 3) Meta robust lesen (neu + alt)
+    // 3) Dateien validieren
+    if (files.length > MAX_FILES) {
+      return NextResponse.json(
+        { error: `Maximal ${MAX_FILES} Belege erlaubt` },
+        { status: 400 }
+      );
+    }
+
+    for (const file of files) {
+      if (!ALLOWED_MIME_TYPES.includes(file.type)) {
+        return NextResponse.json(
+          {
+            error: `Ungültiger Dateityp (${file.name}). Erlaubt sind PDF, JPG und PNG.`,
+          },
+          { status: 400 }
+        );
+      }
+    }
+
+    // 4) Meta robust lesen (neu + alt)
     const meta = payload?.meta ?? {};
 
     const support_type =
@@ -145,10 +201,6 @@ export async function POST(req: Request) {
     const sonyShare = payload?.sonyShare ?? meta?.sonyShare ?? null;
     const sonyAmount = payload?.sonyAmount ?? meta?.sonyAmount ?? null;
 
-    // 4) Optional Upload
-    let documentPath: string | null = null;
-    if (file) documentPath = await uploadSupportFile(file, dealer_id);
-
     // 5) Submission anlegen
     const { data: submission, error: subErr } = await supabaseAdmin
       .from("submissions")
@@ -157,7 +209,7 @@ export async function POST(req: Request) {
         typ: "support",
         kommentar: comment,
         status: "pending",
-        project_file_path: documentPath,
+        project_file_path: null,
       })
       .select("submission_id")
       .single();
@@ -166,9 +218,60 @@ export async function POST(req: Request) {
       throw new Error(subErr?.message || "Submission konnte nicht erstellt werden");
     }
 
-    const submission_id = submission.submission_id;
+    submission_id = submission.submission_id;
 
-    // 6) Items (Sell-Out)
+    // 6) Dateien uploaden + in submission_files speichern
+    let uploadedFilesMeta: Array<{
+      file_name: string;
+      file_path: string;
+      bucket: string;
+      file_size: number;
+      mime_type: string | null;
+    }> = [];
+
+    if (files.length > 0) {
+      uploadedFilesMeta = await Promise.all(
+        files.map(async (file) => {
+          const uploaded = await uploadSupportFile(file, dealer_id, submission_id!);
+          uploadedPaths.push(uploaded.file_path);
+
+          return {
+            ...uploaded,
+            file_size: file.size,
+            mime_type: file.type || null,
+          };
+        })
+      );
+
+      const { error: filesErr } = await supabaseAdmin
+        .from("submission_files")
+        .insert(
+          uploadedFilesMeta.map((f) => ({
+            submission_id,
+            file_name: f.file_name,
+            file_path: f.file_path,
+            bucket: f.bucket,
+          }))
+        );
+
+      if (filesErr) {
+        throw new Error(`submission_files insert fehlgeschlagen: ${filesErr.message}`);
+      }
+
+      // optional: ersten Pfad zusätzlich im submissions-Eintrag hinterlegen
+      const { error: subUpdateErr } = await supabaseAdmin
+        .from("submissions")
+        .update({
+          project_file_path: uploadedFilesMeta[0]?.file_path ?? null,
+        })
+        .eq("submission_id", submission_id);
+
+      if (subUpdateErr) {
+        console.error("⚠️ submission project_file_path update failed:", subUpdateErr);
+      }
+    }
+
+    // 7) Items (Sell-Out)
     if (items.length > 0) {
       const mappedItems = items.map((i: any) => ({
         submission_id,
@@ -188,17 +291,11 @@ export async function POST(req: Request) {
         .insert(mappedItems);
 
       if (itemErr) {
-        await supabaseAdmin
-          .from("submissions")
-          .delete()
-          .eq("submission_id", submission_id);
         throw new Error(itemErr.message);
       }
     }
 
-    // ✅ 7) support_details IMMER speichern, sobald support_type vorhanden ist
-    // - bei Sell-Out: betrag kann null sein
-    // - bei Non-Sellout: betrag = sonyAmount (falls vorhanden)
+    // 8) support_details speichern
     if (support_type) {
       const supportTypText = [
         support_type,
@@ -219,7 +316,6 @@ export async function POST(req: Request) {
         });
 
       if (detailsErr) {
-        // nicht hart failen, aber loggen (optional)
         console.error("⚠️ support_details insert failed:", detailsErr);
       }
     }
@@ -227,11 +323,34 @@ export async function POST(req: Request) {
     return NextResponse.json({
       success: true,
       submission_id,
-      document_path: documentPath,
+      file_count: files.length,
+      file_paths: uploadedPaths,
       bucket: SUPPORT_BUCKET,
     });
   } catch (err: any) {
     console.error("❌ SUPPORT API ERROR:", err);
+
+    // Cleanup: hochgeladene Dateien löschen
+    if (uploadedPaths.length > 0) {
+      try {
+        await supabaseAdmin.storage.from(SUPPORT_BUCKET).remove(uploadedPaths);
+      } catch (cleanupErr) {
+        console.error("⚠️ Cleanup uploaded files failed:", cleanupErr);
+      }
+    }
+
+    // Cleanup: Submission löschen
+    if (submission_id) {
+      try {
+        await supabaseAdmin
+          .from("submissions")
+          .delete()
+          .eq("submission_id", submission_id);
+      } catch (cleanupErr) {
+        console.error("⚠️ Cleanup submission failed:", cleanupErr);
+      }
+    }
+
     return NextResponse.json(
       { error: err?.message || "Serverfehler" },
       { status: 500 }
