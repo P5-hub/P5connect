@@ -37,6 +37,7 @@ import {
 
 import { useDealer } from "@/app/(dealer)/DealerContext";
 import { useCart } from "@/app/(dealer)/GlobalCartProvider";
+import { useI18n } from "@/lib/i18n/I18nProvider";
 
 import type { CartItem } from "@/app/(dealer)/types/CartItem";
 
@@ -46,10 +47,6 @@ type Disti = {
   name: string;
   invest_rule: string | null;
 };
-
-/* ------------------------------------------------------------------
-   💡 Helpers
-------------------------------------------------------------------- */
 
 const toInt = (v: any) => (Number.isFinite(+v) ? Math.round(+v) : 0);
 const norm = (v: any) => (typeof v === "string" ? v.trim() : v ?? "");
@@ -89,10 +86,6 @@ const pickPreferred = (item: CartItem, allowed: string[]) => {
   return allowed[0];
 };
 
-/* ------------------------------------------------------------------
-   🧱 Produktkarte (Projekt)
-------------------------------------------------------------------- */
-
 function ProductCardProjekt({
   item,
   index,
@@ -110,6 +103,8 @@ function ProductCardProjekt({
   ) => void;
   removeFromCart: (index: number) => void;
 }) {
+  const { t } = useI18n();
+
   const allowed = Array.isArray((item as any).allowedDistis)
     ? (item as any).allowedDistis
     : [];
@@ -128,7 +123,6 @@ function ProductCardProjekt({
         allowed.length ? "border-amber-300" : "border-gray-200"
       }`}
     >
-      {/* Header */}
       <div className="flex justify-between items-start gap-3">
         <div className="flex-1 min-w-0">
           <p className="font-semibold text-sm truncate flex items-center gap-2">
@@ -156,7 +150,6 @@ function ProductCardProjekt({
         </Button>
       </div>
 
-      {/* Menge + Preis */}
       <div className="grid grid-cols-2 gap-2 text-center">
         <div>
           <label className="block text-[11px] text-gray-600 mb-1">Anzahl</label>
@@ -203,7 +196,6 @@ function ProductCardProjekt({
         </div>
       </div>
 
-      {/* Streetprice */}
       <div className="mt-4 border-t pt-2 text-xs text-gray-700">
         <label className="block text-gray-500 mb-1">Günstigster Anbieter</label>
 
@@ -278,7 +270,6 @@ function ProductCardProjekt({
         />
       </div>
 
-      {/* Spezial-Distributor */}
       {allowed.length > 0 && (
         <div>
           <label className="block text-[11px] text-gray-600 mb-1">
@@ -316,10 +307,6 @@ function ProductCardProjekt({
   );
 }
 
-/* ------------------------------------------------------------------
-   🧱 Produktliste (Projekt)
-------------------------------------------------------------------- */
-
 function ProductListProjekt({
   cart,
   distis,
@@ -335,8 +322,10 @@ function ProductListProjekt({
   ) => void;
   removeFromCart: (index: number) => void;
 }) {
+  const { t } = useI18n();
+
   if (cart.length === 0) {
-    return <p className="text-gray-500">Noch keine Produkte im Projekt.</p>;
+    return <p className="text-gray-500">{t("project.cart.noProducts")}</p>;
   }
 
   return (
@@ -355,11 +344,8 @@ function ProductListProjekt({
   );
 }
 
-/* ------------------------------------------------------------------
-   🟪 Hauptkomponente: CartProjekt
-------------------------------------------------------------------- */
-
 export default function CartProjekt() {
+  const { t } = useI18n();
   const dealer = useDealer();
   const supabase = getSupabaseBrowser();
 
@@ -387,7 +373,6 @@ export default function CartProjekt() {
   const [distis, setDistis] = useState<Disti[]>([]);
   const [distributor, setDistributor] = useState<string>("ep");
 
-  // Lieferadresse (optional auch bei Projekten)
   const [hasAltDelivery, setHasAltDelivery] = useState(false);
   const [deliveryName, setDeliveryName] = useState("");
   const [deliveryStreet, setDeliveryStreet] = useState("");
@@ -397,13 +382,11 @@ export default function CartProjekt() {
   const [deliveryEmail, setDeliveryEmail] = useState("");
   const [deliveryPhone, setDeliveryPhone] = useState("");
 
-  // Zusatzfelder
   const [deliveryMode, setDeliveryMode] = useState<"sofort" | "termin">("sofort");
   const [deliveryDate, setDeliveryDate] = useState("");
   const [orderComment, setOrderComment] = useState("");
   const [dealerReference, setDealerReference] = useState("");
 
-  // Projekt-Metadaten (lokal im Cart; Files kommen aus orderDetails.files)
   const [details, setDetails] = useState<{
     type: string;
     name: string;
@@ -422,25 +405,16 @@ export default function CartProjekt() {
     comment: "",
   });
 
-  const patchDetails = (patch: Partial<typeof details>) =>
-    setDetails((prev) => ({ ...prev, ...patch }));
-
-  // ✅ Source of truth für Dateien
   const projectFiles: File[] = Array.isArray(orderDetails?.files)
     ? orderDetails.files
     : [];
 
-  // ✅ Success-Snapshot (damit Success-View nie leer ist)
   const [successInfo, setSuccessInfo] = useState<{
     name?: string;
     customer?: string | null;
     location?: string;
     type?: string;
   } | null>(null);
-
-  /* ---------------------------------------------------------------
-     Dealer Memo
-  ---------------------------------------------------------------- */
 
   const {
     dealerDisplayName,
@@ -472,10 +446,6 @@ export default function CartProjekt() {
       dealerCityZip: zip || city ? [zip, city].filter(Boolean).join(" ") : "",
     };
   }, [dealer]);
-
-  /* ---------------------------------------------------------------
-     Calculated Values
-  ---------------------------------------------------------------- */
 
   const totalQuantity = useMemo(
     () => cart.reduce((s, i) => s + toInt((i as any).quantity || 0), 0),
@@ -519,11 +489,6 @@ export default function CartProjekt() {
     return m;
   }, [distis]);
 
-  /* ---------------------------------------------------------------
-     Effects
-  ---------------------------------------------------------------- */
-
-  // Projekt-Metadaten aus projectDetails in den lokalen Cart-State übernehmen
   useEffect(() => {
     if (!projectDetails) return;
 
@@ -539,7 +504,6 @@ export default function CartProjekt() {
     }));
   }, [projectDetails]);
 
-  // Wenn Cart neu geöffnet wird: success zurücksetzen (UX)
   useEffect(() => {
     if (open) {
       setSuccess(false);
@@ -592,27 +556,19 @@ export default function CartProjekt() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [cart.length, supabase]);
 
-  /* ---------------------------------------------------------------
-     Remove Wrapper
-  ---------------------------------------------------------------- */
-
   const removeFromCart = useCallback(
     (index: number) => removeItem("projekt", index),
     [removeItem]
   );
 
-  /* ---------------------------------------------------------------
-     Submit
-  ---------------------------------------------------------------- */
-
   const submitProject = async () => {
     if (!(dealer as any)?.dealer_id) {
-      toast.error("❌ Kein Händler gefunden – bitte neu einloggen.");
+      toast.error(t("project.cart.validation.noDealer"));
       return;
     }
 
     if (cart.length === 0) {
-      toast.error("Keine Produkte im Projekt.");
+      toast.error(t("project.cart.validation.noProducts"));
       return;
     }
 
@@ -620,14 +576,14 @@ export default function CartProjekt() {
       (item: any) => !item.allowedDistis || item.allowedDistis.length === 0
     );
     if (hasNormal && !distributor) {
-      toast.error("❌ Bitte Haupt-Distributor auswählen.");
+      toast.error(t("project.cart.validation.missingDistributor"));
       return;
     }
 
     const requestedDate = normalizeRequestedDate(deliveryMode, deliveryDate);
 
     if (deliveryMode === "termin" && !requestedDate) {
-      toast.error("Bitte gültiges Lieferdatum (YYYY-MM-DD) wählen.");
+      toast.error(t("project.cart.validation.invalidDate"));
       return;
     }
 
@@ -637,7 +593,7 @@ export default function CartProjekt() {
 
     for (const item of cart as any[]) {
       if (!item.quantity || item.quantity <= 0) {
-        toast.error("Ungültige Eingabe", {
+        toast.error(t("project.cart.validation.invalidQuantity"), {
           description: `Bitte gültige Menge für ${
             item.product_name ?? item.sony_article ?? "Produkt"
           } eingeben!`,
@@ -646,7 +602,7 @@ export default function CartProjekt() {
       }
 
       if (item.allowedDistis?.length && !item.overrideDistributor) {
-        toast.error("❌ Distributor fehlt", {
+        toast.error(t("project.cart.validation.missingDisti"), {
           description: `Bitte Distributor für ${
             item.product_name ?? item.sony_article ?? "Produkt"
           } auswählen.`,
@@ -658,7 +614,7 @@ export default function CartProjekt() {
         item.lowest_price_source === "Andere" &&
         !item.lowest_price_source_custom?.trim()
       ) {
-        toast.error("❌ Anbieter fehlt", {
+        toast.error(t("project.cart.validation.missingSource"), {
           description: `Bitte Händlernamen für „Andere“ bei ${
             item.product_name ?? "Produkt"
           } angeben.`,
@@ -677,7 +633,7 @@ export default function CartProjekt() {
 
     for (const code of allCodes) {
       if (!codeToId.get(code)) {
-        toast.error("❌ Unbekannter Distributor-Code", {
+        toast.error(t("project.cart.validation.unknownDisti"), {
           description: `Distributor "${code}" konnte nicht gefunden werden.`,
         });
         return;
@@ -687,7 +643,6 @@ export default function CartProjekt() {
     setLoading(true);
 
     try {
-      // ✅ Snapshot für Success-View bevor Cleanup alles leert
       setSuccessInfo({
         name: projectDetails?.project_name ?? details.name ?? "",
         customer: projectDetails?.customer ?? details.customer ?? null,
@@ -714,12 +669,11 @@ export default function CartProjekt() {
 
       if (!res.ok) {
         const e = await res.json().catch(() => ({}));
-        throw new Error(e.error || "Fehler beim Speichern des Projekts.");
+        throw new Error(e.error || t("project.toast.saveError"));
       }
 
       const { project_id } = await res.json();
 
-      // 📎 Datei-Uploads
       for (const file of projectFiles) {
         if (!(file instanceof File)) {
           console.error("Ungültiges File-Objekt:", file);
@@ -747,7 +701,6 @@ export default function CartProjekt() {
         }
       }
 
-      // Items gruppieren & speichern
       const itemsByCode: Record<string, CartItem[]> = {};
 
       for (const item of cart as any[]) {
@@ -788,16 +741,16 @@ export default function CartProjekt() {
           project_id,
         }));
 
-        const { error: itemsErr } = await supabase.from("submission_items").insert(itemPayloads);
+        const { error: itemsErr } = await supabase
+          .from("submission_items")
+          .insert(itemPayloads);
         if (itemsErr) throw itemsErr;
       }
 
-      // ✅ Cleanup: reicht komplett
-      clearCart("projekt"); // leert items + projectDetails + orderDetails.files
+      clearCart("projekt");
       closeCart();
       setSuccess(true);
 
-      // lokale States zurücksetzen (optional)
       setDistributor("ep");
       setDeliveryMode("sofort");
       setDeliveryDate("");
@@ -822,20 +775,16 @@ export default function CartProjekt() {
         comment: "",
       });
 
-      toast.success("✅ Projekt erfolgreich gespeichert");
+      toast.success(t("project.toast.saved"));
     } catch (err: any) {
       console.error("Projekt API Error:", err);
-      toast.error("❌ Fehler beim Speichern", {
+      toast.error(t("project.toast.saveError"), {
         description: err?.message ?? "Unbekannter Fehler",
       });
     } finally {
       setLoading(false);
     }
   };
-
-  /* ---------------------------------------------------------------
-     Render
-  ---------------------------------------------------------------- */
 
   return (
     <Sheet
@@ -860,11 +809,10 @@ export default function CartProjekt() {
         <SheetHeader className="p-3 pb-2 border-b">
           <SheetTitle className="flex items-center gap-2 text-base text-purple-700">
             <ClipboardList className="w-5 h-5" />
-            Projektanfrage absenden
+            {t("project.cart.title")}
           </SheetTitle>
         </SheetHeader>
 
-        {/* Dealer-Infos */}
         <div className="mt-2 mb-2 text-xs">
           <div className="font-semibold text-gray-800">
             {dealerDisplayName || "–"}
@@ -915,10 +863,11 @@ export default function CartProjekt() {
           </div>
         </div>
 
-        {/* SUCCESS VIEW */}
         {success ? (
           <div className="flex-1 flex flex-col items-center justify-center text-center space-y-4">
-            <p className="text-purple-600 font-semibold text-lg">🎉 Projekt gespeichert!</p>
+            <p className="text-purple-600 font-semibold text-lg">
+              {t("project.cart.success.title")}
+            </p>
 
             <div className="text-sm text-gray-700 space-y-1">
               {successInfo?.name && <p>🏗️ {successInfo.name}</p>}
@@ -929,20 +878,18 @@ export default function CartProjekt() {
 
             <SheetClose asChild>
               <Button className="bg-purple-600 hover:bg-purple-700 text-white">
-                Schließen
+                {t("project.cart.success.close")}
               </Button>
             </SheetClose>
           </div>
         ) : (
           <>
             <div className="flex-1 grid grid-cols-1 lg:grid-cols-2 gap-4 mt-2 min-h-0">
-              {/* Links */}
               <div className="space-y-4 overflow-y-auto pr-1">
-                {/* Projektangaben */}
                 <div className="border rounded-xl p-3 space-y-3 bg-purple-50/40">
                   <p className="text-sm font-semibold flex items-center gap-2 text-purple-700">
                     <FolderKanban className="w-4 h-4" />
-                    Projektangaben
+                    {t("project.cart.projectInfo")}
                   </p>
 
                   {(projectDetails?.project_name || details.name) && (
@@ -960,11 +907,10 @@ export default function CartProjekt() {
                   )}
                 </div>
 
-                {/* Dateien anhängen */}
                 <div className="border rounded-xl p-3 space-y-2 bg-purple-50/20">
                   <p className="text-sm font-semibold flex items-center gap-2 text-purple-700">
                     <FileText className="w-4 h-4" />
-                    Dateien anhängen (optional)
+                    {t("project.files.uploadOptional")}
                   </p>
 
                   <Input
@@ -980,14 +926,18 @@ export default function CartProjekt() {
                         files: [...(prev.files ?? []), ...newFiles],
                       }));
 
-                      toast.success(`📎 ${newFiles.length} Datei(en) hinzugefügt`);
+                      toast.success(
+                        t("project.toast.filesAdded", {
+                          count: newFiles.length,
+                        })
+                      );
                       e.currentTarget.value = "";
                     }}
                   />
 
                   {projectFiles.length > 0 && (
                     <div className="text-xs text-gray-600 space-y-1">
-                      <p className="font-semibold">Ausgewählt:</p>
+                      <p className="font-semibold">{t("project.files.selected")}</p>
                       {projectFiles.map((f, i) => (
                         <div key={i} className="flex items-center gap-2">
                           <FileText className="w-3 h-3" />
@@ -1003,17 +953,16 @@ export default function CartProjekt() {
                           setOrderDetails((prev) => ({ ...prev, files: [] }))
                         }
                       >
-                        Dateien entfernen
+                        {t("project.files.removeAll")}
                       </Button>
                     </div>
                   )}
                 </div>
 
-                {/* Haupt-Distributor */}
                 {hasNormalProducts && (
                   <div className="border rounded-xl p-3 space-y-2 bg-blue-50/40">
                     <label className="block text-xs font-semibold">
-                      Haupt-Distributor
+                      {t("project.cart.mainDistributor")}
                     </label>
 
                     <Select onValueChange={(v) => setDistributor(v)} value={distributor}>
@@ -1031,19 +980,20 @@ export default function CartProjekt() {
                     </Select>
 
                     <p className="text-[11px] text-gray-400 italic">
-                      Standardmäßig über ElectronicPartner Schweiz AG.
+                      {t("project.cart.mainDistributorHint")}
                     </p>
                   </div>
                 )}
 
-                {/* Liefer-/Projektangaben */}
                 <div className="border rounded-xl p-3 space-y-3">
-                  <p className="text-sm font-semibold">Liefer-/Projektangaben</p>
+                  <p className="text-sm font-semibold">
+                    {t("project.cart.deliveryProjectInfo")}
+                  </p>
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
                       <label className="block text-[11px] text-gray-600 mb-1">
-                        Lieferung
+                        {t("project.cart.delivery")}
                       </label>
 
                       <Select
@@ -1055,15 +1005,19 @@ export default function CartProjekt() {
                         </SelectTrigger>
 
                         <SelectContent>
-                          <SelectItem value="sofort">Sofort</SelectItem>
-                          <SelectItem value="termin">Zum Termin</SelectItem>
+                          <SelectItem value="sofort">
+                            {t("project.cart.deliveryNow")}
+                          </SelectItem>
+                          <SelectItem value="termin">
+                            {t("project.cart.deliveryOnDate")}
+                          </SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
 
                     <div>
                       <label className="block text-[11px] text-gray-600 mb-1">
-                        Lieferdatum (optional)
+                        {t("project.cart.deliveryDateOptional")}
                       </label>
 
                       <Input
@@ -1078,7 +1032,7 @@ export default function CartProjekt() {
 
                   <div>
                     <label className="block text-[11px] text-gray-600 mb-1">
-                      Wichtige Infos zur Projektbestellung (Kommentar)
+                      {t("project.cart.projectOrderComment")}
                     </label>
 
                     <textarea
@@ -1093,7 +1047,7 @@ export default function CartProjekt() {
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
                       <label className="block text-[11px] text-gray-600 mb-1">
-                        Ihre Projekt-/Bestell-Referenz
+                        {t("project.cart.projectOrderReference")}
                       </label>
 
                       <Input
@@ -1106,7 +1060,6 @@ export default function CartProjekt() {
                   </div>
                 </div>
 
-                {/* Abweichende Lieferadresse */}
                 <div className="mt-3 border rounded-xl p-3">
                   <div className="flex items-center gap-2">
                     <input
@@ -1117,7 +1070,7 @@ export default function CartProjekt() {
                       className="w-4 h-4"
                     />
                     <label htmlFor="altDelivery" className="text-sm font-medium">
-                      Abweichende Lieferadresse / Direktlieferung
+                      {t("project.cart.altDelivery")}
                     </label>
                   </div>
 
@@ -1204,7 +1157,6 @@ export default function CartProjekt() {
                 </div>
               </div>
 
-              {/* Rechts */}
               <div className="flex flex-col min-h-0">
                 <div className="flex-1 overflow-y-auto pr-1">
                   <ProductListProjekt
@@ -1216,7 +1168,7 @@ export default function CartProjekt() {
 
                   {projectFiles.length > 0 && (
                     <div className="text-xs text-gray-600 space-y-1">
-                      <p className="font-semibold">Angehängte Dateien:</p>
+                      <p className="font-semibold">{t("project.files.attached")}</p>
                       {projectFiles.map((f, i) => (
                         <div key={i} className="flex items-center gap-2">
                           <FileText className="w-3 h-3" />
@@ -1229,19 +1181,21 @@ export default function CartProjekt() {
                   {cart.length > 0 && (
                     <div className="sticky bottom-0 left-0 right-0 bg-white/90 backdrop-blur border-t mt-2 p-3 space-y-2">
                       <div className="flex items-center justify-between text-sm">
-                        <span className="font-semibold">Gesamt:</span>
+                        <span className="font-semibold">{t("project.cart.total")}:</span>
                         <span>{totalQuantity} Stück</span>
                       </div>
 
                       <div className="flex items-center justify-between text-sm">
-                        <span className="font-semibold">Projektpreis total:</span>
+                        <span className="font-semibold">
+                          {t("project.cart.totalPrice")}:
+                        </span>
                         <span>{totalPrice.toFixed(0)} CHF</span>
                       </div>
 
                       {totalSaved > 0 && (
                         <div className="flex items-center justify-center gap-1 bg-green-50 border border-green-200 text-green-700 text-sm font-medium rounded-lg py-1.5">
                           <Tag className="w-4 h-4" />
-                          Gesamtersparnis: {totalSaved.toFixed(0)} CHF
+                          {t("project.cart.totalSavings")}: {totalSaved.toFixed(0)} CHF
                         </div>
                       )}
 
@@ -1250,11 +1204,11 @@ export default function CartProjekt() {
                         disabled={loading}
                         className="w-full bg-purple-600 hover:bg-purple-700 text-white"
                       >
-                        {loading ? "Wird gesendet…" : "✅ Projekt absenden"}
+                        {loading ? t("project.cart.sending") : t("project.cart.submit")}
                       </Button>
 
                       <Button variant="outline" className="w-full" onClick={closeCart}>
-                        Weiter konfigurieren
+                        {t("project.cart.continue")}
                       </Button>
                     </div>
                   )}

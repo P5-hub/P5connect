@@ -11,10 +11,6 @@ import { useSeedProjectCart } from "@/app/(dealer)/hooks/useSeedProjectCart";
 import { ProjectAlreadyOrderedDialog } from "@/app/(dealer)/components/dialogs/ProjectAlreadyOrderedDialog";
 import { useI18n } from "@/lib/i18n/I18nProvider";
 
-
-
-
-
 function StatusBadge({ label, status }: { label: string; status: string | null }) {
   if (status === "approved" || status === "csv") {
     return (
@@ -39,10 +35,6 @@ function StatusBadge({ label, status }: { label: string; status: string | null }
   );
 }
 
-
-// --------------------------------------------
-// TYPES
-// --------------------------------------------
 type Row = {
   submission_id: string;
   dealer_id: number;
@@ -53,6 +45,19 @@ type Row = {
   project_name?: string | null;
 };
 
+type ProjectLogRow = {
+  project_id: string;
+  action: string | null;
+  created_at: string;
+};
+
+type SubmissionLogRow = {
+  submission_id: string | number;
+  typ: string;
+  action: string | null;
+  created_at: string;
+};
+
 type Props = {
   dealerId: number;
   limit?: number;
@@ -60,9 +65,6 @@ type Props = {
   formType: FormType;
 };
 
-// --------------------------------------------
-// Prefix Map
-// --------------------------------------------
 const prefixMap: Record<FormType, string> = {
   bestellung: "B",
   verkauf: "V",
@@ -71,9 +73,6 @@ const prefixMap: Record<FormType, string> = {
   sofortrabatt: "R",
 };
 
-// --------------------------------------------
-// PDF Routes
-// --------------------------------------------
 const pdfRoutes: Partial<Record<FormType, string>> = {
   bestellung: "/api/exports/order-pdf",
   verkauf: "/api/exports/verkauf-pdf",
@@ -82,9 +81,6 @@ const pdfRoutes: Partial<Record<FormType, string>> = {
   sofortrabatt: "/api/exports/sofortrabatt-pdf",
 };
 
-// --------------------------------------------
-// Component
-// --------------------------------------------
 export default function RecentActivityPanel({
   dealerId,
   limit = 2,
@@ -95,6 +91,7 @@ export default function RecentActivityPanel({
   const supabase = getSupabaseBrowser();
   const theme = useTheme();
   const pathname = usePathname();
+
   const {
     startFromProject,
     dialogOpen,
@@ -107,11 +104,82 @@ export default function RecentActivityPanel({
   const [downloading, setDownloading] = useState(false);
   const [highlightedId, setHighlightedId] = useState<string | null>(null);
 
+  const [latestProjectActions, setLatestProjectActions] = useState<Record<string, string>>({});
+  const [latestSubmissionActions, setLatestSubmissionActions] = useState<Record<string, string>>(
+    {}
+  );
+
   const isAdminDetail = pathname.includes("/admin/bestellungen/");
 
-  // --------------------------------------------
-  // Load Data (View = Single Source of Truth)
-  // --------------------------------------------
+  async function loadLatestProjectActions(inputRows: Row[]) {
+    const projectIds = inputRows
+      .filter((r) => r.typ === "projekt" && r.project_id)
+      .map((r) => r.project_id as string);
+
+    if (projectIds.length === 0) {
+      setLatestProjectActions({});
+      return;
+    }
+
+    const { data, error } = await supabase
+      .from("project_logs")
+      .select("project_id, action, created_at")
+      .in("project_id", projectIds)
+      .order("created_at", { ascending: false });
+
+    if (error) {
+      console.error("❌ Projekt-Logs Fehler:", error);
+      setLatestProjectActions({});
+      return;
+    }
+
+    const latestMap: Record<string, string> = {};
+
+    for (const row of (data ?? []) as ProjectLogRow[]) {
+      if (!row.project_id) continue;
+      if (latestMap[row.project_id]) continue;
+      latestMap[row.project_id] = row.action ?? "";
+    }
+
+    setLatestProjectActions(latestMap);
+  }
+
+  async function loadLatestSubmissionActions(inputRows: Row[]) {
+    const submissionIds = inputRows
+      .filter((r) => r.typ === "support")
+      .map((r) => Number(r.submission_id))
+      .filter((id) => Number.isFinite(id));
+
+    if (submissionIds.length === 0) {
+      setLatestSubmissionActions({});
+      return;
+    }
+
+    const { data, error } = await supabase
+      .from("submission_logs")
+      .select("submission_id, typ, action, created_at")
+      .eq("typ", "support")
+      .in("submission_id", submissionIds)
+      .order("created_at", { ascending: false });
+
+    if (error) {
+      console.error("❌ Submission-Logs Fehler:", error);
+      setLatestSubmissionActions({});
+      return;
+    }
+
+    const latestMap: Record<string, string> = {};
+
+    for (const row of (data ?? []) as SubmissionLogRow[]) {
+      const key = String(row.submission_id);
+      if (!key) continue;
+      if (latestMap[key]) continue;
+      latestMap[key] = row.action ?? "";
+    }
+
+    setLatestSubmissionActions(latestMap);
+  }
+
   async function loadData() {
     setLoading(true);
 
@@ -134,32 +202,46 @@ export default function RecentActivityPanel({
     if (error) {
       console.error("❌ Verlauf Fehler:", error);
       setRows([]);
+      setLatestProjectActions({});
+      setLatestSubmissionActions({});
     } else {
-      setRows((data ?? []) as unknown as Row[]);
+      const nextRows = (data ?? []) as unknown as Row[];
+      setRows(nextRows);
 
+      if (formType === "projekt") {
+        await loadLatestProjectActions(nextRows);
+        setLatestSubmissionActions({});
+      } else if (formType === "support") {
+        await loadLatestSubmissionActions(nextRows);
+        setLatestProjectActions({});
+      } else {
+        setLatestProjectActions({});
+        setLatestSubmissionActions({});
+      }
     }
 
     setLoading(false);
   }
 
-
-  // --------------------------------------------
-  // Realtime Handling (DER ENTSCHEIDENDE TEIL)
-  // --------------------------------------------
   function handleRealtime(payload: any) {
     console.log("🔥 REALTIME EVENT", payload);
+
     const row = payload.new ?? payload.old;
+
+    if (payload?.table === "project_logs" || payload?.table === "submission_logs") {
+      setTimeout(loadData, 200);
+      return;
+    }
+
     if (!row?.submission_id) return;
 
     const id = String(row.submission_id);
 
-    // 1️⃣ sofort Highlight (Händler)
     if (!isAdminDetail) {
       setHighlightedId(id);
       setTimeout(() => setHighlightedId(null), 3000);
     }
 
-    // 2️⃣ lokalen State sofort aktualisieren (erzwingt Re-Render!)
     setRows((prev) => {
       const next = [...prev];
       const index = next.findIndex((r) => r.submission_id === id);
@@ -174,20 +256,13 @@ export default function RecentActivityPanel({
       return next;
     });
 
-    // 3️⃣ View leicht verzögert nachladen
     setTimeout(loadData, 200);
   }
 
-  // --------------------------------------------
-  // Initial Load
-  // --------------------------------------------
   useEffect(() => {
     loadData();
   }, [dealerId, formType]);
 
-  // --------------------------------------------
-  // Realtime Subscription
-  // --------------------------------------------
   useEffect(() => {
     const channel = supabase
       .channel(`realtime_history_${dealerId}_${formType}`)
@@ -199,9 +274,8 @@ export default function RecentActivityPanel({
           table: "submissions",
           filter: `dealer_id=eq.${dealerId}`,
         },
-        handleRealtime
+        (payload) => handleRealtime({ ...payload, table: "submissions" })
       )
-
       .on(
         "postgres_changes",
         {
@@ -210,7 +284,7 @@ export default function RecentActivityPanel({
           table: "verkauf_csv_meldungen",
           filter: `dealer_id=eq.${dealerId}`,
         },
-        handleRealtime
+        (payload) => handleRealtime({ ...payload, table: "verkauf_csv_meldungen" })
       )
       .on(
         "postgres_changes",
@@ -220,7 +294,25 @@ export default function RecentActivityPanel({
           table: "support_claims",
           filter: `dealer_id=eq.${dealerId}`,
         },
-        handleRealtime
+        (payload) => handleRealtime({ ...payload, table: "support_claims" })
+      )
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "project_logs",
+        },
+        (payload) => handleRealtime({ ...payload, table: "project_logs" })
+      )
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "submission_logs",
+        },
+        (payload) => handleRealtime({ ...payload, table: "submission_logs" })
       )
       .subscribe();
 
@@ -229,9 +321,6 @@ export default function RecentActivityPanel({
     };
   }, [dealerId, formType]);
 
-  // --------------------------------------------
-  // Helpers
-  // --------------------------------------------
   const fmtDate = (iso: string) =>
     new Date(iso).toLocaleString("de-CH", {
       day: "2-digit",
@@ -255,9 +344,50 @@ export default function RecentActivityPanel({
     return "animate-pulse bg-blue-50 border-blue-300";
   }
 
-  // --------------------------------------------
-  // Downloads
-  // --------------------------------------------
+  function getDisplayLabel(row: Row) {
+    if (row.typ === "projekt" && row.project_id) {
+      const latestAction = latestProjectActions[row.project_id];
+
+      if (row.status === "approved" && latestAction === "geändert und genehmigt") {
+        return "Geändert und genehmigt";
+      }
+
+      if (row.status === "approved" && latestAction === "genehmigt") {
+        return t("activity.status.approved");
+      }
+
+      if (row.status === "rejected" && latestAction === "abgelehnt") {
+        return t("activity.status.rejected");
+      }
+
+      return t(`activity.status.${row.status ?? "unknown"}`);
+    }
+
+    if (row.typ === "support") {
+      const latestAction = latestSubmissionActions[String(row.submission_id)];
+
+      if (row.status === "approved" && latestAction === "approved_with_counter_offer") {
+        return "Geändert und genehmigt";
+      }
+
+      if (row.status === "approved" && latestAction === "approved") {
+        return "Genehmigt";
+      }
+
+      if (row.status === "rejected" && latestAction === "rejected") {
+        return "Abgelehnt";
+      }
+
+      if (row.status === "pending" || latestAction === "reset_to_pending") {
+        return "Offen";
+      }
+
+      return t(`activity.status.${row.status ?? "unknown"}`);
+    }
+
+    return t(`activity.status.${row.status ?? "unknown"}`);
+  }
+
   async function downloadPdf(id: string) {
     const route = pdfRoutes[formType];
     if (!route) return;
@@ -292,16 +422,12 @@ export default function RecentActivityPanel({
 
   const visible = useMemo(() => rows.slice(0, limit), [rows, limit]);
 
-  // --------------------------------------------
-  // Render
-  // --------------------------------------------
   return (
     <div className="rounded-lg border bg-white p-3 shadow-sm relative">
       <div className="mb-2 flex items-center justify-between">
         <h2 className="font-semibold text-gray-800 text-sm">
           {t(`history.header.${formType}`)}
         </h2>
-
 
         <div className="flex items-center gap-2 shrink-0">
           <button
@@ -324,11 +450,8 @@ export default function RecentActivityPanel({
             <ChevronRight className="w-3.5 h-3.5" />
             {t("history.actions.viewAll")}
           </Link>
-
-
         </div>
       </div>
-
 
       {loading ? (
         <div className="py-4 text-sm text-gray-500 flex items-center gap-2">
@@ -359,32 +482,27 @@ export default function RecentActivityPanel({
                           – {r.project_name || "Projekt"}
                         </span>
                       </Link>
-
                     ) : (
                       <span className="font-semibold text-sm">#{id}</span>
                     )}
 
-                    {" "}
-                    <span className="text-gray-500">• {fmtDate(r.created_at)}</span>
+                    <span className="text-gray-500"> • {fmtDate(r.created_at)}</span>
 
-                    <div className="flex items-center gap-2 ml-2">
+                    <div className="flex items-center gap-2 ml-2 mt-1 flex-wrap">
                       <StatusBadge
                         status={r.status}
-                        label={t(`activity.status.${r.status ?? "unknown"}`)}
+                        label={getDisplayLabel(r)}
                       />
 
-
                       {r.typ === "projekt" && r.status === "approved" && r.project_id && (
-                      <button
-                        onClick={() => startFromProject(r.project_id!)}
-                        className="px-2 py-0.5 rounded border border-purple-300 text-purple-700 text-xs hover:bg-purple-50"
-                      >
-                        {t("checkout.page.title")}
-                      </button>
-
+                        <button
+                          onClick={() => startFromProject(r.project_id!)}
+                          className="px-2 py-0.5 rounded border border-purple-300 text-purple-700 text-xs hover:bg-purple-50"
+                        >
+                          {t("checkout.page.title")}
+                        </button>
                       )}
                     </div>
-
                   </div>
 
                   {r.status !== "csv" && pdfRoutes[r.typ] && (
@@ -400,16 +518,14 @@ export default function RecentActivityPanel({
               </li>
             );
           })}
-                </ul>
+        </ul>
       )}
 
-      {/* 🔔 Dialog: Projekt wurde bereits bestellt */}
       <ProjectAlreadyOrderedDialog
         open={dialogOpen}
         onConfirm={confirmDuplicateOrder}
         onCancel={cancelDuplicateOrder}
       />
-
     </div>
   );
 }

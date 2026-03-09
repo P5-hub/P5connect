@@ -30,7 +30,7 @@ export default function ProjectClient() {
       <div className="flex items-center gap-2 text-purple-700">
         <ClipboardList className="w-5 h-5" />
         <h1 className="text-xl font-semibold">
-          {t("project.heading")}
+          {t("project.page.heading")}
         </h1>
       </div>
 

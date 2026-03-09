@@ -1,4 +1,16 @@
-  import { project } from "./de/project";
+import { project as projectDe } from "./de/project";
+import { project as projectEn } from "./en/project";
+import { project as projectFr } from "./fr/project";
+import { project as projectIt } from "./it/project";
+import { project as projectRm } from "./rm/project";
+
+import { support as supportDe } from "./de/support";
+import { support as supportEn } from "./en/support";
+import { support as supportFr } from "./fr/support";
+import { support as supportIt } from "./it/support";
+import { support as supportRm } from "./rm/support";
+
+
   export type Lang = "de" | "en" | "fr" | "it" | "rm";
 
   export const translationsByLang = {
@@ -32,49 +44,8 @@
         notfound: "❌ Händler nicht gefunden",
       },
 
-      
-    project: {
-      "page.title": "Projekt Preis anfragen",
-      title: "Projektinformationen",
-      type: "Projekt-Typ",
-      name: "Projektname oder Projektnummer",
-      customer: "Endkunde / Kunde",
-      location: "Standort (z. B. Zürich, Bern)",
-      start: "Startdatum",
-      end: "Enddatum",
-      comment: "Kommentar oder Beschreibung",
-      next: "Weiter zu den Produkten",
-      heading: "Projektmeldung",
-
-      cart: {
-        title: "Projektanfrage absenden",
-        attachedFiles: "Angehängte Dateien",
-        noProducts: "Noch keine Produkte im Projekt.",
-        total: "Gesamt",
-        totalPrice: "Projektpreis total",
-        totalSavings: "Gesamtersparnis",
-
-        submit: "Projekt absenden",
-        sending: "Wird gesendet…",
-        continue: "Weiter konfigurieren",
-
-        success: {
-          title: "🎉 Projekt gespeichert!",
-          close: "Schließen",
-        },
-
-        validation: {
-          noDealer: "❌ Kein Händler gefunden – bitte neu einloggen.",
-          noProducts: "Keine Produkte im Projekt.",
-          missingDistributor: "❌ Bitte Haupt-Distributor auswählen.",
-          invalidDate: "Bitte gültiges Lieferdatum wählen (YYYY-MM-DD).",
-          missingDisti: "❌ Distributor fehlt",
-          missingSource: "❌ Anbieter fehlt",
-        },
-      },
-    },
-
-    
+    project: projectDe,  
+   
       product: {
         search: "🔍 Suche nach Artikel, Name oder EAN...",
         groups: { all: "Alle Gruppen" },
@@ -87,35 +58,9 @@
         },
         reset: "Zurücksetzen",
       },
-      support: {
-        "page.title": "Support beantragen",
-        title: "Support-Anfrage",
-        type: {
-          sellout: "Sell-Out Support",
-          werbung: "Werbekostenbeteiligung",
-          event: "Eventbeteiligung",
-          sonstiges: "Sonstiges",
-        },
-        comment: "Kommentar (optional)",
-        quantity: "Menge",
-        amountperunit: "Supportbetrag pro Stück (CHF)",
-        add: "Hinzufügen",
-        submit: "Support prüfen & absenden",
-        submitbutton: "📩 Support absenden",
-        sending: "⏳ Sende...",
-        success: "✅ Support-Antrag gespeichert",
-        close: "Schließen",
-        emptycart: "Noch keine Produkte ausgewählt.",
-        invoiceUpload: "Rechnung / Beleg hochladen (optional)",
-        remove: "Entfernen",
-        product: { unknown: "Unbekanntes Produkt" },
-        error: {
-          nodealer: "Kein Händler gefunden – bitte neu einloggen.",
-          noproducts: "Bitte mindestens ein Produkt hinzufügen.",
-          nouser: "Kein eingeloggter Benutzer gefunden.",
-          save: "Fehler beim Speichern.",
-        },
-      },
+
+    support: supportDe,
+
       admin: {
         promotions: "Promotionen",
         instantDiscount: "Sofortrabatt",
@@ -489,46 +434,9 @@
       loading: "⏳ Loading dealer data...",
       notfound: "❌ Dealer not found",
     },
-    project: {
-      "page.title": "Request Project Pricing",
-      title: "Project Information",
-      type: "Project Type",
-      "type.hotel": "Hotel",
-      "type.event": "Event",
-      "type.aktion": "Promotion",
-      "type.wohn": "Residential",
-      "type.public": "Public Institution",
-      "type.business": "Business / Office",
-      name: "Project name or number",
-      customer: "End customer / Client",
-      location: "Location (e.g. Zurich, Bern)",
-      start: "Start date",
-      end: "End date",
-      comment: "Comment or description",
-      targetprice: "Target price (optional)",
-      quantity: "Quantity",
-      add: "Add to Project",
-      added: "✅ Product added to project request.",
-      "added.short": "Added",
-      submit: "Request Project Pricing",
-      submitbutton: "Submit Project Request",
-      sending: "Submitting project request...",
-      success: "✅ Project request submitted successfully!",
-      emptycart: "No products added yet.",
-      close: "Close",
-      back: "Back",
-      products: "Select products",
-      heading: "Project request",
-      remove: "Remove",
-      "error.nodealer": "No dealer found – please log in again.",
-      "error.noproducts": "No products in cart.",
-      "error.save": "Error while saving.",
-      next: "Continue to products",
-      cart: {
-        title: "Request project price",
-        send: "Send project request",
-      },
-    },
+    
+    project: projectEn,
+
     product: {
       search: "🔍 Search by product, name or EAN...",
       groups: { all: "All groups" },
@@ -541,35 +449,9 @@
       },
       reset: "Reset",
     },
-    support: {
-      "page.title": "Request Support",
-      title: "Support Request",
-      type: {
-        sellout: "Sell-Out Support",
-        werbung: "Advertising Cost Support",
-        event: "Event Participation",
-        sonstiges: "Other",
-      },
-      comment: "Comment (optional)",
-      quantity: "Quantity",
-      amountperunit: "Support amount per unit (CHF)",
-      add: "Add",
-      submit: "Review & Submit Support",
-      submitbutton: "📩 Submit Support",
-      sending: "⏳ Sending...",
-      success: "✅ Support request saved",
-      close: "Close",
-      emptycart: "No products selected yet.",
-      invoiceUpload: "Upload invoice / receipt (optional)",
-      remove: "Remove",
-      product: { unknown: "Unknown product" },
-      error: {
-        nodealer: "No dealer found – please log in again.",
-        noproducts: "Please add at least one product.",
-        nouser: "No logged-in user found.",
-        save: "Error while saving.",
-      },
-    },
+
+    support: supportEn,
+
     admin: {
       promotions: "Promotions",
       instantDiscount: "Instant Discount",
@@ -917,46 +799,9 @@
       loading: "⏳ Chargement des données du revendeur...",
       notfound: "❌ Revendeur non trouvé",
     },
-    project: {
-      "page.title": "Demande de prix projet",
-      title: "Informations sur le projet",
-      heading: "Demande de projet",
-      type: "Type de projet",
-      "type.hotel": "Hôtel",
-      "type.event": "Événement",
-      "type.aktion": "Offre promotionnelle",
-      "type.wohn": "Résidentiel",
-      "type.public": "Institution publique",
-      "type.business": "Entreprise / Bureau",
-      name: "Nom ou numéro du projet",
-      customer: "Client final / Client",
-      location: "Lieu (p. ex. Zurich, Berne)",
-      start: "Date de début",
-      end: "Date de fin",
-      comment: "Commentaire ou description",
-      targetprice: "Prix cible (optionnel)",
-      quantity: "Quantité",
-      add: "Ajouter au projet",
-      added: "✅ Produit ajouté à la demande de projet.",
-      "added.short": "Ajouté",
-      submit: "Demander un prix de projet",
-      submitbutton: "Envoyer la demande de projet",
-      sending: "Envoi de la demande de projet...",
-      success: "✅ Demande de projet envoyée avec succès !",
-      emptycart: "Aucun produit ajouté pour l’instant.",
-      close: "Fermer",
-      back: "Indietro",
-      products: "Seleziona prodotti",
-      next: "Continuer vers les produits",
-      remove: "Supprimer",
-      "error.nodealer": "Aucun revendeur trouvé – veuillez vous reconnecter.",
-      "error.noproducts": "Aucun produit dans le panier.",
-      "error.save": "Erreur lors de l’enregistrement.",
-      cart: {
-        title: "Demander un prix de projet",
-        send: "Envoyer la demande de projet",
-    },
-    },
+
+    project: projectFr,
+    
     product: {
       search: "🔍 Rechercher par article, nom ou EAN...",
       groups: { all: "Tous les groupes" },
@@ -969,35 +814,9 @@
       },
       reset: "Réinitialiser",
     },
-    support: {
-      "page.title": "Demande de support",
-      title: "Demande de support",
-      type: {
-        sellout: "Support Sell-Out",
-        werbung: "Participation aux frais publicitaires",
-        event: "Participation à un événement",
-        sonstiges: "Autre",
-      },
-      comment: "Commentaire (facultatif)",
-      quantity: "Quantité",
-      amountperunit: "Montant du support par unité (CHF)",
-      add: "Ajouter",
-      submit: "Vérifier et envoyer le support",
-      submitbutton: "📩 Envoyer la demande de support",
-      sending: "⏳ Envoi en cours...",
-      success: "✅ Demande de support enregistrée",
-      close: "Fermer",
-      emptycart: "Aucun produit sélectionné pour l’instant.",
-      invoiceUpload: "Télécharger la facture / le reçu (facultatif)",
-      remove: "Supprimer",
-      product: { unknown: "Produit inconnu" },
-      error: {
-        nodealer: "Aucun revendeur trouvé – veuillez vous reconnecter.",
-        noproducts: "Veuillez ajouter au moins un produit.",
-        nouser: "Aucun utilisateur connecté trouvé.",
-        save: "Erreur lors de l’enregistrement.",
-      },
-    },
+
+    support: supportFr,
+
     admin: {
       promotions: "Promotions",
       instantDiscount: "Remise immédiate",
@@ -1350,47 +1169,9 @@
       loading: "⏳ Caricamento dati del rivenditore...",
       notfound: "❌ Rivenditore non trovato",
     },
-    project: {
-      "page.title": "Richiedi prezzo progetto",
-      title: "Informazioni sul progetto",
-      type: "Tipo di progetto",
-      heading: "Richiesta progetto",
-      "type.hotel": "Hotel",
-      "type.event": "Evento",
-      "type.aktion": "Offerta promozionale",
-      "type.wohn": "Residenziale",
-      "type.public": "Istituzione pubblica",
-      "type.business": "Azienda / Ufficio",
-      name: "Nome o numero del progetto",
-      customer: "Cliente finale / Cliente",
-      location: "Località (es. Zurigo, Berna)",
-      start: "Data di inizio",
-      end: "Data di fine",
-      comment: "Commento o descrizione",
-      targetprice: "Prezzo obiettivo (facoltativo)",
-      quantity: "Quantità",
-      add: "Aggiungi al progetto",
-      added: "✅ Prodotto aggiunto alla richiesta del progetto.",
-      "added.short": "Aggiunto",
-      submit: "Richiedi prezzo progetto",
-      submitbutton: "Invia richiesta progetto",
-      sending: "Invio della richiesta del progetto...",
-      success: "✅ Richiesta progetto inviata con successo!",
-      emptycart: "Nessun prodotto aggiunto.",
-      close: "Chiudi",
-      back: "Indietro",
-      products: "Seleziona prodotti",
-      next: "Continua ai prodotti",
-      remove: "Rimuovi",
-      "error.nodealer":
-        "Nessun rivenditore trovato – effettua di nuovo il login.",
-      "error.noproducts": "Nessun prodotto nel carrello.",
-      "error.save": "Errore durante il salvataggio.",
-      cart: {
-        title: "Richiedi prezzo progetto",
-        send: "Invia richiesta progetto",
-      },
-    },
+
+    project: projectIt,
+
     product: {
       search: "🔍 Cerca per articolo, nome o EAN...",
       groups: { all: "Tutti i gruppi" },
@@ -1403,35 +1184,9 @@
       },
       reset: "Ripristina",
     },
-    support: {
-      "page.title": "Richiedi supporto",
-      title: "Richiesta di supporto",
-      type: {
-        sellout: "Supporto Sell-Out",
-        werbung: "Contributo pubblicitario",
-        event: "Partecipazione a eventi",
-        sonstiges: "Altro",
-      },
-      comment: "Commento (facoltativo)",
-      quantity: "Quantità",
-      amountperunit: "Importo del supporto per pezzo (CHF)",
-      add: "Aggiungi",
-      submit: "Verifica e invia supporto",
-      submitbutton: "📩 Invia richiesta di supporto",
-      sending: "⏳ Invio in corso...",
-      success: "✅ Richiesta di supporto salvata",
-      close: "Chiudi",
-      emptycart: "Nessun prodotto selezionato.",
-      invoiceUpload: "Carica fattura / ricevuta (facoltativo)",
-      remove: "Rimuovi",
-      product: { unknown: "Prodotto sconosciuto" },
-      error: {
-        nodealer: "Nessun rivenditore trovato – effettua di nuovo il login.",
-        noproducts: "Aggiungi almeno un prodotto.",
-        nouser: "Nessun utente connesso trovato.",
-        save: "Errore durante il salvataggio.",
-      },
-    },
+
+    support: supportIt,
+
     admin: {
       promotions: "Promozioni",
       instantDiscount: "Sconto immediato",
@@ -1785,47 +1540,9 @@
       loading: "⏳ Chargiar las datas dal commerziant...",
       notfound: "❌ Commerziant betg chattà",
     },
-    project: {
-      "page.title": "Dumonda da pretsch da project",
-      title: "Infurmaziuns dal project",
-      type: "Tip da project",
-      heading: "Dumonda da project",
-      "type.hotel": "Hotel",
-      "type.event": "Eveniment",
-      "type.aktion": "Offerta promoziunala",
-      "type.wohn": "Abitativ",
-      "type.public": "Instituziun publica",
-      "type.business": "Fatschenta / Uffizi",
-      name: "Num u numer dal project",
-      customer: "Client final / Client",
-      location: "Lieu (p. ex. Turitg, Berna)",
-      start: "Data d’inizi",
-      end: "Data da fin",
-      comment: "Commentari u descripziun",
-      targetprice: "Pretsch final (opziunal)",
-      quantity: "Quantitad",
-      add: "Agiuntar al project",
-      added: "✅ Product agiuntà a la dumonda dal project.",
-      "added.short": "Agiuntà",
-      submit: "Dumandar pretsch dal project",
-      submitbutton: "Trametter la dumonda dal project",
-      sending: "Tramettenda la dumonda dal project...",
-      success: "✅ Dumonda dal project tramessa cun success!",
-      emptycart: "Anc nagins products agiuntads.",
-      close: "Serrar",
-      back: "Enavos",
-      products: "Tscherner products",
-      next: "Cuntinuar als products",
-      remove: "Allontanar",
-      "error.nodealer":
-        "Nagin commerziant chattà – s'annunzia p.pl. danovamain.",
-      "error.noproducts": "Nagin product en il chart.",
-      "error.save": "Errur cun memorisar.",
-      cart: {
-        title: "Dumandar pretsch da project",
-        send: "Trametter la dumonda da project",
-      },
-    },
+    
+    project: projectRm,
+    
     product: {
       search: "🔍 Tschertgar tenor artitgel, num u EAN...",
       groups: { all: "Tut las gruppas" },
@@ -1838,35 +1555,9 @@
       },
       reset: "Redefinir",
     },
-    support: {
-      "page.title": "Dumonda da sustegn",
-      title: "Dumonda da sustegn",
-      type: {
-        sellout: "Sustegn Sell-Out",
-        werbung: "Participaziun als custs da reclama",
-        event: "Participaziun ad eveniments",
-        sonstiges: "Auter",
-      },
-      comment: "Commentari (opziunal)",
-      quantity: "Quantitad",
-      amountperunit: "Import dal sustegn per unitad (CHF)",
-      add: "Agiuntar",
-      submit: "Verifitgar e trametter sustegn",
-      submitbutton: "📩 Trametter la dumonda da sustegn",
-      sending: "⏳ Tramet la dumonda...",
-      success: "✅ Dumonda da sustegn memorisada",
-      close: "Serrar",
-      emptycart: "Anc nagins products tschernids.",
-      invoiceUpload: "Telechargiar factura / quittanza (opziunal)",
-      remove: "Allontanar",
-      product: { unknown: "Product nunenconuschent" },
-      error: {
-        nodealer: "Nagin commerziant chattà – s'annunzia danovamain.",
-        noproducts: "Agiunta almain in product.",
-        nouser: "Nagin utilisader connectà chattà.",
-        save: "Errur cun memorisar.",
-      },
-    },
+
+    support: supportRm,
+    
     admin: {
       promotions: "Promoziuns",
       instantDiscount: "Rabatt immediat",

@@ -28,21 +28,27 @@ export default function ProductCardProject({
 
   const handleAddToCart = () => {
     if (!product?.product_id) {
-      toast.error("Produkt konnte nicht hinzugefügt werden (fehlende product_id).");
+      toast.error(t("project.productCard.addError"));
       return;
     }
 
     onAddToCart({
       ...product,
-      product_name: product.product_name ?? product.sony_article ?? "Unbekannt",
+      product_name:
+        product.product_name ||
+        product.sony_article ||
+        t("project.productCard.unknownProduct"),
       quantity,
       price: targetPrice,
     });
 
     setAdded(true);
 
-    toast.success(t("project.added"), {
-      description: product.product_name || product.sony_article || "Produkt",
+    toast.success(t("project.productCard.added"), {
+      description:
+        product.product_name ||
+        product.sony_article ||
+        t("project.productCard.unknownProduct"),
     });
 
     setTimeout(() => setAdded(false), 2000);
@@ -52,7 +58,9 @@ export default function ProductCardProject({
     <Card className="border border-purple-300 bg-white shadow-sm hover:shadow-md transition-all duration-300">
       <CardHeader className="pb-2">
         <CardTitle className="text-sm font-semibold text-gray-900">
-          {product.product_name || product.sony_article || "Unbekannt"}
+          {product.product_name ||
+            product.sony_article ||
+            t("project.productCard.unknownProduct")}
         </CardTitle>
 
         {product.brand && <p className="text-xs text-gray-500">{product.brand}</p>}
@@ -65,7 +73,11 @@ export default function ProductCardProject({
           <div className="flex justify-center">
             <img
               src={product.product_image_url}
-              alt={product.product_name || product.sony_article || ""}
+              alt={
+                product.product_name ||
+                product.sony_article ||
+                t("project.productCard.unknownProduct")
+              }
               className="max-h-32 object-contain"
             />
           </div>
@@ -74,7 +86,7 @@ export default function ProductCardProject({
         <div className="grid grid-cols-2 gap-3 text-center">
           <div>
             <label className="block text-xs text-gray-600 mb-1">
-              {t("project.quantity")}
+              {t("project.productCard.quantity")}
             </label>
 
             <Input
@@ -88,7 +100,7 @@ export default function ProductCardProject({
 
           <div>
             <label className="block text-xs text-gray-600 mb-1">
-              {t("project.targetprice")}
+              {t("project.productCard.targetPrice")}
             </label>
 
             <Input
@@ -107,7 +119,7 @@ export default function ProductCardProject({
               className="w-full h-10 bg-purple-100 text-purple-700 border border-purple-300 flex items-center justify-center gap-1 cursor-default"
             >
               <CheckCircle2 className="w-4 h-4" />
-              {t("project.added.short")}
+              {t("project.productCard.addedShort")}
             </Button>
           ) : (
             <Button
@@ -115,7 +127,7 @@ export default function ProductCardProject({
               className="w-full h-10 bg-purple-600 hover:bg-purple-700 text-white flex items-center justify-center gap-1"
             >
               <PlusCircle className="w-4 h-4" />
-              {t("project.add")}
+              {t("project.productCard.add")}
             </Button>
           )}
         </div>

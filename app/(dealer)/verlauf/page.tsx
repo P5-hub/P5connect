@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { getSupabaseBrowser } from "@/lib/supabaseClient";
 import { useActiveDealer } from "@/app/(dealer)/hooks/useActiveDealer";
@@ -13,9 +13,6 @@ import {
   Percent,
 } from "lucide-react";
 
-/* ======================================================
-   TYPES
-====================================================== */
 type HistoryRow = {
   submission_id: string;
   dealer_id: number;
@@ -23,15 +20,26 @@ type HistoryRow = {
   source: string;
   status: string | null;
   created_at: string;
-
   display_id: string;
   position_count: number;
   total_amount: number;
+  project_id?: string | null;
+  project_name?: string | null;
 };
 
-/* ======================================================
-   TYPE CONFIG
-====================================================== */
+type ProjectLogRow = {
+  project_id: string;
+  action: string | null;
+  created_at: string;
+};
+
+type SubmissionLogRow = {
+  submission_id: string | number;
+  typ: string;
+  action: string | null;
+  created_at: string;
+};
+
 const typeConfig: Record<
   string,
   { label: string; icon: any; color: string }
@@ -63,9 +71,6 @@ const typeConfig: Record<
   },
 };
 
-/* ======================================================
-   ROUTE MAP
-====================================================== */
 function getTargetRoute(
   r: HistoryRow,
   dealerQuery: string
@@ -91,9 +96,6 @@ function getTargetRoute(
   return null;
 }
 
-/* ======================================================
-   DATE GROUPING
-====================================================== */
 function getGroupLabel(dateStr: string) {
   const d = new Date(dateStr);
   const now = new Date();
@@ -115,9 +117,6 @@ function getGroupLabel(dateStr: string) {
   });
 }
 
-/* ======================================================
-   COMPONENT
-====================================================== */
 export default function VerlaufPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -132,7 +131,82 @@ export default function VerlaufPage() {
   const [rows, setRows] = useState<HistoryRow[]>([]);
   const [loading, setLoading] = useState(true);
 
-  /* ================= LOAD DATA ================= */
+  const [latestProjectActions, setLatestProjectActions] = useState<
+    Record<string, string>
+  >({});
+  const [latestSubmissionActions, setLatestSubmissionActions] = useState<
+    Record<string, string>
+  >({});
+
+  async function loadLatestProjectActions(inputRows: HistoryRow[]) {
+    const projectIds = inputRows
+      .filter((r) => r.typ === "projekt" && r.project_id)
+      .map((r) => r.project_id as string);
+
+    if (projectIds.length === 0) {
+      setLatestProjectActions({});
+      return;
+    }
+
+    const { data, error } = await supabase
+      .from("project_logs")
+      .select("project_id, action, created_at")
+      .in("project_id", projectIds)
+      .order("created_at", { ascending: false });
+
+    if (error) {
+      console.error("Projekt-Logs laden fehlgeschlagen:", error);
+      setLatestProjectActions({});
+      return;
+    }
+
+    const latestMap: Record<string, string> = {};
+
+    for (const row of (data ?? []) as ProjectLogRow[]) {
+      if (!row.project_id) continue;
+      if (latestMap[row.project_id]) continue;
+      latestMap[row.project_id] = row.action ?? "";
+    }
+
+    setLatestProjectActions(latestMap);
+  }
+
+  async function loadLatestSubmissionActions(inputRows: HistoryRow[]) {
+    const submissionIds = inputRows
+      .filter((r) => r.typ === "support")
+      .map((r) => Number(r.submission_id))
+      .filter((id) => Number.isFinite(id));
+
+    if (submissionIds.length === 0) {
+      setLatestSubmissionActions({});
+      return;
+    }
+
+    const { data, error } = await supabase
+      .from("submission_logs")
+      .select("submission_id, typ, action, created_at")
+      .eq("typ", "support")
+      .in("submission_id", submissionIds)
+      .order("created_at", { ascending: false });
+
+    if (error) {
+      console.error("Submission-Logs laden fehlgeschlagen:", error);
+      setLatestSubmissionActions({});
+      return;
+    }
+
+    const latestMap: Record<string, string> = {};
+
+    for (const row of (data ?? []) as SubmissionLogRow[]) {
+      const key = String(row.submission_id);
+      if (!key) continue;
+      if (latestMap[key]) continue;
+      latestMap[key] = row.action ?? "";
+    }
+
+    setLatestSubmissionActions(latestMap);
+  }
+
   useEffect(() => {
     if (dealerLoading) return;
 
@@ -156,14 +230,116 @@ export default function VerlaufPage() {
       const { data, error } = await query;
 
       if (!error && data) {
-        setRows(data as HistoryRow[]);
+        const loadedRows = data as HistoryRow[];
+        setRows(loadedRows);
+
+        if (!typFilter || typFilter === "projekt") {
+          await loadLatestProjectActions(loadedRows);
+        } else {
+          setLatestProjectActions({});
+        }
+
+        if (!typFilter || typFilter === "support") {
+          await loadLatestSubmissionActions(loadedRows);
+        } else {
+          setLatestSubmissionActions({});
+        }
       } else {
         console.error("Verlauf laden fehlgeschlagen:", error);
+        setRows([]);
+        setLatestProjectActions({});
+        setLatestSubmissionActions({});
       }
 
       setLoading(false);
     })();
   }, [dealer?.dealer_id, dealerLoading, supabase, typFilter]);
+
+  const dealerQuery =
+    isImpersonated && dealer?.dealer_id
+      ? `?dealer_id=${dealer.dealer_id}`
+      : "";
+
+  const getDisplayStatus = (r: HistoryRow) => {
+    if (r.typ === "projekt" && r.project_id) {
+      const latestAction = latestProjectActions[r.project_id];
+
+      if (r.status === "approved" && latestAction === "geändert und genehmigt") {
+        return "Geändert und genehmigt";
+      }
+
+      if (r.status === "approved" && latestAction === "genehmigt") {
+        return "Genehmigt";
+      }
+
+      if (r.status === "rejected" && latestAction === "abgelehnt") {
+        return "Abgelehnt";
+      }
+
+      if (r.status === "pending") {
+        return "Offen";
+      }
+
+      return r.status ?? "—";
+    }
+
+    if (r.typ === "support") {
+      const latestAction = latestSubmissionActions[String(r.submission_id)];
+
+      if (r.status === "approved" && latestAction === "approved_with_counter_offer") {
+        return "Geändert und genehmigt";
+      }
+
+      if (r.status === "approved" && latestAction === "approved") {
+        return "Genehmigt";
+      }
+
+      if (r.status === "rejected" && latestAction === "rejected") {
+        return "Abgelehnt";
+      }
+
+      if (r.status === "pending" || latestAction === "reset_to_pending") {
+        return "Offen";
+      }
+
+      return r.status ?? "—";
+    }
+
+    if (r.status === "approved") return "Genehmigt";
+    if (r.status === "rejected") return "Abgelehnt";
+    if (r.status === "pending") return "Offen";
+
+    return r.status ?? "—";
+  };
+
+  const getStatusClass = (r: HistoryRow) => {
+    if (r.status === "approved") {
+      return "bg-green-100 text-green-700";
+    }
+
+    if (r.status === "rejected") {
+      return "bg-red-100 text-red-700";
+    }
+
+    return "bg-gray-100 text-gray-600";
+  };
+
+  const filteredRows = useMemo(() => {
+    return rows.filter((r) => {
+      const displayStatus = getDisplayStatus(r);
+
+      if (!search) return true;
+      const s = search.toLowerCase();
+
+      return (
+        r.display_id.toLowerCase().includes(s) ||
+        displayStatus.toLowerCase().includes(s) ||
+        (r.status ?? "").toLowerCase().includes(s) ||
+        r.total_amount.toString().includes(s) ||
+        (r.project_name ?? "").toLowerCase().includes(s)
+      );
+    });
+  }, [rows, search, latestProjectActions, latestSubmissionActions]);
 
   if (dealerLoading || loading) {
     return <p className="text-gray-500">⏳ Verlauf wird geladen…</p>;
@@ -173,24 +349,6 @@ export default function VerlaufPage() {
     return <p className="text-gray-500">Keine Einträge gefunden.</p>;
   }
 
-  const dealerQuery =
-    isImpersonated && dealer?.dealer_id
-      ? `?dealer_id=${dealer.dealer_id}`
-      : "";
-
-  /* ================= SEARCH ================= */
-  const filteredRows = rows.filter((r) => {
-    if (!search) return true;
-    const s = search.toLowerCase();
-
-    return (
-      r.display_id.toLowerCase().includes(s) ||
-      (r.status ?? "").toLowerCase().includes(s) ||
-      r.total_amount.toString().includes(s)
-    );
-  });
-
-  /* ================= GROUP ================= */
   const grouped = filteredRows.reduce(
     (acc: Record<string, HistoryRow[]>, r) => {
       const label = getGroupLabel(r.created_at);
@@ -201,10 +359,8 @@ export default function VerlaufPage() {
     {}
   );
 
-  /* ================= RENDER ================= */
   return (
     <div className="space-y-4">
-      {/* SEARCH */}
       <input
         type="text"
         value={search}
@@ -213,7 +369,6 @@ export default function VerlaufPage() {
         className="w-full md:w-80 px-3 py-1.5 border rounded-md text-sm"
       />
 
-      {/* FILTER BAR */}
       <div className="flex flex-wrap gap-2">
         {[
           { key: null, label: "Alle" },
@@ -252,7 +407,6 @@ export default function VerlaufPage() {
         })}
       </div>
 
-      {/* LIST */}
       {Object.entries(grouped).map(([label, items]) => (
         <div key={label} className="space-y-2">
           <h3 className="text-sm font-semibold text-gray-600 mt-4">
@@ -265,6 +419,7 @@ export default function VerlaufPage() {
 
             const Icon = cfg.icon;
             const target = getTargetRoute(r, dealerQuery);
+            const displayStatus = getDisplayStatus(r);
 
             return (
               <div
@@ -280,7 +435,7 @@ export default function VerlaufPage() {
                 </div>
 
                 <div className="flex-1">
-                  <div className="flex justify-between items-center">
+                  <div className="flex justify-between items-center gap-3">
                     <span className="font-semibold text-sm">
                       {cfg.label} {r.display_id}
                     </span>
@@ -300,18 +455,20 @@ export default function VerlaufPage() {
                     </strong>
                   </div>
 
+                  {r.typ === "projekt" && r.project_name && (
+                    <div className="text-sm mt-1 text-gray-700">
+                      {r.project_name}
+                    </div>
+                  )}
+
                   <div className="mt-1">
                     <span
                       className={cn(
                         "inline-block text-xs px-2 py-0.5 rounded-full",
-                        r.status === "approved"
-                          ? "bg-green-100 text-green-700"
-                          : r.status === "rejected"
-                          ? "bg-red-100 text-red-700"
-                          : "bg-gray-100 text-gray-600"
+                        getStatusClass(r)
                       )}
                     >
-                      {r.status ?? "—"}
+                      {displayStatus}
                     </span>
                   </div>
                 </div>

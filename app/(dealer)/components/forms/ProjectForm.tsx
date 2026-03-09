@@ -1,10 +1,16 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import ProjectFileUpload from "@/app/(dealer)/components/project/ProjectFileUpload";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, ClipboardList, Briefcase, User, MapPin } from "lucide-react";
+import {
+  ArrowLeft,
+  ClipboardList,
+  Briefcase,
+  User,
+  MapPin,
+} from "lucide-react";
 
 import ProductList from "@/app/(dealer)/components/ProductList";
 import ProductCardProject from "@/app/(dealer)/components/ProductCardProject";
@@ -18,9 +24,6 @@ export default function ProjectForm() {
   const { addItem, openCart, setProjectDetails, setOrderDetails, getItems } =
     useCart();
 
-  /* ------------------------------
-     Lokale States
-  ------------------------------ */
   const [step, setStep] = useState<"details" | "products">("details");
 
   const [details, setDetails] = useState<{
@@ -46,35 +49,23 @@ export default function ProjectForm() {
   const patchDetails = (patch: Partial<typeof details>) =>
     setDetails((d) => ({ ...d, ...patch }));
 
-  /* ------------------------------
-     Cart Count (Badge)
-  ------------------------------ */
   const projectItemCount = (getItems("projekt") || []).length;
 
-  /* ------------------------------
-     VALIDIERUNG
-  ------------------------------ */
   const canProceed =
     details.name.trim().length > 2 &&
     details.customer.trim().length > 2 &&
     details.location.trim().length > 2;
 
-  /* ------------------------------
-     Weiter zu Step 2
-  ------------------------------ */
   const goToProducts = () => {
     if (!canProceed) return;
 
-    // ✅ 1) Files IN-MEMORY transportieren (MERGE!)
     setOrderDetails((prev) => ({
       ...prev,
       files: details.files ?? [],
     }));
 
-    // ✅ 2) ProjectDetails NUR META
     setProjectDetails({
       submission_id: Date.now(),
-
       project_name: details.name || null,
       customer: details.customer || null,
       location: details.location || null,
@@ -82,27 +73,19 @@ export default function ProjectForm() {
       start_date: details.start || null,
       end_date: details.end || null,
       comment: details.comment || null,
-
       file_names: (details.files ?? []).map((f) => f.name),
     });
 
     setStep("products");
   };
 
-  /* ------------------------------
-     Produkt zum globalen Cart hinzufügen
-  ------------------------------ */
   const handleAdd = (item: any) => {
     addItem("projekt", item);
   };
 
-  /* ------------------------------
-     RENDER
-  ------------------------------ */
   return (
     <div className="p-4">
       <AnimatePresence mode="wait">
-        {/* STEP 1 – Projektdetails */}
         {step === "details" && (
           <motion.div
             key="details"
@@ -110,12 +93,13 @@ export default function ProjectForm() {
             animate={{ opacity: 1 }}
             className="space-y-6"
           >
-            <h2>{t("project.details")}</h2>
+            <h2>{t("project.details.title")}</h2>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {/* Projektname */}
               <div>
-                <label className="block text-sm mb-1">{t("project.name")}</label>
+                <label className="block text-sm mb-1">
+                  {t("project.details.name")}
+                </label>
                 <input
                   type="text"
                   className="border px-2 py-1 rounded w-full"
@@ -124,10 +108,9 @@ export default function ProjectForm() {
                 />
               </div>
 
-              {/* Kunde */}
               <div>
                 <label className="block text-sm mb-1">
-                  {t("project.customer")}
+                  {t("project.details.customer")}
                 </label>
                 <input
                   type="text"
@@ -137,10 +120,9 @@ export default function ProjectForm() {
                 />
               </div>
 
-              {/* Ort */}
               <div>
                 <label className="block text-sm mb-1">
-                  {t("project.location")}
+                  {t("project.details.location")}
                 </label>
                 <input
                   type="text"
@@ -150,23 +132,27 @@ export default function ProjectForm() {
                 />
               </div>
 
-              {/* Projekt-Typ */}
               <div>
-                <label className="block text-sm mb-1">{t("project.type")}</label>
+                <label className="block text-sm mb-1">
+                  {t("project.details.type")}
+                </label>
                 <select
                   value={details.type}
                   onChange={(e) => patchDetails({ type: e.target.value })}
                   className="border px-2 py-1 rounded w-full"
                 >
                   <option value="standard">{t("project.type.standard")}</option>
-                  <option value="ausschreibung">{t("project.type.tender")}</option>
+                  <option value="ausschreibung">
+                    {t("project.type.tender")}
+                  </option>
                   <option value="promotion">{t("project.type.promo")}</option>
                 </select>
               </div>
 
-              {/* Start */}
               <div>
-                <label className="block text-sm mb-1">{t("project.start")}</label>
+                <label className="block text-sm mb-1">
+                  {t("project.details.start")}
+                </label>
                 <input
                   type="date"
                   className="border px-2 py-1 rounded w-full"
@@ -175,9 +161,10 @@ export default function ProjectForm() {
                 />
               </div>
 
-              {/* Ende */}
               <div>
-                <label className="block text-sm mb-1">{t("project.end")}</label>
+                <label className="block text-sm mb-1">
+                  {t("project.details.end")}
+                </label>
                 <input
                   type="date"
                   className="border px-2 py-1 rounded w-full"
@@ -187,9 +174,10 @@ export default function ProjectForm() {
               </div>
             </div>
 
-            {/* Kommentar */}
             <div>
-              <label className="block text-sm mb-1">{t("project.comment")}</label>
+              <label className="block text-sm mb-1">
+                {t("project.details.comment")}
+              </label>
               <textarea
                 rows={3}
                 className="border px-2 py-1 rounded w-full"
@@ -198,26 +186,23 @@ export default function ProjectForm() {
               />
             </div>
 
-            {/* 📎 FILE UPLOAD */}
             <ProjectFileUpload
               files={details.files}
               onChange={(files) => patchDetails({ files })}
             />
 
-            {/* Weiter */}
             <div className="pt-4">
               <Button
                 disabled={!canProceed}
                 className="bg-purple-600 hover:bg-purple-700 text-white"
                 onClick={goToProducts}
               >
-                {t("project.next")}
+                {t("project.details.next")}
               </Button>
             </div>
           </motion.div>
         )}
 
-        {/* STEP 2 – Produkte auswählen */}
         {step === "products" && (
           <motion.div
             key="products"
@@ -228,13 +213,12 @@ export default function ProjectForm() {
             <div className="flex justify-between mb-2">
               <Button variant="outline" onClick={() => setStep("details")}>
                 <ArrowLeft className="w-4 h-4 mr-2" />
-                {t("project.back")}
+                {t("project.details.back")}
               </Button>
             </div>
 
-            <h2 className="text-xl font-semibold">{t("project.products")}</h2>
+            <h2 className="text-xl font-semibold">{t("project.page.products")}</h2>
 
-            {/* Projekt-Zusammenfassung */}
             <div className="border rounded-xl p-3 bg-purple-50 text-sm space-y-2">
               <p className="font-semibold flex items-center gap-2 text-purple-700">
                 <ClipboardList className="w-4 h-4" />
@@ -259,7 +243,9 @@ export default function ProjectForm() {
               {details.files.length > 0 && (
                 <div className="text-xs text-gray-600">
                   📎{" "}
-                  {t("project.filesAttached", { count: details.files.length })}
+                  {t("project.summary.filesAttached", {
+                    count: details.files.length,
+                  })}
                 </div>
               )}
             </div>

@@ -11,6 +11,7 @@ import { useTheme } from "@/lib/theme/ThemeContext";
 import ThemedActionButtons from "@/lib/theme/ThemedActionButtons";
 
 type Produkt = {
+  item_id: number;
   product_name?: string;
   menge?: number;
   preis?: number;
@@ -60,8 +61,11 @@ export default function ProjektDetailPage() {
 
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
+  const [savingDecision, setSavingDecision] = useState(false);
 
-  // ✅ Signed URL Cache: key = `${bucket}::${path}`
+  const [editableProdukte, setEditableProdukte] = useState<Produkt[]>([]);
+  const [originalProdukte, setOriginalProdukte] = useState<Produkt[]>([]);
+
   const [signedUrls, setSignedUrls] = useState<Record<string, string>>({});
 
   useEffect(() => {
@@ -86,14 +90,21 @@ export default function ProjektDetailPage() {
           ? submissionQuery.eq("project_id", id)
           : submissionQuery.eq("submission_id", Number(id));
 
-        const { data: submission } = await submissionQuery.maybeSingle();
+        const { data: submission, error: submissionError } =
+          await submissionQuery.maybeSingle();
+
+        if (submissionError) {
+          console.error("submissionError:", submissionError);
+          toast.error("Projektanfrage konnte nicht geladen werden.");
+          return;
+        }
 
         if (!submission) {
           toast.error("Projektanfrage nicht gefunden.");
           return;
         }
 
-        const { data: projekt } = await supabase
+        const { data: projekt, error: projektError } = await supabase
           .from("project_requests")
           .select(`
             id,
@@ -110,12 +121,18 @@ export default function ProjektDetailPage() {
           .eq("id", submission.project_id)
           .maybeSingle();
 
+        if (projektError) {
+          console.error("projektError:", projektError);
+          toast.error("Projekt konnte nicht geladen werden.");
+          return;
+        }
+
         if (!projekt) {
           toast.error("Projekt nicht gefunden.");
           return;
         }
 
-        const { data: dealer } = await supabase
+        const { data: dealer, error: dealerError } = await supabase
           .from("dealers")
           .select(`
             dealer_id,
@@ -131,35 +148,70 @@ export default function ProjektDetailPage() {
           .eq("dealer_id", projekt.dealer_id)
           .maybeSingle();
 
-        const { data: produkte } = await supabase
-          .from("submission_items")
-          .select("product_name, menge, preis")
-          .eq("submission_id", submission.submission_id);
+        if (dealerError) {
+          console.error("dealerError:", dealerError);
+        }
 
-        const { data: projectFiles } = await supabase
+        const { data: produkte, error: produkteError } = await supabase
+          .from("submission_items")
+          .select("item_id, product_name, menge, preis")
+          .eq("submission_id", submission.submission_id)
+          .order("item_id", { ascending: true });
+
+        if (produkteError) {
+          console.error("produkteError:", produkteError);
+          toast.error("Produkte konnten nicht geladen werden.");
+          return;
+        }
+
+        const { data: projectFiles, error: filesError } = await supabase
           .from("project_files")
           .select("id, file_name, bucket, path, uploaded_at")
           .eq("project_id", projekt.id)
           .order("uploaded_at", { ascending: false });
 
-        const { data: projectLogs } = await supabase
+        if (filesError) {
+          console.error("filesError:", filesError);
+        }
+
+        const { data: projectLogs, error: logsError } = await supabase
           .from("project_logs")
           .select("action, created_at")
           .eq("project_id", projekt.id)
           .order("created_at", { ascending: true });
 
-        setSignedUrls({}); // ✅ cache reset bei neuem Projekt
+        if (logsError) {
+          console.error("logsError:", logsError);
+        }
+
+        const loadedProdukte = (produkte ?? []) as Produkt[];
+
+        setSignedUrls({});
+        setEditableProdukte(loadedProdukte);
+        setOriginalProdukte(loadedProdukte);
 
         setData({
           projekt,
           submission,
-          produkte: produkte ?? [],
+          produkte: loadedProdukte,
           dealer,
           projectFiles: (projectFiles ?? []) as ProjectFileRow[],
           projectLogs: projectLogs ?? [],
         });
-      } catch (err) {
-        console.error(err);
+      } catch (err: unknown) {
+        console.error("Fehler beim Laden der Projektdaten:", err);
+
+        if (err instanceof Error) {
+          console.error("Message:", err.message);
+          console.error("Stack:", err.stack);
+        } else {
+          try {
+            console.error("Raw error:", JSON.stringify(err, null, 2));
+          } catch {
+            console.error("Raw error konnte nicht serialisiert werden.");
+          }
+        }
+
         toast.error("Fehler beim Laden der Projektdaten.");
       } finally {
         setLoading(false);
@@ -174,7 +226,7 @@ export default function ProjektDetailPage() {
 
       const { data, error } = await supabase.storage
         .from(bucket)
-        .createSignedUrl(path, 60 * 30); // 30 min
+        .createSignedUrl(path, 60 * 30);
 
       if (error || !data?.signedUrl) {
         console.error("createSignedUrl error:", error);
@@ -188,6 +240,211 @@ export default function ProjektDetailPage() {
     [signedUrls, supabase]
   );
 
+  const setProduktPreis = (itemId: number, value: string) => {
+    const parsed = value.trim() === "" ? 0 : Number(value.replace(",", "."));
+
+    setEditableProdukte((prev) =>
+      prev.map((p) =>
+        p.item_id === itemId
+          ? {
+              ...p,
+              preis: Number.isNaN(parsed) ? 0 : parsed,
+            }
+          : p
+      )
+    );
+  };
+
+  const hasPriceChanges = () => {
+    if (editableProdukte.length !== originalProdukte.length) return true;
+
+    return editableProdukte.some((p) => {
+      const orig = originalProdukte.find((o) => o.item_id === p.item_id);
+      const currentPreis = Number(p.preis || 0);
+      const origPreis = Number(orig?.preis || 0);
+      return currentPreis !== origPreis;
+    });
+  };
+
+  const currentTotal = editableProdukte.reduce(
+    (sum, p) => sum + (Number(p.preis) || 0) * (Number(p.menge) || 1),
+    0
+  );
+
+  const handleUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file || !data) return;
+
+    try {
+      setUploading(true);
+
+      const dealerId = data.submission?.dealer_id ?? data.projekt?.dealer_id ?? "unknown";
+      const safeName = file.name.replaceAll("/", "_");
+      const filePath = `projects/${data.projekt.id}/dealer_${dealerId}/${Date.now()}_${safeName}`;
+
+      const { error: upErr } = await supabase.storage
+        .from("project-documents")
+        .upload(filePath, file, { upsert: true });
+
+      if (upErr) {
+        console.error("uploadError:", upErr);
+        toast.error("Upload fehlgeschlagen.");
+        return;
+      }
+
+      const { error: insertError } = await supabase.from("project_files").insert({
+        project_id: data.projekt.id,
+        file_name: file.name,
+        bucket: "project-documents",
+        path: filePath,
+        file_size: file.size,
+        mime_type: file.type,
+        dealer_id: data.submission.dealer_id,
+      });
+
+      if (insertError) {
+        console.error("projectFilesInsertError:", insertError);
+        toast.error("Datei wurde hochgeladen, aber nicht in der Datenbank gespeichert.");
+        return;
+      }
+
+      const { data: refreshedFiles, error: refreshError } = await supabase
+        .from("project_files")
+        .select("id, file_name, bucket, path, uploaded_at")
+        .eq("project_id", data.projekt.id)
+        .order("uploaded_at", { ascending: false });
+
+      if (refreshError) {
+        console.error("refreshFilesError:", refreshError);
+      }
+
+      setSignedUrls({});
+
+      setData((prev) =>
+        prev ? { ...prev, projectFiles: (refreshedFiles ?? []) as ProjectFileRow[] } : prev
+      );
+
+      toast.success("Datei erfolgreich hochgeladen.");
+    } catch (e) {
+      console.error("handleUpload catch:", e);
+      toast.error("Upload fehlgeschlagen.");
+    } finally {
+      setUploading(false);
+      event.target.value = "";
+    }
+  };
+
+  const addProjectLog = async (projectId: string, action: string) => {
+    const { data: insertedLog, error } = await supabase
+      .from("project_logs")
+      .insert({
+        project_id: projectId,
+        action,
+      })
+      .select("action, created_at")
+      .single();
+
+    if (error) {
+      console.error("Log insert error:", error);
+      return null;
+    }
+
+    return insertedLog as ProjectLog;
+  };
+
+  const handleDecision = async (newStatus: "approved" | "rejected" | "pending") => {
+    if (!data) return;
+
+    try {
+      setSavingDecision(true);
+
+      let logAction = "";
+
+      if (newStatus === "approved") {
+        const changed = hasPriceChanges();
+
+        if (changed) {
+          for (const item of editableProdukte) {
+            const { error: updateItemError } = await supabase
+              .from("submission_items")
+              .update({
+                preis: Number(item.preis || 0),
+              })
+              .eq("item_id", item.item_id);
+
+            if (updateItemError) {
+              console.error("updateItemError:", updateItemError);
+              toast.error(
+                `Preis für ${item.product_name || "Produkt"} konnte nicht gespeichert werden.`
+              );
+              return;
+            }
+          }
+
+          logAction = "geändert und genehmigt";
+        } else {
+          logAction = "genehmigt";
+        }
+      }
+
+      if (newStatus === "rejected") {
+        logAction = "abgelehnt";
+      }
+
+      if (newStatus === "pending") {
+        logAction = "zurückgesetzt";
+      }
+
+      const { error: submissionUpdateError } = await supabase
+        .from("submissions")
+        .update({ status: newStatus })
+        .eq("submission_id", data.submission.submission_id);
+
+      if (submissionUpdateError) {
+        console.error("submissionUpdateError:", submissionUpdateError);
+        toast.error("Status konnte nicht aktualisiert werden.");
+        return;
+      }
+
+      let insertedLog: ProjectLog | null = null;
+      if (logAction) {
+        insertedLog = await addProjectLog(data.projekt.id, logAction);
+      }
+
+      setData((prev) =>
+        prev
+          ? {
+              ...prev,
+              submission: { ...prev.submission, status: newStatus },
+              produkte: editableProdukte,
+              projectLogs: insertedLog
+                ? [...prev.projectLogs, insertedLog]
+                : prev.projectLogs,
+            }
+          : prev
+      );
+
+      setOriginalProdukte(editableProdukte);
+
+      if (newStatus === "approved") {
+        toast.success(
+          logAction === "geändert und genehmigt"
+            ? "Gegenofferte gespeichert und Projekt genehmigt."
+            : "Projekt genehmigt."
+        );
+      } else if (newStatus === "rejected") {
+        toast.success("Projekt abgelehnt.");
+      } else {
+        toast.success("Projekt zurückgesetzt.");
+      }
+    } catch (e) {
+      console.error("handleDecision catch:", e);
+      toast.error("Aktion konnte nicht ausgeführt werden.");
+    } finally {
+      setSavingDecision(false);
+    }
+  };
+
   if (loading) {
     return <p className="p-6 text-sm text-gray-500">Lade Daten…</p>;
   }
@@ -196,92 +453,7 @@ export default function ProjektDetailPage() {
     return <p className="p-6 text-sm text-gray-500">Kein Datensatz gefunden.</p>;
   }
 
-  const { projekt, submission, produkte, dealer, projectFiles, projectLogs } = data;
-
-  const total = produkte.reduce(
-    (sum, p) => sum + (Number(p.preis) || 0) * (Number(p.menge) || 1),
-    0
-  );
-
-  const handleUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
-
-    try {
-      setUploading(true);
-
-      // ✅ Konsistente Pfad-Logik (passt zu deinem Screenshot)
-      const dealerId = submission?.dealer_id ?? projekt?.dealer_id ?? "unknown";
-      const safeName = file.name.replaceAll("/", "_");
-      const filePath = `projects/${projekt.id}/dealer_${dealerId}/${Date.now()}_${safeName}`;
-
-      const { error: upErr } = await supabase.storage
-        .from("project-documents")
-        .upload(filePath, file, { upsert: true });
-
-      if (upErr) {
-        console.error(upErr);
-        toast.error("Upload fehlgeschlagen.");
-        return;
-      }
-
-      await supabase.from("project_files").insert({
-        project_id: projekt.id,
-        file_name: file.name,
-        bucket: "project-documents",
-        path: filePath,
-        file_size: file.size,
-        mime_type: file.type,
-        dealer_id: submission.dealer_id,
-      });
-
-      const { data: refreshedFiles } = await supabase
-        .from("project_files")
-        .select("id, file_name, bucket, path, uploaded_at")
-        .eq("project_id", projekt.id)
-        .order("uploaded_at", { ascending: false });
-
-      setSignedUrls({}); // ✅ neu signieren nach Upload
-
-      setData((prev) =>
-        prev ? { ...prev, projectFiles: (refreshedFiles ?? []) as ProjectFileRow[] } : prev
-      );
-
-      toast.success("Datei erfolgreich hochgeladen.");
-    } catch (e) {
-      console.error(e);
-      toast.error("Upload fehlgeschlagen.");
-    } finally {
-      setUploading(false);
-      event.target.value = "";
-    }
-  };
-
-  const updateStatus = async (newStatus: "approved" | "rejected" | "pending") => {
-    try {
-      await supabase
-        .from("submissions")
-        .update({ status: newStatus })
-        .eq("submission_id", submission.submission_id);
-
-      setData((prev) =>
-        prev
-          ? { ...prev, submission: { ...prev.submission, status: newStatus } }
-          : prev
-      );
-
-      toast.success(
-        newStatus === "approved"
-          ? "Projekt bestätigt"
-          : newStatus === "rejected"
-          ? "Projekt abgelehnt"
-          : "Status zurückgesetzt"
-      );
-    } catch (e) {
-      console.error(e);
-      toast.error("Status konnte nicht aktualisiert werden.");
-    }
-  };
+  const { projekt, submission, dealer, projectFiles, projectLogs } = data;
 
   return (
     <div className="p-6 space-y-8 max-w-5xl mx-auto">
@@ -299,7 +471,6 @@ export default function ProjektDetailPage() {
             Projektanfrage – {projekt.project_name || "(ohne Titel)"}
           </h2>
 
-          {/* HÄNDLER */}
           <div className="text-sm space-y-1">
             <p className="font-semibold">Händler</p>
             <p>{dealer?.store_name || "-"}</p>
@@ -311,7 +482,6 @@ export default function ProjektDetailPage() {
             <p>Kd.-Nr.: {dealer?.login_nr || "-"}</p>
           </div>
 
-          {/* PROJEKTINFOS */}
           <div className="text-sm space-y-1 border rounded p-3">
             <p className="font-semibold">Projektinformationen</p>
             <p>Projekt-Nr.: #{submission.submission_id}</p>
@@ -338,15 +508,16 @@ export default function ProjektDetailPage() {
             )}
           </div>
 
-          <ThemedActionButtons
-            onApprove={() => updateStatus("approved")}
-            onReject={() => updateStatus("rejected")}
-            onReset={() => updateStatus("pending")}
-          />
+          <div className={savingDecision ? "pointer-events-none opacity-70" : ""}>
+            <ThemedActionButtons
+              onApprove={() => handleDecision("approved")}
+              onReject={() => handleDecision("rejected")}
+              onReset={() => handleDecision("pending")}
+            />
+          </div>
         </CardHeader>
 
         <CardContent className="space-y-6">
-          {/* DATEIEN */}
           <div className="space-y-3">
             <div className="flex items-center justify-between">
               <h3 className="font-semibold flex items-center gap-2">
@@ -390,29 +561,53 @@ export default function ProjektDetailPage() {
             )}
           </div>
 
-          {/* PRODUKTE */}
-          <div className="border rounded">
+          <div className="border rounded overflow-hidden">
             <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b bg-gray-50">
+                  <th className="p-2 text-left">Produkt</th>
+                  <th className="p-2 text-right">Menge</th>
+                  <th className="p-2 text-right">Betrag / Gegenofferte</th>
+                </tr>
+              </thead>
               <tbody>
-                {produkte.map((p, i) => (
-                  <tr key={i} className="border-t">
-                    <td className="p-2">{p.product_name}</td>
-                    <td className="p-2 text-right">{p.menge}</td>
-                    <td className="p-2 text-right">
-                      {Number(p.preis || 0).toFixed(2)} CHF
-                    </td>
-                  </tr>
-                ))}
-                <tr className="border-t font-semibold">
+                {editableProdukte.map((p, i) => {
+                  const original = originalProdukte.find((o) => o.item_id === p.item_id);
+                  const changed =
+                    Number(original?.preis || 0) !== Number(p.preis || 0);
+
+                  return (
+                    <tr key={p.item_id ?? i} className="border-t">
+                      <td className="p-2">{p.product_name}</td>
+                      <td className="p-2 text-right">{p.menge}</td>
+                      <td className="p-2">
+                        <div className="flex justify-end items-center gap-2">
+                          <input
+                            type="number"
+                            step="0.01"
+                            min="0"
+                            value={p.preis ?? 0}
+                            onChange={(e) => setProduktPreis(p.item_id, e.target.value)}
+                            className={`w-32 rounded border px-2 py-1 text-right ${
+                              changed ? "border-purple-500 bg-purple-50" : ""
+                            }`}
+                          />
+                          <span className="min-w-[42px] text-right">CHF</span>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+
+                <tr className="border-t font-semibold bg-gray-50">
                   <td className="p-2">Total</td>
                   <td className="p-2" />
-                  <td className="p-2 text-right">{total.toFixed(2)} CHF</td>
+                  <td className="p-2 text-right">{currentTotal.toFixed(2)} CHF</td>
                 </tr>
               </tbody>
             </table>
           </div>
 
-          {/* VERLAUF */}
           {projectLogs?.length > 0 && (
             <div className="text-sm space-y-2 border rounded p-3">
               <p className="font-semibold">Projektverlauf</p>
