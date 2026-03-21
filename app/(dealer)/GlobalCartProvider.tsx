@@ -20,6 +20,8 @@ export type FormName =
   | "sofortrabatt"
   | "cashback";
 
+export type PromoType = "classic_fixed" | "tv55_soundbar_percent";
+
 // ✅ NUR Metadaten, KEINE File-Objekte hier drin!
 export type ProjectDetails = {
   submission_id: number; // lokale ID (P-xxx)
@@ -36,15 +38,21 @@ export type ProjectDetails = {
   file_names?: string[];
 };
 
-// ✅ in-memory Dateien (nicht persistieren!)
+// ✅ in-memory Dateien + cart-nahe Zusatzdaten
 export type OrderDetails = {
   // Projekt/Bestellung (bestehende Logik)
   files: File[];
-  
 
-  // ✅ neu: Support Belege
+  // ✅ Support Belege
   support_files: File[];
-  sofortrabatt_files: File[];  // ✅ Sofortrabatt
+
+  // ✅ Sofortrabatt
+  sofortrabatt_files: File[];
+  promo_type?: PromoType;
+  sofortrabatt_sales_prices?: {
+    soundbar: string | number;
+    subwoofer: string | number;
+  };
 };
 
 // ✅ Support Meta (global, synchron Form <-> Cart)
@@ -79,16 +87,13 @@ export type CartContextType = {
   projectDetails: ProjectDetails | null;
   setProjectDetails: (d: ProjectDetails | null) => void;
 
-  // ✅ in-memory Files
   orderDetails: OrderDetails;
   setOrderDetails: React.Dispatch<React.SetStateAction<OrderDetails>>;
 
-  // ✅ helper: Files je Bereich leeren
   clearOrderFiles: (
     which: "project" | "support" | "sofortrabatt"
   ) => void;
 
-  // ✅ Support Meta (global, synchron Form <-> Cart)
   supportMeta: SupportMeta;
   setSupportMeta: React.Dispatch<React.SetStateAction<SupportMeta>>;
   resetSupportMeta: () => void;
@@ -110,7 +115,6 @@ function getActingDealerIdFromCookie(): string | null {
 }
 
 function isValidProductItem(item: any) {
-  // ✅ verhindert "Unbekannt"-Items im Projektcart
   const pid = item?.product_id;
   return pid !== undefined && pid !== null && String(pid).trim() !== "";
 }
@@ -140,14 +144,17 @@ export function GlobalCartProvider({ children }: { children: ReactNode }) {
   const [projectDetails, setProjectDetails] =
     useState<ProjectDetails | null>(null);
 
-  // ✅ Files nur in-memory (nicht persistieren!)
   const [orderDetails, setOrderDetails] = useState<OrderDetails>({
     files: [],
     support_files: [],
     sofortrabatt_files: [],
+    promo_type: "classic_fixed",
+    sofortrabatt_sales_prices: {
+      soundbar: "",
+      subwoofer: "",
+    },
   });
 
-  // ✅ Support Meta global (NICHT Files!)
   const [supportMeta, setSupportMeta] = useState<SupportMeta>({
     type: "",
     comment: "",
@@ -159,7 +166,6 @@ export function GlobalCartProvider({ children }: { children: ReactNode }) {
       comment: "",
     });
 
-  // ✅ Load aus localStorage (NUR state + projectDetails)
   useEffect(() => {
     try {
       const raw = localStorage.getItem(STORAGE_KEY);
@@ -169,7 +175,6 @@ export function GlobalCartProvider({ children }: { children: ReactNode }) {
 
       setState({ ...emptyState, ...(parsed.state ?? {}) });
       setProjectDetails(parsed.projectDetails ?? null);
-      // ✅ Support Meta laden
       setSupportMeta(parsed.supportMeta ?? { type: "", comment: "" });
     } catch {
       setState(emptyState);
@@ -179,7 +184,6 @@ export function GlobalCartProvider({ children }: { children: ReactNode }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [STORAGE_KEY]);
 
-  // ✅ Save in localStorage (NUR state + projectDetails)
   useEffect(() => {
     localStorage.setItem(
       STORAGE_KEY,
@@ -188,7 +192,6 @@ export function GlobalCartProvider({ children }: { children: ReactNode }) {
   }, [state, projectDetails, supportMeta, STORAGE_KEY]);
 
   const addItem = (form: FormName, item: any) => {
-    // ✅ Schutz gegen kaputte Projektitems
     if (form === "projekt" && !isValidProductItem(item)) {
       console.warn("Blocked invalid project cart item (missing product_id):", item);
       return;
@@ -205,29 +208,34 @@ export function GlobalCartProvider({ children }: { children: ReactNode }) {
   const clearCart = (form: FormName) => {
     setState((p) => ({ ...p, [form]: [] }));
 
-    // ✅ Wenn Projekt geleert wird: auch Meta & Files leeren
     if (form === "projekt") {
       setProjectDetails(null);
       setOrderDetails((prev) => ({ ...prev, files: [] }));
     }
 
-        // ✅ Wenn Support geleert wird: Support-Files + SupportMeta leeren
     if (form === "support") {
       setOrderDetails((prev) => ({ ...prev, support_files: [] }));
       resetSupportMeta();
     }
-  
+
     if (form === "sofortrabatt") {
-      setOrderDetails((prev) => ({ ...prev, sofortrabatt_files: [] }));
+      setOrderDetails((prev) => ({
+        ...prev,
+        sofortrabatt_files: [],
+        promo_type: "classic_fixed",
+        sofortrabatt_sales_prices: {
+          soundbar: "",
+          subwoofer: "",
+        },
+      }));
     }
   };
+
   const openCart = (form: FormName, opts?: { fromProject?: boolean }) => {
-    // ✅ projectDetails nur dann löschen, wenn wir NICHT im Projekt-Kontext sind
     if (form === "bestellung" && !opts?.fromProject) {
       setProjectDetails(null);
     }
 
-    // ✅ alle anderen Formulare (verkauf/support/sofortrabatt/cashback) löschen projectDetails
     if (form !== "projekt" && form !== "bestellung") {
       setProjectDetails(null);
     }
@@ -266,6 +274,12 @@ export function GlobalCartProvider({ children }: { children: ReactNode }) {
       support_files: which === "support" ? [] : prev.support_files,
       sofortrabatt_files:
         which === "sofortrabatt" ? [] : prev.sofortrabatt_files,
+      promo_type:
+        which === "sofortrabatt" ? "classic_fixed" : prev.promo_type,
+      sofortrabatt_sales_prices:
+        which === "sofortrabatt"
+          ? { soundbar: "", subwoofer: "" }
+          : prev.sofortrabatt_sales_prices,
     }));
   };
 

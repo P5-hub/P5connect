@@ -28,6 +28,10 @@ type SofortrabattProduct = {
   product_name?: string;
   category?: string;
   ean?: string;
+  qty?: number;
+  tv_size_inch?: number | null;
+  sales_price?: number | null;
+  calculated_discount?: number | null;
 };
 
 type SubmissionRecord = {
@@ -435,6 +439,11 @@ export default function UniversalDetailPage({
       return [];
     }
   }, [record?.products]);
+
+  const isPercentPromo = useMemo(() => {
+    const comment = (record?.kommentar || "").toLowerCase();
+    return comment.includes("tv55_soundbar_percent");
+  }, [record?.kommentar]);
 
   // Status-Update
   const updateStatus = async (newStatus: "approved" | "rejected" | "pending") => {
@@ -912,6 +921,11 @@ export default function UniversalDetailPage({
                   <p>
                     <strong>Rabattbetrag:</strong> CHF {(Number(record.rabatt_betrag) || 0).toFixed(2)}
                   </p>
+
+                  <p>
+                    <strong>Promotion:</strong>{" "}
+                    {isPercentPromo ? "30% / 50%-Promo" : "Klassische Fixbetrag-Promo"}
+                  </p>
                 </div>
               </div>
 
@@ -922,28 +936,54 @@ export default function UniversalDetailPage({
                 {normalizedProducts.length === 0 ? (
                   <p className="text-xs text-gray-500">Keine Produkte vorhanden.</p>
                 ) : (
-                  <div className="overflow-x-auto">
-                    <table className="w-full border-collapse text-xs">
-                      <thead className="bg-gray-100">
-                        <tr>
-                          <th className="text-left p-2">Produkt</th>
-                          <th className="text-left p-2">Kategorie</th>
-                          <th className="text-left p-2">EAN</th>
-                          <th className="text-right p-2">Menge</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {normalizedProducts.map((p: any, idx: number) => (
-                          <tr key={idx} className="border-t">
-                            <td className="p-2">{p.product_name || "-"}</td>
-                            <td className="p-2">{p.category || "-"}</td>
-                            <td className="p-2">{p.ean || "-"}</td>
-                            <td className="p-2 text-right">1</td>
+                  <>
+                    <div className="overflow-x-auto">
+                      <table className="w-full border-collapse text-xs">
+                        <thead className="bg-gray-100">
+                          <tr>
+                            <th className="text-left p-2">Produkt</th>
+                            <th className="text-left p-2">Kategorie</th>
+                            <th className="text-left p-2">EAN</th>
+                            <th className="text-right p-2">Menge</th>
+                            <th className="text-right p-2">TV Zoll</th>
+                            <th className="text-right p-2">Verkaufspreis</th>
+                            <th className="text-right p-2">Rabatt</th>
                           </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
+                        </thead>
+                        <tbody>
+                          {normalizedProducts.map((p: SofortrabattProduct, idx: number) => (
+                            <tr key={idx} className="border-t">
+                              <td className="p-2">{p.product_name || "-"}</td>
+                              <td className="p-2">{p.category || "-"}</td>
+                              <td className="p-2">{p.ean || "-"}</td>
+                              <td className="p-2 text-right">{p.qty ?? 1}</td>
+                              <td className="p-2 text-right">
+                                {p.tv_size_inch ? `${p.tv_size_inch}"` : "-"}
+                              </td>
+                              <td className="p-2 text-right">
+                                {typeof p.sales_price === "number"
+                                  ? `CHF ${p.sales_price.toFixed(2)}`
+                                  : "-"}
+                              </td>
+                              <td className="p-2 text-right">
+                                {typeof p.calculated_discount === "number"
+                                  ? `CHF ${p.calculated_discount.toFixed(2)}`
+                                  : "-"}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+
+                    {isPercentPromo && (
+                      <div className="mt-3 rounded-lg border bg-blue-50 p-3 text-xs text-gray-700">
+                        <p className="font-semibold mb-1">Berechnungslogik</p>
+                        <p>TV ab 55 Zoll + Soundbar = 30% Rabatt auf den Verkaufspreis der Soundbar.</p>
+                        <p>Mit zusätzlichem Subwoofer = zusätzlich 50% Rabatt auf den Verkaufspreis des Subwoofers.</p>
+                      </div>
+                    )}
+                  </>
                 )}
               </div>
 
