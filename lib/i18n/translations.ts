@@ -10,6 +10,13 @@ import { support as supportFr } from "./fr/support";
 import { support as supportIt } from "./it/support";
 import { support as supportRm } from "./rm/support";
 
+import { sofortrabatt as sofortrabattDe } from "./de/sofortrabatt";
+import { sofortrabatt as sofortrabattEn } from "./en/sofortrabatt";
+import { sofortrabatt as sofortrabattFr } from "./fr/sofortrabatt";
+import { sofortrabatt as sofortrabattIt } from "./it/sofortrabatt";
+import { sofortrabatt as sofortrabattRm } from "./rm/sofortrabatt";
+
+
 
   export type Lang = "de" | "en" | "fr" | "it" | "rm";
 
@@ -120,6 +127,7 @@ import { support as supportRm } from "./rm/support";
       },
 
       /* ⚡ Sofortrabatt / Instant Discount */
+    sofortrabatt: sofortrabattDe,
       instant: {
         "page.title": "Sofortrabatt beantragen",
         heading: "Sofortrabatt beantragen",
@@ -505,7 +513,7 @@ import { support as supportRm } from "./rm/support";
       dropzoneText: "Drag & drop file here or click to select",
       chooseFile: "Choose file",
     },
-
+    sofortrabatt: sofortrabattEn,
     instant: {
       "page.title": "Request Instant Discount",
       heading: "Request Instant Discount",
@@ -872,7 +880,7 @@ import { support as supportRm } from "./rm/support";
       dropzoneText: "Glissez-déposez le fichier ici ou cliquez pour sélectionner",
       chooseFile: "Choisir un fichier",
     },
-
+    sofortrabatt: sofortrabattFr,
     instant: {
       "page.title": "Demander une remise immédiate",
       heading: "Demander une remise immédiate",
@@ -1243,7 +1251,7 @@ import { support as supportRm } from "./rm/support";
         "Trascina qui il file oppure clicca per selezionarlo dal disco",
       chooseFile: "Seleziona file",
     },
-
+    sofortrabatt: sofortrabattIt,
     instant: {
       "page.title": "Richiedi sconto immediato",
       heading: "Richiedi sconto immediato",
@@ -1614,7 +1622,7 @@ import { support as supportRm } from "./rm/support";
         "Tirar il datotec qua ni cliccar per tscherner ina datoteca",
       chooseFile: "Tscherner datoteca",
     },
-
+    sofortrabatt: sofortrabattRm,
     instant: {
       "page.title": "Dumandar rabatt immediat",
       heading: "Dumandar rabatt immediat",

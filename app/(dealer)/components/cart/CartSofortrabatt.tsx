@@ -16,6 +16,7 @@ import { useMemo, useState } from "react";
 import { Tag, Trash2, FileText } from "lucide-react";
 import { toast } from "sonner";
 import { useTheme } from "@/lib/theme/ThemeContext";
+import { useI18n } from "@/lib/i18n/I18nProvider";
 
 type PromoType = "classic_fixed" | "tv55_soundbar_percent";
 
@@ -89,6 +90,7 @@ function toNumber(value: any) {
 export default function CartSofortrabatt() {
   const dealer = useDealer();
   const theme = useTheme();
+  const { t } = useI18n();
 
   const {
     state,
@@ -186,7 +188,9 @@ export default function CartSofortrabatt() {
     const soundbarPrice = toNumber(salesPrices.soundbar);
     const subPrice = toNumber(salesPrices.subwoofer);
 
-    const soundbarDiscount = soundbarItem ? Number((soundbarPrice * 0.3).toFixed(2)) : 0;
+    const soundbarDiscount = soundbarItem
+      ? Number((soundbarPrice * 0.3).toFixed(2))
+      : 0;
     const subDiscount = subItem ? Number((subPrice * 0.5).toFixed(2)) : 0;
 
     return {
@@ -218,38 +222,38 @@ export default function CartSofortrabatt() {
 
   const handleSubmit = async () => {
     if (!dealer?.dealer_id) {
-      toast.error("Kein Händler gefunden");
+      toast.error(t("sofortrabatt.toast.noDealer"));
       return;
     }
 
     if (files.length === 0) {
-      toast.error("Bitte Rechnung hochladen");
+      toast.error(t("sofortrabatt.toast.uploadInvoice"));
       return;
     }
 
     if (promoType === "tv55_soundbar_percent") {
       if (!tvItem) {
-        toast.error("TV fehlt");
+        toast.error(t("sofortrabatt.toast.tvMissing"));
         return;
       }
 
       if (tvInches < 55) {
-        toast.error("Die Promo gilt nur für TVs ab 55 Zoll");
+        toast.error(t("sofortrabatt.toast.only55"));
         return;
       }
 
       if (!soundbarItem) {
-        toast.error("Für diese Promo ist eine Soundbar erforderlich");
+        toast.error(t("sofortrabatt.toast.needSoundbar"));
         return;
       }
 
       if (toNumber(salesPrices.soundbar) <= 0) {
-        toast.error("Bitte Verkaufspreis der Soundbar eingeben");
+        toast.error(t("sofortrabatt.toast.soundbarPriceRequired"));
         return;
       }
 
       if (subItem && toNumber(salesPrices.subwoofer) <= 0) {
-        toast.error("Bitte Verkaufspreis des Subwoofers eingeben");
+        toast.error(t("sofortrabatt.toast.accessoryPriceRequired"));
         return;
       }
     }
@@ -299,9 +303,9 @@ export default function CartSofortrabatt() {
       }));
 
       setSuccess(true);
-      toast.success("Sofortrabatt erfolgreich eingereicht");
+      toast.success(t("sofortrabatt.toast.success"));
     } catch (err: any) {
-      toast.error(err.message || "Fehler beim Absenden");
+      toast.error(err.message || t("sofortrabatt.toast.error"));
     }
 
     setLoading(false);
@@ -317,7 +321,7 @@ export default function CartSofortrabatt() {
         <SheetHeader>
           <SheetTitle className={`flex items-center gap-2 ${theme.color}`}>
             <Tag className="w-5 h-5" />
-            Sofortrabatt beantragen
+            {t("sofortrabatt.cart.title")}
           </SheetTitle>
         </SheetHeader>
 
@@ -330,27 +334,31 @@ export default function CartSofortrabatt() {
         {success ? (
           <div className="flex-1 flex flex-col justify-center items-center gap-4 text-center">
             <p className={`${theme.color} text-lg font-semibold`}>
-              🎉 Antrag erfolgreich gesendet
+              {t("sofortrabatt.cart.success")}
             </p>
 
             <SheetClose asChild>
-              <Button className={`${theme.bg} text-white`}>Schliessen</Button>
+              <Button className={`${theme.bg} text-white`}>
+                {t("sofortrabatt.cart.close")}
+              </Button>
             </SheetClose>
           </div>
         ) : (
           <>
             <div className="mb-3 text-sm rounded-xl border p-3 bg-gray-50">
               <p className="font-semibold">
-                Promotion:
-                {" "}
+                {t("sofortrabatt.cart.promotion")}:{" "}
                 {promoType === "classic_fixed"
-                  ? "Klassische Fixbetrag-Promo"
-                  : "Neue 30% / 50%-Promo"}
+                  ? t("sofortrabatt.cart.classicPromo")
+                  : t("sofortrabatt.cart.percentPromo")}
               </p>
 
               {promoType === "tv55_soundbar_percent" && tvItem && (
                 <p className="text-xs text-gray-500 mt-1">
-                  TV-Grösse erkannt: {tvInches > 0 ? `${tvInches} Zoll` : "nicht erkannt"}
+                  {t("sofortrabatt.cart.tvSizeDetected")}:{" "}
+                  {tvInches > 0
+                    ? `${tvInches} Zoll`
+                    : t("sofortrabatt.cart.tvSizeUnknown")}
                 </p>
               )}
             </div>
@@ -383,14 +391,15 @@ export default function CartSofortrabatt() {
 
                     {promoType === "classic_fixed" ? (
                       <p className={`mt-2 ${theme.color}`}>
-                        Rabatt: {getClassicRabattForItem(item)} CHF
+                        {t("sofortrabatt.cart.total").replace("Gesamt-Rabatt", "Rabatt")}:{" "}
+                        {getClassicRabattForItem(item)} CHF
                       </p>
                     ) : (
                       <div className="mt-2 text-sm space-y-1">
                         {role === "soundbar" && (
                           <>
                             <label className="block text-sm font-medium">
-                              Verkaufspreis Soundbar (CHF)
+                              {t("sofortrabatt.cart.salesPriceSoundbar")}
                             </label>
                             <Input
                               type="number"
@@ -403,7 +412,8 @@ export default function CartSofortrabatt() {
                               placeholder="z. B. 799.00"
                             />
                             <p className={`${theme.color}`}>
-                              30% Rabatt: {rabattSummary.soundbarDiscount.toFixed(2)} CHF
+                              {t("sofortrabatt.cart.discount30")}:{" "}
+                              {rabattSummary.soundbarDiscount.toFixed(2)} CHF
                             </p>
                           </>
                         )}
@@ -411,7 +421,7 @@ export default function CartSofortrabatt() {
                         {role === "sub" && (
                           <>
                             <label className="block text-sm font-medium">
-                              Verkaufspreis Subwoofer (CHF)
+                              {t("sofortrabatt.cart.salesPriceAccessory")}
                             </label>
                             <Input
                               type="number"
@@ -424,15 +434,15 @@ export default function CartSofortrabatt() {
                               placeholder="z. B. 499.00"
                             />
                             <p className={`${theme.color}`}>
-                              50% Rabatt: {rabattSummary.subDiscount.toFixed(2)} CHF
+                              {t("sofortrabatt.cart.discount50")}:{" "}
+                              {rabattSummary.subDiscount.toFixed(2)} CHF
                             </p>
                           </>
                         )}
 
                         {role === "tv" && (
                           <p className="text-xs text-gray-500">
-                            Der TV qualifiziert die Promo. Rabatt wird auf Soundbar/Subwoofer
-                            berechnet.
+                            {t("sofortrabatt.cart.tvHint")}
                           </p>
                         )}
                       </div>
@@ -444,7 +454,9 @@ export default function CartSofortrabatt() {
 
             {/* FILE UPLOAD */}
             <div className="border-t pt-4 space-y-3">
-              <label className="text-sm font-medium">Rechnungen hochladen</label>
+              <label className="text-sm font-medium">
+                {t("sofortrabatt.cart.uploadInvoices")}
+              </label>
 
               <Input
                 type="file"
@@ -477,7 +489,7 @@ export default function CartSofortrabatt() {
             {/* FOOTER */}
             <div className="border-t pt-4 space-y-3">
               <p>
-                Gesamt-Rabatt:{" "}
+                {t("sofortrabatt.cart.total")}:{" "}
                 <b className={theme.color}>{rabattSummary.total.toFixed(2)} CHF</b>
               </p>
 
@@ -485,12 +497,12 @@ export default function CartSofortrabatt() {
                 <div className="text-xs text-gray-500 space-y-1">
                   {tvInches < 55 && (
                     <p className="text-red-500">
-                      TV muss mindestens 55 Zoll haben
+                      {t("sofortrabatt.cart.tvMustBe55")}
                     </p>
                   )}
                   {!soundbarItem && (
                     <p className="text-red-500">
-                      Für diese Promo ist eine Soundbar Pflicht
+                      {t("sofortrabatt.cart.soundbarMandatory")}
                     </p>
                   )}
                 </div>
@@ -501,7 +513,9 @@ export default function CartSofortrabatt() {
                 disabled={!canSubmit || loading}
                 className={`w-full ${theme.bg} text-white`}
               >
-                {loading ? "Wird gesendet…" : "Sofortrabatt absenden"}
+                {loading
+                  ? t("sofortrabatt.cart.sending")
+                  : t("sofortrabatt.cart.submit")}
               </Button>
             </div>
           </>
