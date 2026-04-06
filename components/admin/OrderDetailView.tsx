@@ -25,7 +25,6 @@ type Distributor = {
 };
 
 type ViewRow = {
-  // Submission / Kopf
   submission_id: number;
   created_at: string;
   status: "pending" | "approved" | "rejected" | null;
@@ -33,13 +32,12 @@ type ViewRow = {
   dealer_name?: string | null;
   dealer_email?: string | null;
 
-  // Item
   item_id: number;
   product_id: number | null;
   menge: number | null;
 
-  preis: number | null;                  // EK neu (Händlerpreis)
-  calc_price_on_invoice: number | null;  // POI neu (aus EK neu berechnet)
+  preis: number | null;
+  calc_price_on_invoice: number | null;
   invest: number | null;
 
   lowest_price_brutto: number | null;
@@ -50,14 +48,30 @@ type ViewRow = {
 
   product_name: string | null;
   ean: string | null;
+  sony_article?: string | null;
   retail_price: number | null;
   vrg: number | null;
 
-  dealer_invoice_price: number | null;   // EK alt (falls vorhanden)
-  price_on_invoice: number | null;       // POI alt
+  dealer_invoice_price: number | null;
+  price_on_invoice: number | null;
 
-  // wichtig fürs Patchen:
   distributor_id?: string | null;
+
+  order_mode?: string | null;
+  submission_campaign_id?: number | null;
+  campaign_name_snapshot?: string | null;
+
+  pricing_mode?: string | null;
+  item_campaign_id?: number | null;
+  is_display_item?: boolean | null;
+  bonus_relevant?: boolean | null;
+  messe_price_netto?: number | null;
+  display_price_netto?: number | null;
+  pricing_snapshot?: any;
+
+  item_ean?: string | null;
+  item_product_name?: string | null;
+  item_sony_article?: string | null;
 };
 
 type SubmissionBundle = {
@@ -71,7 +85,6 @@ type SubmissionBundle = {
   items: ViewRow[];
 };
 
-/* ---------- ItemRow ---------- */
 function ItemRow({
   row,
   supabase,
@@ -88,93 +101,102 @@ function ItemRow({
   const isLocked = submissionStatus !== "pending";
   const { optimisticUpdate } = useOptimisticSave(supabase, refresh);
 
-  // Basen
   const retail = parseNum(row.retail_price);
   const vrg = parseNum(row.vrg);
   const ekAlt = parseNum(row.dealer_invoice_price);
-  const poiAlt = parseNum(row.price_on_invoice ?? ekAlt); // Fallback: wenn price_on_invoice leer, nimm dealer_invoice_price
+  const poiAlt = parseNum(row.price_on_invoice ?? ekAlt);
   const nettoUpe = calcNettoUPE(retail, vrg) ?? 0;
 
-  // lokale States
   const [isEditing, setIsEditing] = useState(false);
+  const [qty, setQty] = useState<number>(parseNum(row.menge) || 1);
   const [streetBrutto, setStreetBrutto] = useState<number>(parseNum(row.lowest_price_brutto));
   const [streetNetto, setStreetNetto] = useState<number>(parseNum(row.lowest_price_netto));
   const [priceNew, setPriceNew] = useState<number>(parseNum(row.preis));
   const [investVal, setInvestVal] = useState<number>(parseNum(row.invest));
   const [marginStreet, setMarginStreet] = useState<number | null>(
-  
     row.margin_street == null ? null : Number(row.margin_street)
   );
   const [source, setSource] = useState<string>(row.lowest_price_source || "");
   const [sourceCustom, setSourceCustom] = useState<string>(row.lowest_price_source_custom || "");
   const [distId, setDistId] = useState<string | null>(row.distributor_id ?? null);
   const [priceNewInput, setPriceNewInput] = useState(
-  row.preis != null ? row.preis.toString() : ""
-);
+    row.preis != null ? row.preis.toString() : ""
+  );
 
-
-  // 🔥 Auto-Recalc on initial load
   useEffect(() => {
     if (isEditing) return;
 
     const brutto = parseNum(row.lowest_price_brutto);
-    const netto = brutto ? brutto / 1.081 - vrg : 0;
+    const netto =
+      row.lowest_price_netto != null
+        ? parseNum(row.lowest_price_netto)
+        : brutto
+        ? brutto / 1.081 - vrg
+        : 0;
     const nettoRounded = Number(netto.toFixed(2));
 
     const ekNeu = parseNum(row.preis);
-    const poiAlt = parseNum(row.price_on_invoice ?? row.dealer_invoice_price);
+    const poiAltVal = parseNum(row.price_on_invoice ?? row.dealer_invoice_price);
 
-    const mStreet = nettoRounded && ekNeu
-      ? Number((((nettoRounded - ekNeu) / nettoRounded) * 100).toFixed(1))
-      : null;
+    const mStreet =
+      nettoRounded && ekNeu
+        ? Number((((nettoRounded - ekNeu) / nettoRounded) * 100).toFixed(1))
+        : null;
 
-    const investNeu = Number((poiAlt - calcPOI(ekNeu)).toFixed(2));
+    const investNeu = Number((poiAltVal - calcPOI(ekNeu)).toFixed(2));
 
+    setQty(parseNum(row.menge) || 1);
     setStreetBrutto(brutto);
     setStreetNetto(nettoRounded);
     setPriceNew(ekNeu);
-    setPriceNewInput(ekNeu.toFixed(2));   // ← hinzufügen
-    setMarginStreet(mStreet);
-    setInvestVal(investNeu);
-
-   
-
-  }, [row]);
-
+    setPriceNewInput(ekNeu.toFixed(2));
+    setMarginStreet(row.margin_street == null ? mStreet : Number(row.margin_street));
+    setInvestVal(row.invest == null ? investNeu : parseNum(row.invest));
+    setSource(row.lowest_price_source || "");
+    setSourceCustom(row.lowest_price_source_custom || "");
+    setDistId(row.distributor_id ?? null);
+  }, [row, isEditing, vrg]);
 
   const savePatch = useCallback(
     async (patch: Partial<ViewRow> & { distributor_id?: string | null }) => {
       const payload: Record<string, any> = {};
 
+      if (patch.menge !== undefined) payload.menge = patch.menge;
       if (patch.preis !== undefined) payload.preis = patch.preis;
       if (patch.invest !== undefined) payload.invest = patch.invest;
-      if (patch.calc_price_on_invoice !== undefined) payload.calc_price_on_invoice = patch.calc_price_on_invoice;
+      if (patch.calc_price_on_invoice !== undefined) {
+        payload.calc_price_on_invoice = patch.calc_price_on_invoice;
+      }
 
-      if (patch.lowest_price_brutto !== undefined) payload.lowest_price_brutto = patch.lowest_price_brutto;
-      if (patch.lowest_price_netto !== undefined) payload.lowest_price_netto = patch.lowest_price_netto;
-      if (patch.margin_street !== undefined) payload.margin_street = patch.margin_street;
+      if (patch.lowest_price_brutto !== undefined) {
+        payload.lowest_price_brutto = patch.lowest_price_brutto;
+      }
+      if (patch.lowest_price_netto !== undefined) {
+        payload.lowest_price_netto = patch.lowest_price_netto;
+      }
+      if (patch.margin_street !== undefined) {
+        payload.margin_street = patch.margin_street;
+      }
 
-      if (patch.lowest_price_source !== undefined) payload.lowest_price_source = patch.lowest_price_source;
-      if (patch.lowest_price_source_custom !== undefined) payload.lowest_price_source_custom = patch.lowest_price_source_custom;
+      if (patch.lowest_price_source !== undefined) {
+        payload.lowest_price_source = patch.lowest_price_source;
+      }
+      if (patch.lowest_price_source_custom !== undefined) {
+        payload.lowest_price_source_custom = patch.lowest_price_source_custom;
+      }
 
       if (patch.distributor_id !== undefined) payload.distributor_id = patch.distributor_id;
 
-      // Optimistic UI
       optimisticUpdate(row.item_id, row as any, patch as any);
 
-      // DB-Update
       await supabase.from("submission_items").update(payload).eq("item_id", row.item_id);
 
-      // leichter Delay, dann Reload
       await new Promise((r) => setTimeout(r, 200));
       await refresh();
     },
     [row, supabase, refresh, optimisticUpdate]
   );
 
-  /* ---- Change-Handler ---- */
-
-  // 1) Streetprice brutto -> netto, MarginStreet neu berechnen
   const onStreetBruttoChange = (val: string) => {
     const brutto = parseNum(val);
     setStreetBrutto(brutto);
@@ -186,6 +208,7 @@ function ItemRow({
     const m = nettoRounded && priceNew ? ((nettoRounded - priceNew) / nettoRounded) * 100 : null;
     setMarginStreet(m == null ? null : Number(m.toFixed(1)));
   };
+
   const blurSaveStreet = async () => {
     await savePatch({
       lowest_price_brutto: Number(streetBrutto.toFixed(2)),
@@ -194,22 +217,20 @@ function ItemRow({
     });
   };
 
-  // 2) Marge auf Street (%) -> EK neu + Invest
   const onMarginStreetChange = (val: string) => {
     const target = parseNum(val);
     setMarginStreet(target);
 
     if (!streetNetto || streetNetto <= 0) return;
 
-    // EK neu aus StreetNetto & Zielmarge
     const ekNeu = Number((streetNetto * (1 - target / 100)).toFixed(2));
     setPriceNew(ekNeu);
-    setPriceNewInput(ekNeu.toFixed(2));   // ← hinzufügen
+    setPriceNewInput(ekNeu.toFixed(2));
 
-    // Invest = POI alt - POI neu (POI neu aus EK neu)
     const investNeu = Number((poiAlt - calcPOI(ekNeu)).toFixed(2));
     setInvestVal(investNeu);
   };
+
   const blurSaveMarginStreet = async () => {
     const poiNeu = calcPOI(priceNew);
     await savePatch({
@@ -222,16 +243,13 @@ function ItemRow({
     });
   };
 
-  // 3) EK neu -> Invest + MargeStreet (auch wenn kein Streetprice vorhanden)
   const onPriceChange = (p: number) => {
     if (p <= 0) return;
     setPriceNew(p);
 
-    // Marge Street nur, wenn StreetNetto vorhanden
     const mStreet = streetNetto ? ((streetNetto - p) / streetNetto) * 100 : null;
     setMarginStreet(mStreet == null ? null : Number(mStreet.toFixed(1)));
 
-    // Invest immer berechnen
     const poiNeu = calcPOI(p);
     const investNeu = Number((poiAlt - poiNeu).toFixed(2));
     setInvestVal(investNeu);
@@ -250,22 +268,19 @@ function ItemRow({
     });
   };
 
-  // 4) Invest -> EK neu + MargeStreet
   const onInvestChange = (val: string) => {
     const inv = parseNum(val);
     setInvestVal(inv);
 
-    // invest = poiAlt - poiNeu  => poiNeu = poiAlt - invest
     const poiNeu = poiAlt - inv;
-
-    // EK neu aus POI neu: price = poi / (0.865*0.97) * 0.92
     const ekNeu = Number(((poiNeu / (0.865 * 0.97)) * 0.92).toFixed(2));
     setPriceNew(ekNeu);
-    setPriceNewInput(ekNeu.toFixed(2));   // ← hinzufügen
+    setPriceNewInput(ekNeu.toFixed(2));
 
     const mStreet = streetNetto && ekNeu ? ((streetNetto - ekNeu) / streetNetto) * 100 : null;
     setMarginStreet(mStreet == null ? null : Number(mStreet.toFixed(1)));
   };
+
   const blurSaveInvest = async () => {
     await savePatch({
       invest: Number(investVal.toFixed(2)),
@@ -275,7 +290,6 @@ function ItemRow({
     });
   };
 
-  // 5) Quelle
   const blurSaveSource = async () => {
     await savePatch({
       lowest_price_source: source || null,
@@ -284,7 +298,6 @@ function ItemRow({
     });
   };
 
-  // 6) Distributor (berechnet Invest gemäss Regel)
   const onDistributorChange = async (newId: string | null) => {
     setDistId(newId);
     const rule = distributors.find((d) => d.id === newId)?.invest_rule || "default";
@@ -300,17 +313,101 @@ function ItemRow({
     });
   };
 
+  const blurSaveQty = async () => {
+    const safeQty = Math.max(1, Number(qty) || 1);
+    setQty(safeQty);
+    await savePatch({
+      menge: safeQty,
+    });
+  };
+
   const margeZumUpe = useMemo(() => {
-    return nettoUpe ? (((nettoUpe - (priceNew || 0)) / nettoUpe) * 100) : null;
+    return nettoUpe ? ((nettoUpe - (priceNew || 0)) / nettoUpe) * 100 : null;
   }, [nettoUpe, priceNew]);
+
+  const displayModeLabel =
+    row.pricing_mode === "messe"
+      ? "Messepreis"
+      : row.pricing_mode === "display"
+      ? "Display"
+      : row.pricing_mode === "mixed"
+      ? "Messe + Display"
+      : "Standard";
+
+  const campaignLabel =
+    row.campaign_name_snapshot ||
+    (row.item_campaign_id ? `Kampagne #${row.item_campaign_id}` : null);
 
   return (
     <div className="rounded-xl border border-gray-100 bg-gray-50/40 p-3">
-      {/* Kopf */}
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <p className="font-medium text-xs text-gray-900">{row.product_name}</p>
-          <p className="text-[11px] text-gray-500">EAN: {row.ean ?? "–"} · Menge: {row.menge ?? "–"}</p>
+          <p className="font-medium text-xs text-gray-900">
+            {row.item_product_name || row.product_name || "Produkt"}
+          </p>
+
+          <div className="mt-1 flex flex-wrap gap-1">
+            <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-medium text-slate-700">
+              {row.order_mode === "messe" ? "Messebestellung" : "Standardbestellung"}
+            </span>
+
+            {row.pricing_mode === "messe" && (
+              <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-medium text-emerald-700 ring-1 ring-emerald-100">
+                Messepreis
+              </span>
+            )}
+
+            {row.pricing_mode === "display" && (
+              <span className="rounded-full bg-sky-50 px-2 py-0.5 text-[10px] font-medium text-sky-700 ring-1 ring-sky-100">
+                Display
+              </span>
+            )}
+
+            {row.pricing_mode === "mixed" && (
+              <span className="rounded-full bg-violet-50 px-2 py-0.5 text-[10px] font-medium text-violet-700 ring-1 ring-violet-100">
+                Messe + Display
+              </span>
+            )}
+
+            {(!row.pricing_mode || row.pricing_mode === "standard") && (
+              <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-medium text-gray-700">
+                Standard
+              </span>
+            )}
+
+            {campaignLabel && (
+              <span className="rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-medium text-amber-700 ring-1 ring-amber-100">
+                {campaignLabel}
+              </span>
+            )}
+
+            {row.bonus_relevant === false && (
+              <span className="rounded-full bg-rose-50 px-2 py-0.5 text-[10px] font-medium text-rose-700 ring-1 ring-rose-100">
+                Nicht bonusrelevant
+              </span>
+            )}
+          </div>
+
+          <div className="mt-1 text-[11px] text-gray-500 flex items-center gap-2 flex-wrap">
+            <span>EAN: {row.item_ean || row.ean || "–"}</span>
+            <span>·</span>
+            <span>Mode: {displayModeLabel}</span>
+            <span>·</span>
+            <span>Menge:</span>
+
+            {isEditing ? (
+              <input
+                type="number"
+                min={1}
+                value={qty}
+                onChange={(e) => setQty(parseNum(e.target.value) || 1)}
+                onBlur={blurSaveQty}
+                className="w-14 h-6 border rounded text-xs text-right px-1"
+              />
+            ) : (
+              <span className="font-medium">{row.menge ?? "–"}</span>
+            )}
+          </div>
         </div>
 
         {!isEditing ? (
@@ -338,12 +435,15 @@ function ItemRow({
               className="h-7 px-2 text-[11px]"
               onClick={() => {
                 setIsEditing(false);
-                // Reset auf Serverwerte
+                setQty(parseNum(row.menge) || 1);
                 setStreetBrutto(parseNum(row.lowest_price_brutto));
                 setStreetNetto(parseNum(row.lowest_price_netto));
                 setPriceNew(parseNum(row.preis));
+                setPriceNewInput(parseNum(row.preis).toFixed(2));
                 setInvestVal(parseNum(row.invest));
-                setMarginStreet(row.margin_street == null ? null : Number(row.margin_street));
+                setMarginStreet(
+                  row.margin_street == null ? null : Number(row.margin_street)
+                );
                 setSource(row.lowest_price_source || "");
                 setSourceCustom(row.lowest_price_source_custom || "");
                 setDistId(row.distributor_id ?? null);
@@ -355,9 +455,34 @@ function ItemRow({
         )}
       </div>
 
-      {/* Werte */}
       <div className="mt-3 grid grid-cols-2 gap-x-4 gap-y-1 text-[11px] border-t pt-2 border-gray-200">
-        {/* UPE */}
+        <div className="col-span-2 font-medium text-gray-700 mb-1">Kampagnenpreise / Logik</div>
+        <div>
+          <span className="text-gray-500">Pricing Mode:</span>{" "}
+          <span className="font-medium text-gray-700">{displayModeLabel}</span>
+        </div>
+        <div className="text-right">
+          <span className="text-gray-500">Order Mode:</span>{" "}
+          <span className="font-medium text-gray-700">
+            {row.order_mode === "messe" ? "Messe" : "Standard"}
+          </span>
+        </div>
+
+        <div>
+          <span className="text-gray-500">Messepreis netto:</span>{" "}
+          {row.messe_price_netto != null
+            ? `${Number(row.messe_price_netto).toFixed(2)} CHF`
+            : "–"}
+        </div>
+        <div className="text-right">
+          <span className="text-gray-500">Displaypreis netto:</span>{" "}
+          {row.display_price_netto != null
+            ? `${Number(row.display_price_netto).toFixed(2)} CHF`
+            : "–"}
+        </div>
+
+        <div className="col-span-2 border-b border-gray-200 my-1" />
+
         <div className="col-span-2 font-medium text-gray-700 mb-1">UPE / Verkaufspreise</div>
         <div>
           <span className="text-gray-500">UPE brutto:</span>{" "}
@@ -368,24 +493,37 @@ function ItemRow({
                 (−{(retail - retail / 1.081).toFixed(2)} MwSt, −{vrg.toFixed(2)} VRG)
               </span>
             </>
-          ) : "–"}
+          ) : (
+            "–"
+          )}
         </div>
         <div className="text-right">
           <span className="text-gray-500">UPE netto:</span>{" "}
-          {nettoUpe ? <span className="text-gray-700 font-medium">{nettoUpe.toFixed(2)} CHF</span> : "–"}
+          {nettoUpe ? (
+            <span className="text-gray-700 font-medium">{nettoUpe.toFixed(2)} CHF</span>
+          ) : (
+            "–"
+          )}
         </div>
 
-        {/* Altpreise */}
-        <div className="col-span-2 font-medium text-gray-700 mt-3 mb-1">Händlerpreise (alt)</div>
-        <div><span className="text-gray-500">EK alt:</span> {ekAlt ? `${ekAlt.toFixed(2)} CHF` : "–"}</div>
-        <div className="text-right"><span className="text-gray-500">EK Disti alt (POI alt):</span> {poiAlt ? `${poiAlt.toFixed(2)} CHF` : "–"}</div>
+        <div className="col-span-2 font-medium text-gray-700 mt-3 mb-1">
+          Händlerpreise (alt)
+        </div>
+        <div>
+          <span className="text-gray-500">EK alt:</span>{" "}
+          {ekAlt ? `${ekAlt.toFixed(2)} CHF` : "–"}
+        </div>
+        <div className="text-right">
+          <span className="text-gray-500">EK Disti alt (POI alt):</span>{" "}
+          {poiAlt ? `${poiAlt.toFixed(2)} CHF` : "–"}
+        </div>
 
         <div className="col-span-2 border-b border-gray-200 my-1" />
 
-        {/* Street / Neu */}
-        <div className="col-span-2 font-medium text-gray-700 mt-3 mb-1">Streetprice / Händlerpreis (neu)</div>
+        <div className="col-span-2 font-medium text-gray-700 mt-3 mb-1">
+          Streetprice / Händlerpreis (neu)
+        </div>
 
-        {/* Street brutto */}
         <div>
           <label className="block text-[11px] text-gray-500 mb-1">Streetprice brutto</label>
           <input
@@ -398,11 +536,11 @@ function ItemRow({
             className="w-28 h-7 border rounded text-xs text-right px-2"
           />
           <div className="text-[10px] text-gray-400 mt-1">
-            (−{(streetBrutto - streetBrutto / 1.081).toFixed(2)} MwSt, −{vrg.toFixed(2)} VRG)
+            (−{(streetBrutto - streetBrutto / 1.081).toFixed(2)} MwSt, −
+            {vrg.toFixed(2)} VRG)
           </div>
         </div>
 
-        {/* Street netto */}
         <div className="text-right">
           <label className="block text-[11px] text-gray-500 mb-1">Streetprice netto</label>
           <div className="text-gray-700 font-medium">
@@ -410,7 +548,6 @@ function ItemRow({
           </div>
         </div>
 
-        {/* Invest */}
         <div>
           <label className="block text-[11px] text-gray-500 mb-1">Invest (CHF)</label>
           <input
@@ -424,7 +561,6 @@ function ItemRow({
           />
         </div>
 
-        {/* Marge auf Street */}
         <div className="text-right">
           <label className="block text-[11px] text-gray-500 mb-1">Marge auf Street (%)</label>
           <input
@@ -438,7 +574,6 @@ function ItemRow({
           />
         </div>
 
-        {/* EK neu */}
         <div>
           <label className="block text-[11px] text-gray-500 mb-1">
             Händlerpreis / EK neu (CHF)
@@ -452,7 +587,7 @@ function ItemRow({
               setPriceNewInput(val);
 
               const num = parseNum(val);
-              if (!isNaN(num)) onPriceChange(num); //  ← num ist number → korrekt!
+              if (!isNaN(num)) onPriceChange(num);
             }}
             onBlur={() => {
               const num = parseNum(priceNewInput);
@@ -464,9 +599,6 @@ function ItemRow({
           />
         </div>
 
-
-
-        {/* Marge zum UPE netto */}
         <div className="text-right">
           <label className="block text-[11px] text-gray-500 mb-1">Marge zum UPE netto</label>
           <div className="text-gray-700 font-medium">
@@ -474,8 +606,9 @@ function ItemRow({
           </div>
         </div>
 
-        {/* Quelle */}
-        <div className="col-span-2 mt-3 font-medium text-gray-700 mb-1">Günstigster Anbieter (Markt)</div>
+        <div className="col-span-2 mt-3 font-medium text-gray-700 mb-1">
+          Günstigster Anbieter (Markt)
+        </div>
         <div>
           <label className="block text-[11px] text-gray-500 mb-1">Anbieter / Quelle</label>
           <select
@@ -510,7 +643,6 @@ function ItemRow({
           )}
         </div>
 
-        {/* Distributor */}
         <div className="col-span-2 mt-2">
           <label className="block text-[11px] text-gray-500 mb-1">Distributor</label>
           <select
@@ -533,7 +665,6 @@ function ItemRow({
   );
 }
 
-/* ---------- Hauptkomponente ---------- */
 export default function OrderDetailView({
   submission,
   onStatusChange,
@@ -557,7 +688,9 @@ export default function OrderDetailView({
     if (!error && data) setRows(data as unknown as ViewRow[]);
   }, [supabase, submission.submission_id]);
 
-  useEffect(() => { refresh(); }, [refresh]);
+  useEffect(() => {
+    refresh();
+  }, [refresh]);
 
   useEffect(() => {
     (async () => {
@@ -603,7 +736,9 @@ export default function OrderDetailView({
                 Bestellung #{head.submission_id} – {head.dealer_name ?? "–"}
               </h3>
               <p className="text-xs text-gray-500">{head.dealer_email ?? "-"}</p>
-              <p className="text-[11px] text-gray-400">{new Date(head.created_at).toLocaleDateString("de-CH")}</p>
+              <p className="text-[11px] text-gray-400">
+                {new Date(head.created_at).toLocaleDateString("de-CH")}
+              </p>
             </div>
           </div>
         </CardHeader>
@@ -622,7 +757,6 @@ export default function OrderDetailView({
             ))}
           </div>
 
-          {/* Summe */}
           <div className="mt-4 flex justify-end text-sm">
             <div className="rounded-lg border px-3 py-2 bg-gray-50">
               <span className="text-gray-600 mr-3">Gesamtbetrag:</span>
@@ -632,10 +766,11 @@ export default function OrderDetailView({
         </CardContent>
       </Card>
 
-      {/* (Optional) E-Mail-Vorschau kann hier geöffnet werden, falls du den Button im Header ergänzen willst */}
       <Dialog open={!!previewHtml} onOpenChange={(o) => !o && setPreviewHtml(null)}>
         <DialogContent className="max-w-3xl">
-          <DialogHeader><DialogTitle>E-Mail-Vorschau</DialogTitle></DialogHeader>
+          <DialogHeader>
+            <DialogTitle>E-Mail-Vorschau</DialogTitle>
+          </DialogHeader>
           <div
             className="prose max-w-none border rounded-md p-4 bg-white"
             dangerouslySetInnerHTML={{ __html: previewHtml || "" }}

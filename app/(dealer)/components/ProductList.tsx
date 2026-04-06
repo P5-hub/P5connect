@@ -94,7 +94,7 @@ export default function ProductList<T extends { product: Product }>({
 
   if (customProducts?.length) {
     return (
-      <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
         {customProducts.map((p, i) => (
           <CardComponent key={i} {...({ product: p, ...cardProps } as T)} />
         ))}
@@ -110,7 +110,6 @@ export default function ProductList<T extends { product: Product }>({
     return (
       <div className="max-w-lg">
         <ProductCardSupportCost
-          // SupportCard nutzt immer onAddToCart
           onAddToCart={(cardProps as any)?.onAddToCart ?? (() => {})}
         />
       </div>
@@ -240,8 +239,7 @@ export default function ProductList<T extends { product: Product }>({
 
   return (
     <div className="space-y-6">
-      {/* FILTERBAR */}
-      <div className="sticky top-[96px] bg-white dark:bg-gray-900 p-4 border rounded-xl flex flex-wrap gap-4 z-20">
+      <div className="sticky top-[96px] z-20 flex flex-wrap gap-4 rounded-xl border bg-white p-4 dark:bg-gray-900">
         <Input
           placeholder={t("product.search")}
           value={search}
@@ -249,12 +247,11 @@ export default function ProductList<T extends { product: Product }>({
           className="max-w-xs"
         />
 
-        {/* Gruppenfilter */}
         <Popover open={openGruppe} onOpenChange={setOpenGruppe}>
           <PopoverTrigger asChild>
             <Button variant="outline" className="w-[180px] justify-between">
               {gruppe || t("product.groups.all")}
-              <ChevronsUpDown className="w-4 h-4 opacity-50" />
+              <ChevronsUpDown className="h-4 w-4 opacity-50" />
             </Button>
           </PopoverTrigger>
           <PopoverContent className="w-[180px] p-0">
@@ -278,12 +275,11 @@ export default function ProductList<T extends { product: Product }>({
           </PopoverContent>
         </Popover>
 
-        {/* Kategorienfilter */}
         <Popover open={openCategory} onOpenChange={setOpenCategory}>
           <PopoverTrigger asChild>
             <Button variant="outline" className="w-[180px] justify-between">
               {category || t("product.categories.all")}
-              <ChevronsUpDown className="w-4 h-4 opacity-50" />
+              <ChevronsUpDown className="h-4 w-4 opacity-50" />
             </Button>
           </PopoverTrigger>
           <PopoverContent className="w-[180px] p-0">
@@ -306,7 +302,6 @@ export default function ProductList<T extends { product: Product }>({
           </PopoverContent>
         </Popover>
 
-        {/* Reset */}
         <Button
           variant="outline"
           onClick={() => {
@@ -319,7 +314,6 @@ export default function ProductList<T extends { product: Product }>({
           {t("product.reset")}
         </Button>
 
-        {/* CSV-Import */}
         {showCSVButton && (
           <>
             <input
@@ -340,11 +334,10 @@ export default function ProductList<T extends { product: Product }>({
         )}
       </div>
 
-      {/* PRODUKTGRID */}
       {loading ? (
         <p className="text-gray-500">{t("product.loading")}</p>
       ) : (
-        <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
           {filtered.map((p) => (
             <CardComponent
               key={p.product_id}
