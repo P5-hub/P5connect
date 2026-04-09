@@ -1,7 +1,7 @@
 // types/Product.ts
 
 export type Product = {
-  product_id: number;
+  product_id: string;
   ean: string | null;
   product_name: string | null;
   sony_article: string | null;
