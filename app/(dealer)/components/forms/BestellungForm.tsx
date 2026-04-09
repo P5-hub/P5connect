@@ -24,6 +24,7 @@ import { calcCampaignPrice } from "@/lib/helpers/campaignPricing";
 import { getDealerIdFromUrl } from "@/lib/dealer/getDealerIdFromUrl";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
+import { useI18n } from "@/lib/i18n/I18nProvider";
 
 type ActiveCampaign = {
   campaign_id: number;
@@ -89,6 +90,11 @@ type ProductLike = {
   dealer_invoice_price?: number | null;
   price_on_invoice?: number | null;
   vrg?: number | null;
+
+  // 🔧 Manual price override
+  price?: number;
+  price_manual_override?: boolean;
+  price_manual_override_value?: number | null;
 };
 
 type DealerPricingGroup = {
@@ -111,7 +117,8 @@ const MWST_RATE = 8.1;
 const TOAST_DURATION = 4000;
 
 function safeNum(v: any) {
-  return isFinite(v) && !isNaN(v) ? parseFloat(Number(v).toFixed(2)) : 0;
+  const n = Number(v);
+  return Number.isFinite(n) ? parseFloat(n.toFixed(2)) : 0;
 }
 
 function formatCurrency(value: number | null | undefined, min = 2, max = 2) {
@@ -149,13 +156,13 @@ function InfoCard({
   };
 
   return (
-    <div className={`rounded-2xl border px-4 py-4 shadow-sm ${toneClasses[tone]}`}>
-      <div className="mb-3 flex items-start gap-3">
-        <div className="mt-0.5 rounded-xl bg-white/80 p-2 shadow-sm ring-1 ring-black/5">
+    <div className={`rounded-2xl border px-3 py-3 shadow-sm ${toneClasses[tone]}`}>
+      <div className="mb-2 flex items-start gap-2">
+        <div className="mt-0.5 rounded-xl bg-white/80 p-1.5 shadow-sm ring-1 ring-black/5">
           {icon}
         </div>
         <div className="min-w-0">
-          <h2 className="text-base font-semibold text-slate-900">{title}</h2>
+          <h2 className="text-sm font-semibold leading-tight text-slate-900">{title}</h2>
         </div>
       </div>
       {children}
@@ -197,27 +204,29 @@ function CampaignValueRow({
 
 function CampaignBadge({
   mode,
+  t,
 }: {
   mode: CampaignProductRow["pricing_mode"];
+  t: (key: string, params?: Record<string, string | number>) => string;
 }) {
   const config =
     mode === "display"
       ? {
-          label: "Display",
+          label: t("bestellung.campaign.badge.display"),
           className: "border-sky-200 bg-sky-50 text-sky-700",
         }
       : mode === "mixed"
       ? {
-          label: "Messe + Display",
+          label: t("bestellung.campaign.badge.mixed"),
           className: "border-violet-200 bg-violet-50 text-violet-700",
         }
       : mode === "messe"
       ? {
-          label: "Messepreis",
+          label: t("bestellung.campaign.badge.messe"),
           className: "border-emerald-200 bg-emerald-50 text-emerald-700",
         }
       : {
-          label: "Aktion",
+          label: t("bestellung.campaign.badge.standard"),
           className: "border-indigo-200 bg-indigo-50 text-indigo-700",
         };
 
@@ -232,6 +241,7 @@ function CampaignBadge({
 }
 
 export default function BestellungForm() {
+  const { t } = useI18n();
   const dealer = useDealer();
   const searchParams = useSearchParams();
   const effectiveDealerId = getDealerIdFromUrl(searchParams, dealer?.dealer_id);
@@ -442,7 +452,7 @@ export default function BestellungForm() {
                   : null;
 
               if (explicitDisplayPrice != null && explicitDisplayPrice > 0) {
-                return explicitDisplayPrice;
+                return safeNum(explicitDisplayPrice);
               }
 
               const displayDiscountPercent =
@@ -487,14 +497,14 @@ export default function BestellungForm() {
                 pricing.display_price_netto != null &&
                 Number(pricing.display_price_netto) > 0
               ) {
-                return Number(pricing.display_price_netto);
+                return safeNum(pricing.display_price_netto);
               }
 
               if (
                 pricing.final_unit_price != null &&
                 Number(pricing.final_unit_price) > 0
               ) {
-                return Number(pricing.final_unit_price);
+                return safeNum(pricing.final_unit_price);
               }
 
               return null;
@@ -524,9 +534,16 @@ export default function BestellungForm() {
 
             return {
               ...row,
-              messe_price_netto: bestMessePrice,
-              display_price_netto: bestDisplayPrice,
-              display_discount_percent: bestDisplayFactor,
+              messe_price_netto:
+                bestMessePrice != null ? safeNum(bestMessePrice) : row.messe_price_netto,
+              display_price_netto:
+                bestDisplayPrice != null
+                  ? safeNum(bestDisplayPrice)
+                  : row.display_price_netto,
+              display_discount_percent:
+                bestDisplayFactor != null
+                  ? safeNum(bestDisplayFactor)
+                  : row.display_discount_percent,
               matched_group_codes: matchedGroups.map((g) => g.code),
               matched_group_names: matchedGroups.map((g) => g.name),
               has_group_override: true,
@@ -772,7 +789,7 @@ export default function BestellungForm() {
 
   const getDerivedDisplayPriceNetto = (cp: CampaignProductRow): number | null => {
     if (cp.display_price_netto != null) {
-      return Number(cp.display_price_netto);
+      return safeNum(cp.display_price_netto);
     }
 
     const hasDisplayOption =
@@ -794,11 +811,11 @@ export default function BestellungForm() {
     });
 
     if (pricing.display_price_netto != null) {
-      return Number(pricing.display_price_netto);
+      return safeNum(pricing.display_price_netto);
     }
 
     if (pricing.final_unit_price != null && Number(pricing.final_unit_price) > 0) {
-      return Number(pricing.final_unit_price);
+      return safeNum(pricing.final_unit_price);
     }
 
     return null;
@@ -830,19 +847,31 @@ export default function BestellungForm() {
 
     const pricingMode = options?.pricingModeOverride ?? derivedPricingMode;
 
-    const upeBrutto = Number(product.retail_price ?? 0);
-    const dealerInvoicePrice = Number(product.dealer_invoice_price ?? 0);
-    const vrgAmount = Number(product.vrg ?? 0);
+    const upeBrutto = safeNum(product.retail_price ?? 0);
+    const dealerInvoicePrice = safeNum(product.dealer_invoice_price ?? 0);
+    const vrgAmount = safeNum(product.vrg ?? 0);
+    const manualOverride = product.price_manual_override === true;
+    const manualPrice =
+      product.price_manual_override_value != null
+        ? safeNum(product.price_manual_override_value)
+        : product.price != null
+        ? safeNum(product.price)
+        : null;
 
     const messePriceNetto =
       useCampaign && campaignRow?.messe_price_netto != null
-        ? Number(campaignRow.messe_price_netto)
+        ? safeNum(campaignRow.messe_price_netto)
         : null;
 
     const displayFactorPercent =
       useCampaign && campaignRow?.display_discount_percent != null
-        ? Number(campaignRow.display_discount_percent)
+        ? safeNum(campaignRow.display_discount_percent)
         : 50;
+
+    const explicitDisplayPriceNetto =
+      useCampaign && campaignRow?.display_price_netto != null
+        ? safeNum(campaignRow.display_price_netto)
+        : null;
 
     const maxQtyPerDealer =
       useCampaign && campaignRow?.max_qty_per_dealer != null
@@ -860,10 +889,14 @@ export default function BestellungForm() {
       maxQtyPerDealer > 0 &&
       currentQtyInCart >= maxQtyPerDealer
     ) {
-      toast.error("Maximale Aktionsmenge erreicht", {
-        description: `Für ${
-          product.product_name || product.sony_article || "dieses Produkt"
-        } sind maximal ${maxQtyPerDealer} Stück pro Händler erlaubt.`,
+      toast.error(t("bestellung.toast.maxCampaignQtyTitle"), {
+        description: t("bestellung.toast.maxCampaignQtyText", {
+          product:
+            product.product_name ||
+            product.sony_article ||
+            t("bestellung.common.unknownProduct"),
+          count: maxQtyPerDealer,
+        }),
         duration: TOAST_DURATION,
       });
       return;
@@ -880,12 +913,36 @@ export default function BestellungForm() {
     });
 
     const finalUnitPrice =
-      pricingMode === "standard" ? dealerInvoicePrice : pricing.final_unit_price;
+      manualOverride && manualPrice != null
+        ? manualPrice
+        : pricingMode === "standard"
+        ? dealerInvoicePrice
+        : pricingMode === "display" && explicitDisplayPriceNetto != null
+        ? explicitDisplayPriceNetto
+        : pricingMode === "messe" && messePriceNetto != null
+        ? messePriceNetto
+        : safeNum(pricing.final_unit_price ?? 0);
+
+    const finalDisplayPriceNetto =
+      explicitDisplayPriceNetto != null
+        ? explicitDisplayPriceNetto
+        : pricing.display_price_netto != null
+        ? safeNum(pricing.display_price_netto)
+        : null;
+
+    const finalMessePriceNetto =
+      messePriceNetto != null
+        ? messePriceNetto
+        : pricing.messe_price_netto != null
+        ? safeNum(pricing.messe_price_netto)
+        : null;
 
     addItem("bestellung", {
       ...product,
       quantity: 1,
-      price: finalUnitPrice > 0 ? finalUnitPrice : 0,
+      price: safeNum(finalUnitPrice > 0 ? finalUnitPrice : 0),
+      price_manual_override: manualOverride,
+      price_manual_override_value: manualPrice,
 
       order_mode: orderMode,
       pricing_mode: pricingMode,
@@ -928,23 +985,19 @@ export default function BestellungForm() {
       vrg: vrgAmount,
       vrg_amount: vrgAmount,
       mwst_rate: MWST_RATE,
-      upe_netto_excl_vrg: pricing.upe_netto_excl_vrg,
-
-      display_factor_percent: displayFactorPercent,
-      display_price_netto:
-        useCampaign && campaignRow?.display_price_netto != null
-          ? Number(campaignRow.display_price_netto)
-          : pricing.display_price_netto,
-
-      messe_price_netto:
-        useCampaign && campaignRow?.messe_price_netto != null
-          ? Number(campaignRow.messe_price_netto)
-          : useCampaign
-          ? pricing.messe_price_netto
+      upe_netto_excl_vrg:
+        pricing.upe_netto_excl_vrg != null
+          ? safeNum(pricing.upe_netto_excl_vrg)
           : null,
 
+      display_factor_percent: displayFactorPercent,
+      display_price_netto: finalDisplayPriceNetto,
+      messe_price_netto: finalMessePriceNetto,
+
       display_discount_vs_hrp_percent:
-        useCampaign ? pricing.display_discount_vs_hrp_percent : null,
+        useCampaign && pricing.display_discount_vs_hrp_percent != null
+          ? safeNum(pricing.display_discount_vs_hrp_percent)
+          : null,
 
       matched_group_codes: useCampaign ? campaignRow?.matched_group_codes || [] : [],
       matched_group_names: useCampaign ? campaignRow?.matched_group_names || [] : [],
@@ -959,21 +1012,18 @@ export default function BestellungForm() {
         upe_brutto: upeBrutto,
         vrg_amount: vrgAmount,
         mwst_rate: MWST_RATE,
-        upe_netto_excl_vrg: pricing.upe_netto_excl_vrg,
-        display_factor_percent: displayFactorPercent,
-        display_price_netto:
-          useCampaign && campaignRow?.display_price_netto != null
-            ? Number(campaignRow.display_price_netto)
-            : pricing.display_price_netto,
-        messe_price_netto:
-          useCampaign && campaignRow?.messe_price_netto != null
-            ? Number(campaignRow.messe_price_netto)
-            : useCampaign
-            ? pricing.messe_price_netto
+        upe_netto_excl_vrg:
+          pricing.upe_netto_excl_vrg != null
+            ? safeNum(pricing.upe_netto_excl_vrg)
             : null,
-        final_unit_price: finalUnitPrice,
+        display_factor_percent: displayFactorPercent,
+        display_price_netto: finalDisplayPriceNetto,
+        messe_price_netto: finalMessePriceNetto,
+        final_unit_price: safeNum(finalUnitPrice),
         display_discount_vs_hrp_percent:
-          useCampaign ? pricing.display_discount_vs_hrp_percent : null,
+          useCampaign && pricing.display_discount_vs_hrp_percent != null
+            ? safeNum(pricing.display_discount_vs_hrp_percent)
+            : null,
         matched_group_codes: useCampaign ? campaignRow?.matched_group_codes || [] : [],
         matched_group_names: useCampaign ? campaignRow?.matched_group_names || [] : [],
         has_group_override: useCampaign ? campaignRow?.has_group_override || false : false,
@@ -983,10 +1033,13 @@ export default function BestellungForm() {
 
     openCart("bestellung");
 
-    toast.success("Produkt hinzugefügt", {
-      description: `${
-        product.product_name || product.sony_article || "Produkt"
-      } wurde in den Warenkorb gelegt.`,
+    toast.success(t("bestellung.toast.productAddedTitle"), {
+      description: t("bestellung.toast.productAddedText", {
+        product:
+          product.product_name ||
+          product.sony_article ||
+          t("bestellung.common.unknownProduct"),
+      }),
       duration: TOAST_DURATION,
     });
   };
@@ -1002,7 +1055,7 @@ export default function BestellungForm() {
       <div className="rounded-xl border border-slate-200 bg-white px-4 py-4 text-sm text-slate-500 shadow-sm">
         <div className="flex items-center gap-2">
           <Loader2 className="h-4 w-4 animate-spin text-slate-400" />
-          <span>Händlerdaten werden geladen…</span>
+          <span>{t("bestellung.loading.dealerData")}</span>
         </div>
       </div>
     );
@@ -1011,13 +1064,13 @@ export default function BestellungForm() {
   return (
     <div className="space-y-5">
       {activeCampaign && (
-        <div className="grid grid-cols-1 gap-4 xl:grid-cols-3">
+        <div className="grid grid-cols-1 gap-3 xl:grid-cols-3">
           <InfoCard
             tone="indigo"
             icon={<Store className="h-4 w-4 text-indigo-600" strokeWidth={2} />}
-            title="Aktive Messekampagne"
+            title={t("bestellung.campaign.activeTradefairCampaign")}
           >
-            <div className="flex h-full flex-col justify-between gap-3">
+            <div className="flex h-full flex-col justify-between gap-2">
               <div>
                 <p className="text-sm font-semibold text-slate-900">
                   {activeCampaign.name}
@@ -1026,14 +1079,15 @@ export default function BestellungForm() {
                 <div className="mt-2 flex items-center gap-2 text-xs text-slate-600">
                   <CalendarRange className="h-3.5 w-3.5 text-slate-400" />
                   <span>
-                    Gültig von {activeCampaign.start_date} bis {activeCampaign.end_date}
+                    {t("bestellung.campaign.validFromTo", {
+                      start: activeCampaign.start_date,
+                      end: activeCampaign.end_date,
+                    })}
                   </span>
                 </div>
               </div>
 
-              <div className="inline-flex w-fit rounded-full bg-indigo-100 px-3 py-1 text-xs font-semibold text-indigo-700">
-                {campaignProducts.length} Aktionsprodukte
-              </div>
+
             </div>
           </InfoCard>
 
@@ -1041,19 +1095,23 @@ export default function BestellungForm() {
             <InfoCard
               tone="green"
               icon={<Sparkles className="h-4 w-4 text-emerald-600" strokeWidth={2} />}
-              title="Bonus Fortschritt"
+              title={t("bestellung.campaign.progress.title")}
             >
-              <div className="flex h-full flex-col justify-between gap-3">
+              <div className="flex h-full flex-col justify-between gap-1">
                 <div className="flex items-end justify-between gap-3">
                   <div>
-                    <p className="text-xs text-slate-500">Nach Absenden</p>
-                    <p className="text-lg font-bold text-emerald-900">
+                    <p className="text-xs text-slate-500">
+                      {t("bestellung.campaign.progress.afterSubmit")}
+                    </p>
+                    <p className="text-base font-bold text-emerald-900">
                       {formatCurrency(totalProgressAfterSubmit)}
                     </p>
                   </div>
 
                   <div className="text-right">
-                    <p className="text-xs text-slate-500">Fortschritt</p>
+                    <p className="text-xs text-slate-500">
+                      {t("bestellung.campaign.progress.progress")}
+                    </p>
                     <p className="text-sm font-semibold text-emerald-700">
                       {liveBonusProgressPercent}%
                     </p>
@@ -1076,19 +1134,25 @@ export default function BestellungForm() {
 
                 <div className="grid grid-cols-3 gap-2 text-xs">
                   <div className="rounded-lg border border-emerald-200 bg-white px-2 py-2">
-                    <div className="text-slate-500">Bereits</div>
+                    <div className="text-slate-500">
+                      {t("bestellung.campaign.progress.already")}
+                    </div>
                     <div className="font-semibold text-slate-900">
                       {formatCurrency(bookedRevenue, 0, 2)}
                     </div>
                   </div>
                   <div className="rounded-lg border border-emerald-200 bg-white px-2 py-2">
-                    <div className="text-slate-500">Cart</div>
+                    <div className="text-slate-500">
+                      {t("bestellung.campaign.progress.cart")}
+                    </div>
                     <div className="font-semibold text-slate-900">
                       {formatCurrency(liveCartProgressValue, 0, 2)}
                     </div>
                   </div>
                   <div className="rounded-lg border border-emerald-200 bg-white px-2 py-2">
-                    <div className="text-slate-500">Total</div>
+                    <div className="text-slate-500">
+                      {t("bestellung.campaign.progress.total")}
+                    </div>
                     <div className="font-semibold text-slate-900">
                       {formatCurrency(totalProgressAfterSubmit, 0, 2)}
                     </div>
@@ -1101,13 +1165,16 @@ export default function BestellungForm() {
           <InfoCard
             tone="amber"
             icon={<Trophy className="h-4 w-4 text-amber-600" strokeWidth={2} />}
-            title="Nächste Bonusstufe"
+            title={t("bestellung.campaign.progress.nextTier")}
           >
             {liveNextBonusTier ? (
-              <div className="flex h-full flex-col justify-between gap-3">
+              <div className="flex h-full flex-col justify-between gap-1">
                 <div>
                   <p className="text-sm font-semibold text-slate-900">
-                    {liveNextBonusTier.label || `Stufe ${liveNextBonusTier.tier_level}`}
+                    {liveNextBonusTier.label ||
+                      t("bestellung.campaign.progress.level", {
+                        level: liveNextBonusTier.tier_level,
+                      })}
                   </p>
 
                   <p className="mt-1 text-xs text-slate-600">
@@ -1115,7 +1182,7 @@ export default function BestellungForm() {
                   </p>
 
                   <p className="mt-2 text-xs text-amber-800">
-                    Bonus:{" "}
+                    {t("bestellung.campaign.progress.bonus")}:{" "}
                     {liveNextBonusTier.bonus_type === "percent"
                       ? `${liveNextBonusTier.bonus_value}%`
                       : `${formatNumber(liveNextBonusTier.bonus_value, 0, 2)} CHF`}
@@ -1123,23 +1190,29 @@ export default function BestellungForm() {
                 </div>
 
                 <div className="rounded-xl border border-amber-200 bg-white px-3 py-2 text-sm font-semibold text-amber-900">
-                  Es fehlen noch: {formatCurrency(liveRemainingToNextTier)}
+                  {t("bestellung.campaign.progress.missingToNext", {
+                    amount: formatCurrency(liveRemainingToNextTier),
+                  })}
                 </div>
               </div>
             ) : liveReachedBonusTier ? (
-              <div className="flex h-full flex-col justify-between gap-3">
+              <div className="flex h-full flex-col justify-between gap-2">
                 <div className="flex items-center gap-2 text-indigo-900">
                   <CheckCircle2 className="h-4 w-4" />
-                  <p className="text-sm font-semibold">Höchste Bonusstufe erreicht</p>
+                  <p className="text-sm font-semibold">
+                    {t("bestellung.campaign.progress.highestTierReached")}
+                  </p>
                 </div>
 
                 <div className="rounded-xl border border-indigo-200 bg-white px-3 py-2 text-sm">
                   <div className="font-semibold text-slate-900">
                     {liveReachedBonusTier.label ||
-                      `Stufe ${liveReachedBonusTier.tier_level}`}
+                      t("bestellung.campaign.progress.level", {
+                        level: liveReachedBonusTier.tier_level,
+                      })}
                   </div>
                   <div className="mt-1 text-xs text-slate-600">
-                    Bonus:{" "}
+                    {t("bestellung.campaign.progress.bonus")}:{" "}
                     {liveReachedBonusTier.bonus_type === "percent"
                       ? `${liveReachedBonusTier.bonus_value}%`
                       : `${formatNumber(liveReachedBonusTier.bonus_value, 0, 2)} CHF`}
@@ -1147,7 +1220,9 @@ export default function BestellungForm() {
                 </div>
               </div>
             ) : (
-              <div className="text-sm text-slate-500">Noch keine Bonusstufe verfügbar.</div>
+              <div className="text-sm text-slate-500">
+                {t("bestellung.campaign.progress.noTierAvailable")}
+              </div>
             )}
           </InfoCard>
         </div>
@@ -1157,7 +1232,7 @@ export default function BestellungForm() {
         <div className="rounded-xl border border-slate-200 bg-white px-4 py-4 text-sm text-slate-500 shadow-sm">
           <div className="flex items-center gap-2">
             <Loader2 className="h-4 w-4 animate-spin text-slate-400" />
-            <span>Lade Messekampagne…</span>
+            <span>{t("bestellung.loading.campaign")}</span>
           </div>
         </div>
       )}
@@ -1173,7 +1248,7 @@ export default function BestellungForm() {
           }
           onClick={() => setProductViewMode("all")}
         >
-          Beide anzeigen
+          {t("bestellung.viewMode.both")}
         </Button>
 
         <Button
@@ -1186,7 +1261,7 @@ export default function BestellungForm() {
           }
           onClick={() => setProductViewMode("campaign")}
         >
-          Nur Messeprodukte
+          {t("bestellung.viewMode.campaignOnly")}
         </Button>
 
         <Button
@@ -1199,30 +1274,34 @@ export default function BestellungForm() {
           }
           onClick={() => setProductViewMode("standard")}
         >
-          Nur Standardprodukte
+          {t("bestellung.viewMode.standardOnly")}
         </Button>
       </div>
 
       {productViewMode !== "standard" && activeCampaign && campaignProducts.length > 0 && (
-        <div className="rounded-3xl border border-sky-100 bg-gradient-to-br from-sky-50 via-white to-emerald-50 p-4 shadow-sm md:p-5">
-          <div className="mb-4 flex items-start gap-3">
-            <div className="mt-0.5 rounded-2xl bg-white p-2.5 shadow-sm ring-1 ring-slate-200">
-              <Flame className="h-4 w-4 text-sky-600" strokeWidth={2} />
+        <div className="rounded-3xl border border-sky-100 bg-gradient-to-br from-sky-50 via-white to-emerald-50 p-3 shadow-sm md:p-4">
+          <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+            <div className="flex min-w-0 items-center gap-2">
+              <div className="rounded-xl bg-white p-2 shadow-sm ring-1 ring-slate-200">
+                <Flame className="h-4 w-4 text-sky-600" strokeWidth={2} />
+              </div>
+
+              <div className="min-w-0">
+                <h2 className="text-sm font-semibold leading-tight text-slate-900">
+                  {t("bestellung.campaign.campaignProducts")}
+                </h2>
+                <p className="text-xs text-slate-600">
+                  {t("bestellung.campaign.campaignProductsIntro")}
+                </p>
+              </div>
             </div>
 
-            <div className="min-w-0">
-              <h2 className="text-base font-semibold text-slate-900">Messeprodukte</h2>
-              <p className="mt-1 text-sm text-slate-600">
-                Diese Produkte sind aktuell Teil der Messeaktion.
-              </p>
-            </div>
-          </div>
-
-          <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
             <div className="rounded-full bg-white/90 px-3 py-1 text-xs font-semibold text-sky-700 ring-1 ring-sky-100">
-              {filteredCampaignProducts.length} / {campaignProducts.length} Produkt(e)
+              {filteredCampaignProducts.length} / {campaignProducts.length} Produkte
             </div>
           </div>
+
+          
 
           <div className="mb-5 grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-[minmax(0,1.4fr)_220px_220px_auto]">
             <div className="relative">
@@ -1231,7 +1310,7 @@ export default function BestellungForm() {
                 type="text"
                 value={campaignSearch}
                 onChange={(e) => setCampaignSearch(e.target.value)}
-                placeholder="Suche nach Artikel, Name, EAN, Marke …"
+                placeholder={t("bestellung.campaign.filters.searchPlaceholder")}
                 className="h-11 w-full rounded-2xl border border-slate-200 bg-white pl-10 pr-3 text-sm text-slate-900 outline-none transition focus:border-sky-300 focus:ring-4 focus:ring-sky-100"
               />
             </div>
@@ -1241,7 +1320,7 @@ export default function BestellungForm() {
               onChange={(e) => setCampaignGroupFilter(e.target.value)}
               className="h-11 rounded-2xl border border-slate-200 bg-white px-3 text-sm text-slate-900 outline-none transition focus:border-sky-300 focus:ring-4 focus:ring-sky-100"
             >
-              <option value="all">Alle Gruppen</option>
+              <option value="all">{t("bestellung.campaign.filters.allGroups")}</option>
               {campaignGroups.map((group) => (
                 <option key={group} value={group ?? ""}>
                   {group}
@@ -1254,7 +1333,9 @@ export default function BestellungForm() {
               onChange={(e) => setCampaignCategoryFilter(e.target.value)}
               className="h-11 rounded-2xl border border-slate-200 bg-white px-3 text-sm text-slate-900 outline-none transition focus:border-sky-300 focus:ring-4 focus:ring-sky-100"
             >
-              <option value="all">Alle Kategorien</option>
+              <option value="all">
+                {t("bestellung.campaign.filters.allCategories")}
+              </option>
               {campaignCategories.map((category) => (
                 <option key={category} value={category ?? ""}>
                   {category}
@@ -1269,13 +1350,13 @@ export default function BestellungForm() {
               onClick={resetCampaignFilters}
             >
               <X className="mr-2 h-4 w-4" />
-              Zurücksetzen
+              {t("bestellung.common.reset")}
             </Button>
           </div>
 
           {filteredCampaignProducts.length === 0 ? (
             <div className="rounded-3xl border border-dashed border-slate-200 bg-white/80 px-4 py-10 text-center text-sm text-slate-500">
-              Keine Messeprodukte gefunden.
+              {t("bestellung.campaign.noCampaignProducts")}
             </div>
           ) : (
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
@@ -1292,38 +1373,40 @@ export default function BestellungForm() {
                       <div className="flex items-start justify-between gap-2">
                         <div className="min-w-0">
                           <p className="truncate text-[15px] font-semibold text-slate-900">
-                            {cp.sony_article || cp.product_name || "Aktionsprodukt"}
+                            {cp.sony_article ||
+                              cp.product_name ||
+                              t("bestellung.common.unknownProduct")}
                           </p>
                           <p className="mt-0.5 line-clamp-2 text-xs text-slate-500">
                             {cp.product_name || "–"}
                           </p>
                           <p className="mt-0.5 text-[11px] text-slate-400">
-                            EAN: {cp.ean || "–"}
+                            {t("bestellung.cartSheet.product.ean")}: {cp.ean || "–"}
                           </p>
                         </div>
 
                         <div className="shrink-0">
-                          <CampaignBadge mode={cp.pricing_mode} />
+                          <CampaignBadge mode={cp.pricing_mode} t={t} />
                         </div>
                       </div>
 
                       <div className="mt-3 rounded-xl border border-slate-100 bg-slate-50/80 p-2.5 text-[12px]">
                         <CampaignValueRow
-                          label="UPE brutto"
+                          label={t("bestellung.campaign.pricing.upeGross")}
                           value={formatCurrency(cp.retail_price)}
                         />
                         <CampaignValueRow
-                          label="Händlerpreis"
+                          label={t("bestellung.campaign.pricing.dealerPrice")}
                           value={formatCurrency(cp.dealer_invoice_price)}
                         />
                         <CampaignValueRow
-                          label="Messepreis netto"
+                          label={t("bestellung.campaign.pricing.messePriceNet")}
                           value={formatCurrency(cp.messe_price_netto)}
                           valueClassName="font-semibold text-sky-700"
                         />
                         {showDisplayPrice && (
                           <CampaignValueRow
-                            label="Displaypreis netto"
+                            label={t("bestellung.campaign.pricing.displayPriceNet")}
                             value={formatCurrency(derivedDisplayPriceNetto)}
                             valueClassName="font-semibold text-emerald-700"
                           />
@@ -1372,7 +1455,7 @@ export default function BestellungForm() {
                           }
                         >
                           <ShoppingCart className="mr-2 h-4 w-4" />
-                          In den Warenkorb
+                          {t("bestellung.common.addToCart")}
                         </Button>
                       </div>
                     </div>
@@ -1402,25 +1485,30 @@ export default function BestellungForm() {
         <InfoCard
           tone="default"
           icon={<CheckCircle2 className="h-4 w-4 text-slate-700" strokeWidth={2} />}
-          title="Warenkorb-Vorschau"
+          title={t("bestellung.preview.title")}
         >
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-            <StatBox label="Positionen im Warenkorb" value={currentCartItems.length} />
             <StatBox
-              label="Menge total"
+              label={t("bestellung.preview.positions")}
+              value={currentCartItems.length}
+            />
+            <StatBox
+              label={t("bestellung.preview.quantityTotal")}
               value={currentCartItems.reduce(
                 (sum, item) => sum + Number(item?.quantity ?? 0),
                 0
               )}
             />
             <StatBox
-              label="Warenwert"
+              label={t("bestellung.preview.cartValue")}
               value={formatCurrency(
                 currentCartItems.reduce(
                   (sum, item) =>
                     sum + Number(item?.quantity ?? 0) * Number(item?.price ?? 0),
                   0
-                )
+                ),
+                2,
+                2
               )}
             />
           </div>
@@ -1428,7 +1516,7 @@ export default function BestellungForm() {
           <div className="mt-4">
             <Button type="button" onClick={() => openCart("bestellung")}>
               <ShoppingCart className="mr-2 h-4 w-4" />
-              Warenkorb öffnen
+              {t("bestellung.common.cartOpen")}
             </Button>
           </div>
         </InfoCard>

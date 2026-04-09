@@ -141,87 +141,127 @@ function AdminLayoutInner({ children }: { children: ReactNode }) {
     setIsUserModalOpen(false);
   };
 
-  const handleUserUpdate = async () => {
-    setModalError(null);
-    setModalSuccess(null);
+const handleUserUpdate = async () => {
+  setModalError(null);
+  setModalSuccess(null);
 
-    const loginTrimmed = modalLogin.trim();
-    const newLoginTrimmed = modalNewLogin.trim();
-    const newPasswordTrimmed = modalNewPassword.trim();
+  const loginTrimmed = modalLogin.trim();
+  const newLoginTrimmed = modalNewLogin.trim();
+  const newPasswordTrimmed = modalNewPassword.trim();
 
-    if (!loginTrimmed) {
-      const msg = "Login / LoginNr ist erforderlich.";
+  if (!loginTrimmed) {
+    const msg = "Login / LoginNr ist erforderlich.";
+    setModalError(msg);
+    showToast("error", msg);
+    return;
+  }
+
+  if (!newPasswordTrimmed || newPasswordTrimmed.length < 6) {
+    const msg = "Das neue Passwort muss mindestens 6 Zeichen haben.";
+    setModalError(msg);
+    showToast("error", msg);
+    return;
+  }
+
+  if (newLoginTrimmed) {
+    const loginRegex = /^[A-Za-z0-9_-]+$/;
+    if (!loginRegex.test(newLoginTrimmed)) {
+      const msg =
+        "Neuer Login darf nur Buchstaben, Zahlen, '-' und '_' enthalten.";
       setModalError(msg);
       showToast("error", msg);
       return;
     }
+  }
 
-    if (!newPasswordTrimmed || newPasswordTrimmed.length < 6) {
-      const msg = "Das neue Passwort muss mindestens 6 Zeichen haben.";
-      setModalError(msg);
-      showToast("error", msg);
-      return;
+  const finalNewLogin = newLoginTrimmed || loginTrimmed;
+  const loginChanged = finalNewLogin !== loginTrimmed;
+  const passwordChanged = newPasswordTrimmed.length > 0;
+
+  if (loginChanged || passwordChanged) {
+    let confirmText = "Änderung bestätigen?";
+
+    if (loginChanged && passwordChanged) {
+      confirmText = `Sie ändern den Login von "${loginTrimmed}" auf "${finalNewLogin}" und setzen zusätzlich ein neues Passwort. Fortfahren?`;
+    } else if (loginChanged) {
+      confirmText = `Sie ändern den Login von "${loginTrimmed}" auf "${finalNewLogin}". Fortfahren?`;
+    } else if (passwordChanged) {
+      confirmText = "Sie setzen ein neues Passwort. Fortfahren?";
     }
 
-    if (newLoginTrimmed) {
-      const loginRegex = /^[A-Za-z0-9_-]+$/;
-      if (!loginRegex.test(newLoginTrimmed)) {
-        const msg =
-          "Neuer Login darf nur Buchstaben, Zahlen, '-' und '_' enthalten.";
-        setModalError(msg);
-        showToast("error", msg);
-        return;
-      }
-    }
+    const confirmed = window.confirm(confirmText);
+    if (!confirmed) return;
+  }
 
-    const finalNewLogin = newLoginTrimmed || loginTrimmed;
-    const loginChanged = finalNewLogin !== loginTrimmed;
-
-    if (loginChanged) {
-      const confirmed = window.confirm(
-        `Sie ändern den Login von "${loginTrimmed}" auf "${finalNewLogin}". Fortfahren?`
-      );
-      if (!confirmed) return;
-    }
-
-    const payload = {
-      oldLogin: loginTrimmed,
-      newLogin: finalNewLogin,
-      newPassword: newPasswordTrimmed,
-      performedBy: currentAdminEmail || currentAdminLogin || "admin-unknown",
-    };
-
-    try {
-      setModalLoading(true);
-      const res = await fetch("/api/admin/update-user", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-
-      const data = await res.json();
-
-      if (!res.ok || !data.success) {
-        const msg = data.error || "Unbekannter Fehler bei der Aktualisierung.";
-        setModalError(msg);
-        showToast("error", msg);
-        return;
-      }
-
-      const successMsg = loginChanged
-        ? "Login und Passwort erfolgreich aktualisiert."
-        : "Passwort erfolgreich aktualisiert (Login unverändert).";
-
-      setModalSuccess(successMsg);
-      showToast("success", successMsg);
-    } catch {
-      const msg = "Fehler beim Senden der Anfrage.";
-      setModalError(msg);
-      showToast("error", msg);
-    } finally {
-      setModalLoading(false);
-    }
+  const payload = {
+    oldLogin: loginTrimmed,
+    newLogin: finalNewLogin,
+    newPassword: newPasswordTrimmed,
+    performedBy: currentAdminEmail || currentAdminLogin || "admin-unknown",
   };
+
+  try {
+    setModalLoading(true);
+
+    const res = await fetch("/api/admin/update-user", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+
+    const data = await res.json();
+
+    if (!res.ok || !data.success) {
+      const msg = data.error || "Unbekannter Fehler bei der Aktualisierung.";
+      setModalError(msg);
+      showToast("error", msg);
+      return;
+    }
+
+    const changedOwnAccount = Boolean(data?.changedOwnAccount);
+
+    let successMsg = "Zugang erfolgreich aktualisiert.";
+    if (loginChanged && passwordChanged) {
+      successMsg = "Login und Passwort erfolgreich aktualisiert.";
+    } else if (loginChanged) {
+      successMsg = "Login erfolgreich aktualisiert.";
+    } else if (passwordChanged) {
+      successMsg = "Passwort erfolgreich aktualisiert.";
+    }
+
+    setModalLogin(finalNewLogin);
+    setModalNewLogin("");
+    setModalNewPassword("");
+    setShowPassword(false);
+
+    if (changedOwnAccount) {
+      setModalSuccess(`${successMsg} Du wirst jetzt neu angemeldet...`);
+      showToast("success", `${successMsg} Du wirst jetzt neu angemeldet...`);
+
+      // kurz sichtbar lassen, damit der Nutzer den Erfolg wahrnimmt
+      await new Promise((resolve) => setTimeout(resolve, 1600));
+
+      setIsUserModalOpen(false);
+      await supabase.auth.signOut();
+      window.location.href = "/login";
+      return;
+    }
+
+    setModalSuccess(successMsg);
+    showToast("success", successMsg);
+
+    setTimeout(() => {
+      setIsUserModalOpen(false);
+      setModalSuccess(null);
+    }, 1000);
+  } catch {
+    const msg = "Fehler beim Senden der Anfrage.";
+    setModalError(msg);
+    showToast("error", msg);
+  } finally {
+    setModalLoading(false);
+  }
+};
 
   const handleGeneratePassword = async () => {
     const pwd = generateRandomPassword(12);

@@ -36,6 +36,7 @@ import ProjectFileUpload from "@/app/(dealer)/components/project/ProjectFileUplo
 import { useTheme } from "@/lib/theme/ThemeContext";
 import { calcCampaignPrice } from "@/lib/helpers/campaignPricing";
 import { getDealerIdFromUrl } from "@/lib/dealer/getDealerIdFromUrl";
+import { useI18n } from "@/lib/i18n/I18nProvider";
 
 import {
   Sheet,
@@ -79,16 +80,28 @@ type CampaignUsageSummary = {
   total: number;
 };
 
-/* ------------------------------------------------------------------
-   💡 Hilfsfunktionen
-------------------------------------------------------------------- */
+type TranslateFn = (
+  key: string,
+  fallback: string,
+  params?: Record<string, string | number>
+) => string;
 
 const TOAST_DURATION = 4000;
 
-const toInt = (v: any) => (Number.isFinite(+v) ? Math.round(+v) : 0);
+const toQtyInt = (v: any) =>
+  Number.isFinite(+v) ? Math.max(0, Math.round(+v)) : 0;
+
+const toMoney = (v: any) => {
+  const n = Number(v);
+  return Number.isFinite(n) ? parseFloat(n.toFixed(2)) : 0;
+};
+
 const norm = (v: any) => (typeof v === "string" ? v.trim() : v ?? "");
-const safeNum = (v: any) =>
-  isFinite(v) && !isNaN(v) ? parseFloat(Number(v).toFixed(2)) : 0;
+
+const safeNum = (v: any) => {
+  const n = Number(v);
+  return Number.isFinite(n) ? parseFloat(n.toFixed(2)) : 0;
+};
 
 const formatNumberCH = (
   value: number | string | null | undefined,
@@ -124,7 +137,7 @@ const normalizeRequestedDate = (
 };
 
 const getEkNormal = (item: CartItem) =>
-  toInt(
+  toMoney(
     (item as any).dealer_invoice_price ??
       (item as any).product_price ??
       (item as any).ek_normal ??
@@ -145,9 +158,7 @@ const pickPreferred = (item: CartItem, allowed: string[]) => {
   }
 
   if (ph2.includes("dim")) {
-    return (
-      allowed.find((a) => a.toLowerCase().includes("engel")) || allowed[0]
-    );
+    return allowed.find((a) => a.toLowerCase().includes("engel")) || allowed[0];
   }
 
   if (ph2.includes("pds") || ph2.includes("pa")) {
@@ -213,30 +224,133 @@ const buildStandardOverflowItem = (
     pricing_mode: "standard",
     order_mode: "standard",
     is_display_item: false,
-
     campaign_id: null,
     campaign_name: null,
     campaign_name_snapshot: null,
-
     display_price_netto: null,
     messe_price_netto: null,
     display_discount_vs_hrp_percent: null,
-    pricing_snapshot: null,
-
+    pricing_snapshot: {
+      ...(item as any).pricing_snapshot,
+      source: "standard",
+      campaign_id: null,
+      campaign_name: null,
+      order_mode: "standard",
+      pricing_mode: "standard",
+      final_unit_price: normalPrice,
+      calculated_at: new Date().toISOString(),
+    },
     max_qty_per_dealer: null,
     max_display_qty_per_dealer: null,
     max_messe_qty_per_dealer: null,
     max_total_qty_per_dealer: null,
-
     overflow_from_campaign: true,
+    price_manual_override: false,
+    price_manual_override_value: null,
   };
 };
 
 const clampMinZero = (value: number) => Math.max(0, Number(value || 0));
 
-/* ------------------------------------------------------------------
-   Kleine UI-Helfer
-------------------------------------------------------------------- */
+const resolveCampaignPricingForItem = (
+  item: any,
+  nextPricingMode?: "standard" | "messe" | "display"
+) => {
+  const pricingMode =
+    nextPricingMode ??
+    (item?.is_display_item
+      ? "display"
+      : item?.pricing_mode === "messe"
+      ? "messe"
+      : "standard");
+
+  const upeBrutto = toMoney(item?.upe_brutto ?? item?.retail_price ?? 0);
+  const dealerInvoicePrice = toMoney(
+    item?.dealer_invoice_price ?? item?.product_price ?? 0
+  );
+  const vrgAmount = toMoney(item?.vrg_amount ?? item?.vrg ?? 0);
+  const mwstRate = toMoney(item?.mwst_rate ?? 8.1);
+
+  const snapshot = item?.pricing_snapshot ?? {};
+
+  const explicitDisplayPrice =
+    snapshot?.display_price_netto != null &&
+    Number(snapshot.display_price_netto) > 0
+      ? toMoney(snapshot.display_price_netto)
+      : item?.display_price_netto != null && Number(item.display_price_netto) > 0
+      ? toMoney(item.display_price_netto)
+      : null;
+
+  const explicitMessePrice =
+    snapshot?.messe_price_netto != null && Number(snapshot.messe_price_netto) > 0
+      ? toMoney(snapshot.messe_price_netto)
+      : item?.messe_price_netto != null && Number(item.messe_price_netto) > 0
+      ? toMoney(item.messe_price_netto)
+      : null;
+
+  const displayFactorPercent =
+    snapshot?.display_factor_percent != null
+      ? toMoney(snapshot.display_factor_percent)
+      : item?.display_factor_percent != null
+      ? toMoney(item.display_factor_percent)
+      : 50;
+
+  const calculated = calcCampaignPrice({
+    upe_brutto: upeBrutto,
+    dealer_invoice_price: dealerInvoicePrice,
+    vrg_amount: vrgAmount,
+    mwst_rate: mwstRate,
+    mode: pricingMode,
+    messe_price_netto: explicitMessePrice,
+    display_factor_percent: displayFactorPercent,
+  });
+
+  let finalUnitPrice = dealerInvoicePrice;
+
+  if (pricingMode === "display") {
+    finalUnitPrice =
+      explicitDisplayPrice != null && explicitDisplayPrice > 0
+        ? explicitDisplayPrice
+        : toMoney(calculated?.final_unit_price ?? 0);
+  } else if (pricingMode === "messe") {
+    finalUnitPrice =
+      explicitMessePrice != null && explicitMessePrice > 0
+        ? explicitMessePrice
+        : toMoney(calculated?.final_unit_price ?? 0);
+  } else {
+    finalUnitPrice = dealerInvoicePrice;
+  }
+
+  return {
+    pricing_mode: pricingMode,
+    final_unit_price: toMoney(finalUnitPrice),
+    upe_brutto: upeBrutto,
+    dealer_invoice_price: dealerInvoicePrice,
+    vrg_amount: vrgAmount,
+    mwst_rate: mwstRate,
+    upe_netto_excl_vrg:
+      calculated?.upe_netto_excl_vrg != null
+        ? toMoney(calculated.upe_netto_excl_vrg)
+        : null,
+    display_factor_percent: displayFactorPercent,
+    display_price_netto:
+      explicitDisplayPrice != null
+        ? explicitDisplayPrice
+        : calculated?.display_price_netto != null
+        ? toMoney(calculated.display_price_netto)
+        : null,
+    messe_price_netto:
+      explicitMessePrice != null
+        ? explicitMessePrice
+        : calculated?.messe_price_netto != null
+        ? toMoney(calculated.messe_price_netto)
+        : null,
+    display_discount_vs_hrp_percent:
+      calculated?.display_discount_vs_hrp_percent != null
+        ? toMoney(calculated.display_discount_vs_hrp_percent)
+        : null,
+  };
+};
 
 function SectionCard({
   title,
@@ -311,25 +425,24 @@ function FieldLabel({
   );
 }
 
-/* ------------------------------------------------------------------
-   🧱 PRODUKTKARTE
-------------------------------------------------------------------- */
-
 function ProductCard({
   item,
   index,
   cart,
   distis,
   campaignUsageMap,
+  historicalDisplayMap,
   updateItem,
   addItem,
   removeFromCart,
+  tr,
 }: {
   item: CartItem;
   index: number;
   cart: CartItem[];
   distis: Disti[];
   campaignUsageMap: Record<string, CampaignUsageSummary>;
+  historicalDisplayMap: Record<number, number>;
   updateItem: (
     form:
       | "verkauf"
@@ -352,17 +465,18 @@ function ProductCard({
     item: any
   ) => void;
   removeFromCart: (index: number) => void;
+  tr: TranslateFn;
 }) {
   const allowed = Array.isArray((item as any).allowedDistis)
     ? (item as any).allowedDistis
     : [];
 
   const ek = getEkNormal(item);
-  const price = toInt((item as any).price ?? 0);
-  const quantity = toInt((item as any).quantity ?? 1);
+  const price = toMoney((item as any).price ?? 0);
+  const quantity = toQtyInt((item as any).quantity ?? 1);
 
   const showSavings = ek > 0 && price > 0 && price < ek;
-  const savedCHF = showSavings ? ek - price : 0;
+  const savedCHF = showSavings ? toMoney(ek - price) : 0;
   const savedPercent = showSavings ? Math.round(((ek - price) / ek) * 100) : 0;
 
   const maxQtyPerDealer =
@@ -404,6 +518,11 @@ function ProductCard({
   const isCampaignItem = !!(item as any).campaign_id;
   const isDisplayItem = effectiveMode === "display";
   const isMesseItem = effectiveMode === "messe";
+
+  const historicalDisplayQty =
+    historicalDisplayMap[Number((item as any).product_id)] || 0;
+
+  const hasHistoricalDisplayOrder = historicalDisplayQty > 0;
 
   const summaryOtherRows = getCampaignQtySummaryForProduct(
     cart,
@@ -512,9 +631,11 @@ function ProductCard({
       }
 
       if (existingOverflowIndex >= 0) {
+        const normalPrice = getEkNormal(item);
+
         updateItem("bestellung", existingOverflowIndex, {
           quantity: targetQty,
-          price: getEkNormal(item),
+          price: normalPrice,
           pricing_mode: "standard",
           order_mode: "standard",
           is_display_item: false,
@@ -522,10 +643,24 @@ function ProductCard({
           campaign_id: null,
           campaign_name: null,
           campaign_name_snapshot: null,
+          display_price_netto: null,
+          messe_price_netto: null,
           max_qty_per_dealer: null,
           max_display_qty_per_dealer: null,
           max_messe_qty_per_dealer: null,
           max_total_qty_per_dealer: null,
+          price_manual_override: false,
+          price_manual_override_value: null,
+          pricing_snapshot: {
+            ...((item as any).pricing_snapshot ?? {}),
+            source: "standard",
+            campaign_id: null,
+            campaign_name: null,
+            order_mode: "standard",
+            pricing_mode: "standard",
+            final_unit_price: normalPrice,
+            calculated_at: new Date().toISOString(),
+          },
         });
         return;
       }
@@ -540,36 +675,60 @@ function ProductCard({
 
     if (maxDisplayQtyPerDealer != null && maxDisplayQtyPerDealer > 0) {
       lines.push({
-        text: `Display max. ${maxDisplayQtyPerDealer} · bereits bestellt ${persistedSummary.display} · noch frei ${clampMinZero(
-          maxDisplayQtyPerDealer - persistedSummary.display
-        )}`,
+        text: tr(
+          "bestellung.campaign.limits.displayMax",
+          "Display max. {max} · bereits bestellt {ordered} · noch frei {remaining}",
+          {
+            max: maxDisplayQtyPerDealer,
+            ordered: persistedSummary.display,
+            remaining: clampMinZero(maxDisplayQtyPerDealer - persistedSummary.display),
+          }
+        ),
         color: "text-indigo-600",
       });
     }
 
     if (maxMesseQtyPerDealer != null && maxMesseQtyPerDealer > 0) {
       lines.push({
-        text: `Messe max. ${maxMesseQtyPerDealer} · bereits bestellt ${persistedSummary.messe} · noch frei ${clampMinZero(
-          maxMesseQtyPerDealer - persistedSummary.messe
-        )}`,
+        text: tr(
+          "bestellung.campaign.limits.messeMax",
+          "Messe max. {max} · bereits bestellt {ordered} · noch frei {remaining}",
+          {
+            max: maxMesseQtyPerDealer,
+            ordered: persistedSummary.messe,
+            remaining: clampMinZero(maxMesseQtyPerDealer - persistedSummary.messe),
+          }
+        ),
         color: "text-blue-600",
       });
     }
 
     if (maxQtyPerDealer != null && maxQtyPerDealer > 0) {
       lines.push({
-        text: `Aktions max. ${maxQtyPerDealer} · bereits bestellt ${persistedSummary.total} · noch frei ${clampMinZero(
-          maxQtyPerDealer - persistedSummary.total
-        )}`,
+        text: tr(
+          "bestellung.campaign.limits.actionMax",
+          "Aktions max. {max} · bereits bestellt {ordered} · noch frei {remaining}",
+          {
+            max: maxQtyPerDealer,
+            ordered: persistedSummary.total,
+            remaining: clampMinZero(maxQtyPerDealer - persistedSummary.total),
+          }
+        ),
         color: "text-amber-600",
       });
     }
 
     if (maxTotalQtyPerDealer != null && maxTotalQtyPerDealer > 0) {
       lines.push({
-        text: `Total Aktion max. ${maxTotalQtyPerDealer} · bereits bestellt ${persistedSummary.total} · noch frei ${clampMinZero(
-          maxTotalQtyPerDealer - persistedSummary.total
-        )}`,
+        text: tr(
+          "bestellung.campaign.limits.totalMax",
+          "Total Aktion max. {max} · bereits bestellt {ordered} · noch frei {remaining}",
+          {
+            max: maxTotalQtyPerDealer,
+            ordered: persistedSummary.total,
+            remaining: clampMinZero(maxTotalQtyPerDealer - persistedSummary.total),
+          }
+        ),
         color: "text-emerald-600",
       });
     }
@@ -581,10 +740,11 @@ function ProductCard({
     maxMesseQtyPerDealer,
     maxTotalQtyPerDealer,
     persistedSummary,
+    tr,
   ]);
 
   const handleQuantityChange = (inputValue: string) => {
-    const nextQty = Math.max(1, toInt(inputValue));
+    const nextQty = Math.max(1, toQtyInt(inputValue));
 
     if (!isCampaignItem) {
       updateItem("bestellung", index, {
@@ -625,13 +785,15 @@ function ProductCard({
     const overflowQty = clampMinZero(nextQty - allowedQty);
 
     const productLabel =
-      item.product_name || (item as any).sony_article || "dieses Produkt";
+      item.product_name ||
+      (item as any).sony_article ||
+      tr("bestellung.cartSheet.product.unknown", "Unbekannt");
 
     const modeLabel = isDisplayItem
-      ? "Display"
+      ? tr("bestellung.cartSheet.product.modeDisplay", "Display")
       : isMesseItem
-      ? "Messe"
-      : "Aktion";
+      ? tr("bestellung.cartSheet.product.modeMesse", "Messe")
+      : tr("bestellung.cartSheet.product.modeCampaign", "Aktion");
 
     const alreadyOrderedCount = isDisplayItem
       ? persistedSummary.display
@@ -646,20 +808,52 @@ function ProductCard({
 
       upsertOverflowRow(overflowQty);
 
-      toast.warning(`${modeLabel}-Limit erreicht`, {
-        description: `Für ${productLabel} sind noch ${allowedQty} Stück zum ${modeLabel.toLowerCase()}preis möglich. Bereits bestellt: ${alreadyOrderedCount}. ${overflowQty} Stück wurden automatisch als separate Position zum Normalpreis übernommen.`,
-        duration: TOAST_DURATION,
-      });
+      toast.warning(
+        tr(
+          "bestellung.toast.campaignLimitReachedTitle",
+          "{mode}-Limit erreicht",
+          { mode: modeLabel }
+        ),
+        {
+          description: tr(
+            "bestellung.toast.campaignLimitReachedText",
+            "Für {product} sind noch {allowed} Stück zum {modeLower}preis möglich. Bereits bestellt: {ordered}. {overflow} Stück wurden automatisch als separate Position zum Normalpreis übernommen.",
+            {
+              product: productLabel,
+              allowed: allowedQty,
+              modeLower: modeLabel.toLowerCase(),
+              ordered: alreadyOrderedCount,
+              overflow: overflowQty,
+            }
+          ),
+          duration: TOAST_DURATION,
+        }
+      );
       return;
     }
 
     upsertOverflowRow(nextQty);
     removeFromCart(index);
 
-    toast.warning(`${modeLabel}-Kontingent ausgeschöpft`, {
-      description: `Für ${productLabel} ist kein ${modeLabel.toLowerCase()}kontingent mehr frei. Bereits bestellt: ${alreadyOrderedCount}. Die gesamte Menge wurde automatisch zum Normalpreis übernommen.`,
-      duration: TOAST_DURATION,
-    });
+    toast.warning(
+      tr(
+        "bestellung.toast.campaignQuotaExhaustedTitle",
+        "{mode}-Kontingent ausgeschöpft",
+        { mode: modeLabel }
+      ),
+      {
+        description: tr(
+          "bestellung.toast.campaignQuotaExhaustedText",
+          "Für {product} ist kein {modeLower}kontingent mehr frei. Bereits bestellt: {ordered}. Die gesamte Menge wurde automatisch zum Normalpreis übernommen.",
+          {
+            product: productLabel,
+            modeLower: modeLabel.toLowerCase(),
+            ordered: alreadyOrderedCount,
+          }
+        ),
+        duration: TOAST_DURATION,
+      }
+    );
   };
 
   return (
@@ -668,32 +862,43 @@ function ProductCard({
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
             <p className="truncate text-sm font-semibold text-slate-900">
-              {item.product_name || (item as any).sony_article || "Unbekannt"}
+              {item.product_name ||
+                (item as any).sony_article ||
+                tr("bestellung.cartSheet.product.unknown", "Unbekannt")}
             </p>
 
             {allowed.length > 0 && (
               <span className="inline-flex items-center gap-1 rounded-full border border-amber-200 bg-amber-50 px-2.5 py-1 text-[11px] font-semibold text-amber-700">
                 <Star className="h-3 w-3" />
-                Spezialvertrieb
+                {tr(
+                  "bestellung.cartSheet.product.specialDistribution",
+                  "Spezialvertrieb"
+                )}
               </span>
             )}
 
-            {(item as any).bonus_relevant === true &&
+            {(item as any).campaign_id &&
+              (item as any).bonus_relevant === true &&
               !(item as any).overflow_from_campaign && (
                 <span className="inline-flex items-center gap-1 rounded-full border border-violet-200 bg-violet-50 px-2.5 py-1 text-[11px] font-semibold text-violet-700">
                   <Sparkles className="h-3 w-3" />
-                  Bonusrelevant
+                  {tr(
+                    "bestellung.cartSheet.product.bonusRelevant",
+                    "Bonusrelevant"
+                  )}
                 </span>
               )}
 
             {(item as any).overflow_from_campaign && (
               <span className="inline-flex items-center gap-1 rounded-full border border-blue-200 bg-blue-50 px-2.5 py-1 text-[11px] font-semibold text-blue-700">
-                Normalpreis
+                {tr("bestellung.cartSheet.product.normalPrice", "Normalpreis")}
               </span>
             )}
           </div>
 
-          <p className="mt-1 text-xs text-slate-500">EAN: {item.ean || "-"}</p>
+          <p className="mt-1 text-xs text-slate-500">
+            {tr("bestellung.cartSheet.product.ean", "EAN")}: {item.ean || "-"}
+          </p>
         </div>
 
         <Button
@@ -701,7 +906,7 @@ function ProductCard({
           size="icon"
           onClick={() => removeFromCart(index)}
           className="h-8 w-8 rounded-xl text-slate-400 hover:bg-red-50 hover:text-red-600"
-          title="Entfernen"
+          title={tr("bestellung.cartSheet.product.remove", "Entfernen")}
         >
           <Trash2 className="h-4 w-4" />
         </Button>
@@ -709,7 +914,7 @@ function ProductCard({
 
       <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
         <div>
-          <FieldLabel>Anzahl</FieldLabel>
+          <FieldLabel>{tr("bestellung.cartSheet.product.quantity", "Anzahl")}</FieldLabel>
 
           <Input
             type="number"
@@ -730,78 +935,93 @@ function ProductCard({
             allowedCampaignQtyForThisRow >= 0 &&
             !(item as any).overflow_from_campaign && (
               <p className="mt-1 text-[11px] text-slate-500">
-                {isDisplayItem ? (
-                  <>
-                    In dieser <span className="font-semibold">Display-Position</span> noch max.{" "}
-                    <span className="font-semibold">{allowedCampaignQtyForThisRow}</span> Stück
-                    zum Displaypreis möglich
-                  </>
-                ) : isMesseItem ? (
-                  <>
-                    In dieser <span className="font-semibold">Messe-Position</span> noch max.{" "}
-                    <span className="font-semibold">{allowedCampaignQtyForThisRow}</span> Stück
-                    zum Messepreis möglich
-                  </>
-                ) : (
-                  <>
-                    In dieser Position noch max.{" "}
-                    <span className="font-semibold">{allowedCampaignQtyForThisRow}</span> Stück
-                    zum Aktionspreis möglich
-                  </>
-                )}
+                {isDisplayItem
+                  ? tr(
+                      "bestellung.cartSheet.product.campaignQtyPossibleDisplay",
+                      "In dieser Display-Position noch max. {count} Stück zum Displaypreis möglich",
+                      { count: allowedCampaignQtyForThisRow }
+                    )
+                  : isMesseItem
+                  ? tr(
+                      "bestellung.cartSheet.product.campaignQtyPossibleMesse",
+                      "In dieser Messe-Position noch max. {count} Stück zum Messepreis möglich",
+                      { count: allowedCampaignQtyForThisRow }
+                    )
+                  : tr(
+                      "bestellung.cartSheet.product.campaignQtyPossibleCampaign",
+                      "In dieser Position noch max. {count} Stück zum Aktionspreis möglich",
+                      { count: allowedCampaignQtyForThisRow }
+                    )}
               </p>
             )}
         </div>
 
         <div>
-          <FieldLabel>Preis (CHF)</FieldLabel>
+          <FieldLabel>
+            {tr("bestellung.cartSheet.product.price", "Preis")} (CHF)
+          </FieldLabel>
 
           <Input
             type="number"
+            step="0.01"
             value={price}
             onChange={(e) =>
               updateItem("bestellung", index, {
-                price: toInt(e.target.value),
+                price: toMoney(e.target.value),
+                price_manual_override: true,
+                price_manual_override_value: toMoney(e.target.value),
               })
             }
             className="h-10 text-center text-sm"
           />
 
           <p className="mt-1 text-[11px] text-slate-500">
-            EK normal:{" "}
+            {tr("bestellung.cartSheet.product.normalEk", "EK normal")}:{" "}
             <span className="font-medium text-blue-600">
-              {ek ? `${formatNumberCH(ek)} CHF` : "-"}
+              {ek ? `${formatNumberCH(ek, 2, 2)} CHF` : "-"}
             </span>
           </p>
 
           {showSavings && (
             <div className="mt-2 inline-flex items-center gap-1 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-medium text-emerald-700">
               <Tag className="h-3.5 w-3.5" />
-              {formatNumberCH(savedCHF)} CHF gespart ({savedPercent}%)
+              {tr(
+                "bestellung.cartSheet.product.saved",
+                "{amount} CHF gespart ({percent}%)",
+                {
+                  amount: formatNumberCH(savedCHF, 2, 2),
+                  percent: savedPercent,
+                }
+              )}
             </div>
           )}
         </div>
       </div>
 
-      {((item as any).display_price_netto != null ||
-        (item as any).messe_price_netto != null) &&
+      {(item as any).campaign_id &&
+        ((item as any).display_price_netto != null ||
+          (item as any).messe_price_netto != null) &&
         !(item as any).overflow_from_campaign && (
           <div className="mt-4 rounded-2xl border border-indigo-200 bg-indigo-50/70 p-4 text-xs">
             <div className="mb-3 flex items-center justify-between">
-              <span className="font-semibold text-indigo-900">Pricing-Modus</span>
+              <span className="font-semibold text-indigo-900">
+                {tr("bestellung.cartSheet.product.pricingMode", "Pricing-Modus")}
+              </span>
               <span className="font-semibold text-indigo-700">
                 {(item as any).pricing_mode === "display"
-                  ? "Display"
+                  ? tr("bestellung.cartSheet.product.modeDisplay", "Display")
                   : (item as any).pricing_mode === "messe"
-                  ? "Messe"
-                  : "Standard"}
+                  ? tr("bestellung.cartSheet.product.modeMesse", "Messe")
+                  : tr("bestellung.cartSheet.product.modeStandard", "Standard")}
               </span>
             </div>
 
             <div className="space-y-1.5">
               {(item as any).upe_brutto != null && (
                 <div className="flex items-center justify-between">
-                  <span className="text-slate-600">UPE brutto</span>
+                  <span className="text-slate-600">
+                    {tr("bestellung.cartSheet.product.upeGross", "UPE brutto")}
+                  </span>
                   <span className="font-medium">
                     {safeNum((item as any).upe_brutto).toFixed(2)} CHF
                   </span>
@@ -810,7 +1030,12 @@ function ProductCard({
 
               {(item as any).display_price_netto != null && (
                 <div className="flex items-center justify-between">
-                  <span className="text-slate-600">Displaypreis netto</span>
+                  <span className="text-slate-600">
+                    {tr(
+                      "bestellung.cartSheet.product.displayPriceNet",
+                      "Displaypreis netto"
+                    )}
+                  </span>
                   <span className="font-medium text-indigo-700">
                     {safeNum((item as any).display_price_netto).toFixed(2)} CHF
                   </span>
@@ -819,7 +1044,12 @@ function ProductCard({
 
               {(item as any).messe_price_netto != null && (
                 <div className="flex items-center justify-between">
-                  <span className="text-slate-600">Messepreis netto</span>
+                  <span className="text-slate-600">
+                    {tr(
+                      "bestellung.cartSheet.product.messePriceNet",
+                      "Messepreis netto"
+                    )}
+                  </span>
                   <span className="font-medium text-indigo-700">
                     {safeNum((item as any).messe_price_netto).toFixed(2)} CHF
                   </span>
@@ -828,7 +1058,12 @@ function ProductCard({
 
               {(item as any).display_discount_vs_hrp_percent != null && (
                 <div className="flex items-center justify-between">
-                  <span className="text-slate-600">Rabatt vs. HRP</span>
+                  <span className="text-slate-600">
+                    {tr(
+                      "bestellung.cartSheet.product.discountVsHrp",
+                      "Rabatt vs. HRP"
+                    )}
+                  </span>
                   <span className="font-medium text-emerald-700">
                     {safeNum(
                       (item as any).display_discount_vs_hrp_percent
@@ -846,22 +1081,32 @@ function ProductCard({
                 onChange={(e) => {
                   const checked = e.target.checked;
 
-                  const upeBrutto = Number(
-                    (item as any).upe_brutto ?? (item as any).retail_price ?? 0
-                  );
-                  const dealerInvoicePrice = Number(
-                    (item as any).dealer_invoice_price ?? 0
-                  );
-                  const vrgAmount = Number(
-                    (item as any).vrg_amount ?? (item as any).vrg ?? 0
-                  );
-                  const displayFactorPercent = Number(
-                    (item as any).display_factor_percent ?? 50
-                  );
-                  const messePriceNetto =
-                    (item as any).messe_price_netto != null
-                      ? Number((item as any).messe_price_netto)
-                      : null;
+                  if (checked && hasHistoricalDisplayOrder) {
+                    const existingComment = String((item as any).comment ?? "").trim();
+
+                    if (!existingComment) {
+                      toast.error(
+                        tr(
+                          "bestellung.toast.displayAlreadyOrderedTitle",
+                          "Display bereits bestellt"
+                        ),
+                        {
+                          description: tr(
+                            "bestellung.toast.displayAlreadyOrderedText",
+                            "Für {product} wurde bereits mindestens ein Display bestellt. Bitte im Kommentarfeld begründen, weshalb ein zusätzliches Display benötigt wird.",
+                            {
+                              product:
+                                item.product_name ||
+                                (item as any).sony_article ||
+                                tr("bestellung.cartSheet.product.unknown", "dieses Produkt"),
+                            }
+                          ),
+                          duration: TOAST_DURATION,
+                        }
+                      );
+                      return;
+                    }
+                  }
 
                   const currentQty = Number((item as any).quantity ?? 1);
 
@@ -885,16 +1130,28 @@ function ProductCard({
                         summaryOtherRows.display
                     );
 
-                    toast.error("Display-Limit erreicht", {
-                      description: `Für ${
-                        item.product_name ||
-                        (item as any).sony_article ||
-                        "dieses Produkt"
-                      } sind maximal ${maxDisplayQtyPerDealer} Display-Stück gültig. Bereits bestellt: ${
-                        persistedSummary.display
-                      }. Noch frei für diese Position: ${stillFree}.`,
-                      duration: TOAST_DURATION,
-                    });
+                    toast.error(
+                      tr(
+                        "bestellung.toast.displayLimitReachedTitle",
+                        "Display-Limit erreicht"
+                      ),
+                      {
+                        description: tr(
+                          "bestellung.toast.displayLimitReachedText",
+                          "Für {product} sind maximal {max} Display-Stück gültig. Bereits bestellt: {ordered}. Noch frei für diese Position: {free}.",
+                          {
+                            product:
+                              item.product_name ||
+                              (item as any).sony_article ||
+                              tr("bestellung.cartSheet.product.unknown", "dieses Produkt"),
+                            max: maxDisplayQtyPerDealer,
+                            ordered: persistedSummary.display,
+                            free: stillFree,
+                          }
+                        ),
+                        duration: TOAST_DURATION,
+                      }
+                    );
                     return;
                   }
 
@@ -910,16 +1167,28 @@ function ProductCard({
                         summaryOtherRows.total
                     );
 
-                    toast.error("Gesamtlimit erreicht", {
-                      description: `Für ${
-                        item.product_name ||
-                        (item as any).sony_article ||
-                        "dieses Produkt"
-                      } sind maximal ${maxTotalQtyPerDealer} Aktions-Stück total gültig. Bereits bestellt: ${
-                        persistedSummary.total
-                      }. Noch frei für diese Position: ${stillFree}.`,
-                      duration: TOAST_DURATION,
-                    });
+                    toast.error(
+                      tr(
+                        "bestellung.toast.totalLimitReachedTitle",
+                        "Gesamtlimit erreicht"
+                      ),
+                      {
+                        description: tr(
+                          "bestellung.toast.totalLimitReachedText",
+                          "Für {product} sind maximal {max} Aktions-Stück total gültig. Bereits bestellt: {ordered}. Noch frei für diese Position: {free}.",
+                          {
+                            product:
+                              item.product_name ||
+                              (item as any).sony_article ||
+                              tr("bestellung.cartSheet.product.unknown", "dieses Produkt"),
+                            max: maxTotalQtyPerDealer,
+                            ordered: persistedSummary.total,
+                            free: stillFree,
+                          }
+                        ),
+                        duration: TOAST_DURATION,
+                      }
+                    );
                     return;
                   }
 
@@ -929,55 +1198,102 @@ function ProductCard({
                     ? "messe"
                     : "standard";
 
-                  const pricing = calcCampaignPrice({
-                    upe_brutto: upeBrutto,
-                    dealer_invoice_price: dealerInvoicePrice,
-                    vrg_amount: vrgAmount,
-                    mwst_rate: Number((item as any).mwst_rate ?? 8.1),
-                    mode: nextPricingMode,
-                    messe_price_netto: messePriceNetto,
-                    display_factor_percent: displayFactorPercent,
-                  });
+                  const resolved = resolveCampaignPricingForItem(
+                    item,
+                    nextPricingMode
+                  );
 
                   updateItem("bestellung", index, {
                     is_display_item: checked,
-                    pricing_mode: nextPricingMode,
-                    price: pricing.final_unit_price,
-                    upe_brutto: upeBrutto,
-                    vrg_amount: vrgAmount,
-                    upe_netto_excl_vrg: pricing.upe_netto_excl_vrg,
-                    display_price_netto: pricing.display_price_netto,
+                    pricing_mode: resolved.pricing_mode,
+                    price:
+                      (item as any).price_manual_override === true
+                        ? toMoney(
+                            (item as any).price_manual_override_value ??
+                              (item as any).price ??
+                              0
+                          )
+                        : resolved.final_unit_price,
+                    upe_brutto: resolved.upe_brutto,
+                    dealer_invoice_price: resolved.dealer_invoice_price,
+                    vrg_amount: resolved.vrg_amount,
+                    mwst_rate: resolved.mwst_rate,
+                    upe_netto_excl_vrg: resolved.upe_netto_excl_vrg,
+                    display_factor_percent: resolved.display_factor_percent,
+                    display_price_netto: resolved.display_price_netto,
+                    messe_price_netto: resolved.messe_price_netto,
                     display_discount_vs_hrp_percent:
-                      pricing.display_discount_vs_hrp_percent,
+                      resolved.display_discount_vs_hrp_percent,
                     pricing_snapshot: {
+                      ...((item as any).pricing_snapshot ?? {}),
                       source: (item as any).campaign_id ? "campaign" : "standard",
                       campaign_id: (item as any).campaign_id ?? null,
                       campaign_name: (item as any).campaign_name ?? null,
                       order_mode: (item as any).order_mode ?? "standard",
-                      pricing_mode: nextPricingMode,
-                      upe_brutto: upeBrutto,
-                      vrg_amount: vrgAmount,
-                      mwst_rate: Number((item as any).mwst_rate ?? 8.1),
-                      upe_netto_excl_vrg: pricing.upe_netto_excl_vrg,
-                      display_factor_percent: displayFactorPercent,
-                      display_price_netto: pricing.display_price_netto,
-                      messe_price_netto: pricing.messe_price_netto,
-                      final_unit_price: pricing.final_unit_price,
+                      pricing_mode: resolved.pricing_mode,
+                      upe_brutto: resolved.upe_brutto,
+                      vrg_amount: resolved.vrg_amount,
+                      mwst_rate: resolved.mwst_rate,
+                      upe_netto_excl_vrg: resolved.upe_netto_excl_vrg,
+                      display_factor_percent: resolved.display_factor_percent,
+                      display_price_netto: resolved.display_price_netto,
+                      messe_price_netto: resolved.messe_price_netto,
+                      final_unit_price: resolved.final_unit_price,
                       display_discount_vs_hrp_percent:
-                        pricing.display_discount_vs_hrp_percent,
+                        resolved.display_discount_vs_hrp_percent,
                       calculated_at: new Date().toISOString(),
                     },
                   });
                 }}
                 className="h-4 w-4"
               />
-              <span className="text-sm text-slate-700">Als Display bestellen</span>
+              <span className="text-sm text-slate-700">
+                {tr(
+                  "bestellung.cartSheet.product.orderAsDisplay",
+                  "Als Display bestellen"
+                )}
+              </span>
             </label>
+
+            {!!(item as any).is_display_item && hasHistoricalDisplayOrder && (
+              <div className="mt-3">
+                <FieldLabel required>
+                  {tr(
+                    "bestellung.cartSheet.product.displayReasonLabel",
+                    "Begründung für zusätzliches Display"
+                  )}
+                </FieldLabel>
+                <textarea
+                  value={(item as any).comment ?? ""}
+                  onChange={(e) =>
+                    updateItem("bestellung", index, {
+                      comment: e.target.value,
+                    })
+                  }
+                  className="min-h-[90px] w-full rounded-xl border border-amber-300 bg-white p-3 text-sm outline-none transition focus:border-amber-400"
+                  placeholder={tr(
+                    "bestellung.cartSheet.product.displayReasonPlaceholder",
+                    "z. B. zweiter Standort, Umbau, neue Verkaufsfläche …"
+                  )}
+                />
+                <p className="mt-1 text-[11px] text-amber-700">
+                  {tr(
+                    "bestellung.cartSheet.product.displayReasonHint",
+                    "Für dieses Produkt wurde bereits ein Display bestellt. Bitte Zusatzbedarf begründen."
+                  )}
+                </p>
+              </div>
+            )}
           </div>
         )}
 
       <div className="mt-4 border-t border-slate-200 pt-4">
-        <FieldLabel>Günstigster Anbieter</FieldLabel>
+        <FieldLabel>
+          {tr(
+            "bestellung.cartSheet.product.cheapestProvider",
+            "Günstigster Anbieter"
+          )}
+        </FieldLabel>
 
         <Select
           value={(item as any).lowest_price_source ?? ""}
@@ -985,14 +1301,19 @@ function ProductCard({
             updateItem("bestellung", index, {
               lowest_price_source: val,
               lowest_price_source_custom:
-                val === "Andere"
+                val === tr("bestellung.cartSheet.product.other", "Andere")
                   ? (item as any).lowest_price_source_custom ?? ""
                   : null,
             });
           }}
         >
           <SelectTrigger className="h-10 text-sm">
-            <SelectValue placeholder="Bitte auswählen" />
+            <SelectValue
+              placeholder={tr(
+                "bestellung.cartSheet.product.providerNamePlaceholder",
+                "Bitte auswählen"
+              )}
+            />
           </SelectTrigger>
 
           <SelectContent>
@@ -1002,16 +1323,27 @@ function ProductCard({
             <SelectItem value="Fnac">Fnac</SelectItem>
             <SelectItem value="Brack">Brack</SelectItem>
             <SelectItem value="Fust">Fust</SelectItem>
-            <SelectItem value="Andere">Andere</SelectItem>
+            <SelectItem value={tr("bestellung.cartSheet.product.other", "Andere")}>
+              {tr("bestellung.cartSheet.product.other", "Andere")}
+            </SelectItem>
           </SelectContent>
         </Select>
 
-        {(item as any).lowest_price_source === "Andere" && (
+        {(item as any).lowest_price_source ===
+          tr("bestellung.cartSheet.product.other", "Andere") && (
           <div className="mt-3">
-            <FieldLabel required>Bitte Namen des Anbieters angeben</FieldLabel>
+            <FieldLabel required>
+              {tr(
+                "bestellung.cartSheet.product.providerName",
+                "Bitte Namen des Anbieters angeben"
+              )}
+            </FieldLabel>
 
             <Input
-              placeholder="Name des Händlers"
+              placeholder={tr(
+                "bestellung.cartSheet.product.providerNamePlaceholder",
+                "Name des Händlers"
+              )}
               value={(item as any).lowest_price_source_custom ?? ""}
               onChange={(e) =>
                 updateItem("bestellung", index, {
@@ -1022,13 +1354,21 @@ function ProductCard({
             />
 
             <p className="mt-1 text-[11px] text-amber-600">
-              Pflichtfeld bei Auswahl von „Andere“.
+              {tr(
+                "bestellung.cartSheet.product.providerNameHint",
+                "Pflichtfeld bei Auswahl von „Andere“."
+              )}
             </p>
           </div>
         )}
 
         <div className="mt-3">
-          <FieldLabel>Günstigster Preis (inkl. MwSt.)</FieldLabel>
+          <FieldLabel>
+            {tr(
+              "bestellung.cartSheet.product.cheapestPriceGross",
+              "Günstigster Preis (inkl. MwSt.)"
+            )}
+          </FieldLabel>
 
           <Input
             type="number"
@@ -1050,7 +1390,9 @@ function ProductCard({
 
       {allowed.length > 0 && (
         <div className="mt-4">
-          <FieldLabel required>Distributor</FieldLabel>
+          <FieldLabel required>
+            {tr("bestellung.cartSheet.product.distributor", "Distributor")}
+          </FieldLabel>
 
           <Select
             value={(item as any).overrideDistributor ?? ""}
@@ -1059,7 +1401,12 @@ function ProductCard({
             }
           >
             <SelectTrigger className="h-10 text-sm">
-              <SelectValue placeholder="Bitte auswählen" />
+              <SelectValue
+                placeholder={tr(
+                  "bestellung.cartSheet.product.distributorPlaceholder",
+                  "Bitte auswählen"
+                )}
+              />
             </SelectTrigger>
 
             <SelectContent>
@@ -1083,21 +1430,20 @@ function ProductCard({
   );
 }
 
-/* ------------------------------------------------------------------
-   🧱 PRODUKTLISTE
-------------------------------------------------------------------- */
-
 function ProductList({
   cart,
   distis,
   campaignUsageMap,
+  historicalDisplayMap,
   updateItem,
   addItem,
   removeFromCart,
+  tr,
 }: {
   cart: CartItem[];
   distis: Disti[];
   campaignUsageMap: Record<string, CampaignUsageSummary>;
+  historicalDisplayMap: Record<number, number>;
   updateItem: (
     form:
       | "verkauf"
@@ -1120,11 +1466,15 @@ function ProductList({
     item: any
   ) => void;
   removeFromCart: (index: number) => void;
+  tr: TranslateFn;
 }) {
   if (cart.length === 0) {
     return (
       <div className="rounded-2xl border border-slate-200 bg-white p-6 text-center text-sm text-slate-500 shadow-sm">
-        Noch keine Produkte ausgewählt.
+        {tr(
+          "bestellung.cartSheet.product.empty",
+          "Noch keine Produkte ausgewählt."
+        )}
       </div>
     );
   }
@@ -1139,25 +1489,37 @@ function ProductList({
           cart={cart}
           distis={distis}
           campaignUsageMap={campaignUsageMap}
+          historicalDisplayMap={historicalDisplayMap}
           updateItem={updateItem}
           addItem={addItem}
           removeFromCart={removeFromCart}
+          tr={tr}
         />
       ))}
     </>
   );
 }
 
-/* ------------------------------------------------------------------
-   🟦 HAUPTKOMPONENTE
-------------------------------------------------------------------- */
-
 export default function CartBestellung() {
+  const { t } = useI18n();
   const dealer = useDealer();
   const searchParams = useSearchParams();
   const effectiveDealerId = getDealerIdFromUrl(
     searchParams,
     (dealer as any)?.dealer_id
+  );
+
+  const tr = useCallback<TranslateFn>(
+    (key, fallback, params) => {
+      try {
+        const value = t(key, params);
+        if (!value || value === key) return fallback;
+        return value;
+      } catch {
+        return fallback;
+      }
+    },
+    [t]
   );
 
   const supabase = getSupabaseBrowser();
@@ -1224,13 +1586,18 @@ export default function CartBestellung() {
   const [campaignUsageMap, setCampaignUsageMap] = useState<
     Record<string, CampaignUsageSummary>
   >({});
+  const [historicalDisplayMap, setHistoricalDisplayMap] = useState<
+    Record<number, number>
+  >({});
 
   const [hasAltDelivery, setHasAltDelivery] = useState(false);
   const [deliveryName, setDeliveryName] = useState("");
   const [deliveryStreet, setDeliveryStreet] = useState("");
   const [deliveryZip, setDeliveryZip] = useState("");
   const [deliveryCity, setDeliveryCity] = useState("");
-  const [deliveryCountry, setDeliveryCountry] = useState("Schweiz");
+  const [deliveryCountry, setDeliveryCountry] = useState(
+    tr("bestellung.cartSheet.altDelivery.defaultCountry", "Schweiz")
+  );
   const [deliveryEmail, setDeliveryEmail] = useState("");
   const [deliveryPhone, setDeliveryPhone] = useState("");
 
@@ -1275,7 +1642,7 @@ export default function CartBestellung() {
   }, [dealer]);
 
   const totalQuantity = useMemo(
-    () => cart.reduce((s, i) => s + toInt((i as any).quantity || 0), 0),
+    () => cart.reduce((s, i) => s + toQtyInt((i as any).quantity || 0), 0),
     [cart]
   );
 
@@ -1283,7 +1650,8 @@ export default function CartBestellung() {
     () =>
       cart.reduce(
         (s, i) =>
-          s + toInt((i as any).quantity || 0) * toInt((i as any).price || 0),
+          s +
+          toQtyInt((i as any).quantity || 0) * toMoney((i as any).price || 0),
         0
       ),
     [cart]
@@ -1293,9 +1661,9 @@ export default function CartBestellung() {
     () =>
       cart.reduce((s, i) => {
         const ek = getEkNormal(i);
-        const p = toInt((i as any).price ?? 0);
+        const p = toMoney((i as any).price ?? 0);
         if (ek > 0 && p > 0 && p < ek) {
-          return s + (ek - p) * toInt((i as any).quantity || 1);
+          return s + toMoney((ek - p) * toQtyInt((i as any).quantity || 1));
         }
         return s;
       }, 0),
@@ -1525,10 +1893,7 @@ export default function CartBestellung() {
 
           if (row?.bonus_relevant === false) return sum;
 
-          return (
-            sum +
-            Number(row?.menge ?? 0) * Number(row?.preis ?? 0)
-          );
+          return sum + Number(row?.menge ?? 0) * Number(row?.preis ?? 0);
         }, 0) || 0;
 
       setBookedRevenue(revenue);
@@ -1563,7 +1928,7 @@ export default function CartBestellung() {
     };
 
     if (cart.length > 0) loadAllowedDistis();
-  }, [cart.length, supabase, updateItem]);
+  }, [cart.length, supabase, updateItem, cart]);
 
   useEffect(() => {
     let isCancelled = false;
@@ -1690,6 +2055,91 @@ export default function CartBestellung() {
     };
   }, [campaignUsageDepsKey, effectiveDealerId, supabase]);
 
+  useEffect(() => {
+    let isCancelled = false;
+
+    const loadHistoricalDisplayOrders = async () => {
+      if (!effectiveDealerId || cart.length === 0) {
+        setHistoricalDisplayMap({});
+        return;
+      }
+
+      const productIds = Array.from(
+        new Set(
+          cart
+            .map((item: any) => Number(item.product_id))
+            .filter((id) => Number.isFinite(id) && id > 0)
+        )
+      );
+
+      if (productIds.length === 0) {
+        setHistoricalDisplayMap({});
+        return;
+      }
+
+      const { data, error } = await supabase
+        .from("submission_items")
+        .select(`
+          product_id,
+          menge,
+          is_display_item,
+          pricing_mode,
+          submission:submission_id (
+            dealer_id,
+            typ,
+            status
+          )
+        `)
+        .in("product_id", productIds);
+
+      if (isCancelled) return;
+
+      if (error) {
+        console.error("Fehler beim Laden historischer Display-Bestellungen:", error);
+        setHistoricalDisplayMap({});
+        return;
+      }
+
+      const nextMap: Record<number, number> = {};
+
+      for (const row of data || []) {
+        const submission = Array.isArray((row as any).submission)
+          ? (row as any).submission[0]
+          : (row as any).submission;
+
+        if (!submission) continue;
+        if (Number(submission.dealer_id) !== Number(effectiveDealerId)) continue;
+        if (submission.typ !== "bestellung") continue;
+
+        const status = String(submission.status || "").toLowerCase();
+        if (["rejected", "cancelled", "canceled", "storno"].includes(status)) {
+          continue;
+        }
+
+        const isDisplay =
+          !!(row as any).is_display_item ||
+          String((row as any).pricing_mode || "").toLowerCase() === "display";
+
+        if (!isDisplay) continue;
+
+        const productId = Number((row as any).product_id);
+        const qty = Number((row as any).menge ?? 0);
+
+        if (!productId || qty <= 0) continue;
+
+        nextMap[productId] = (nextMap[productId] || 0) + qty;
+      }
+
+      setHistoricalDisplayMap(nextMap);
+    };
+
+    loadHistoricalDisplayOrders();
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [cart, effectiveDealerId, supabase]);
+
   const removeFromCart = useCallback(
     (index: number) => removeItem("bestellung", index),
     [removeItem]
@@ -1726,7 +2176,7 @@ export default function CartBestellung() {
 
   const handleSubmit = async () => {
     if (!effectiveDealerId) {
-      toast.error("❌ Kein Händler gefunden – bitte neu einloggen.", {
+      toast.error(tr("bestellung.toast.noDealer", "❌ Kein Händler gefunden – bitte neu einloggen."), {
         duration: TOAST_DURATION,
       });
       return;
@@ -1736,18 +2186,26 @@ export default function CartBestellung() {
       (item: any) => !item.allowedDistis || item.allowedDistis.length === 0
     );
     if (hasNormal && !distributor) {
-      toast.error("❌ Bitte Haupt-Distributor auswählen.", {
-        duration: TOAST_DURATION,
-      });
+      toast.error(
+        tr(
+          "bestellung.toast.mainDistributorMissing",
+          "❌ Bitte Haupt-Distributor auswählen."
+        ),
+        { duration: TOAST_DURATION }
+      );
       return;
     }
 
     const requestedDate = normalizeRequestedDate(deliveryMode, deliveryDate);
 
     if (deliveryMode === "termin" && !requestedDate) {
-      toast.error("Bitte gültiges Lieferdatum (YYYY-MM-DD) wählen.", {
-        duration: TOAST_DURATION,
-      });
+      toast.error(
+        tr(
+          "bestellung.toast.invalidDeliveryDate",
+          "Bitte gültiges Lieferdatum (YYYY-MM-DD) wählen."
+        ),
+        { duration: TOAST_DURATION }
+      );
       return;
     }
 
@@ -1757,35 +2215,90 @@ export default function CartBestellung() {
 
     for (const item of cart as any[]) {
       if (!item.quantity || item.quantity <= 0) {
-        toast.error("Ungültige Eingabe", {
-          description: `Bitte gültige Menge für ${
-            item.product_name ?? item.sony_article ?? "Produkt"
-          } eingeben!`,
+        toast.error(tr("bestellung.toast.invalidQuantityTitle", "Ungültige Eingabe"), {
+          description: tr(
+            "bestellung.toast.invalidQuantityText",
+            "Bitte gültige Menge für {product} eingeben.",
+            {
+              product:
+                item.product_name ??
+                item.sony_article ??
+                tr("bestellung.cartSheet.product.unknown", "Produkt"),
+            }
+          ),
           duration: TOAST_DURATION,
         });
         return;
       }
 
       if (item.allowedDistis?.length && !item.overrideDistributor) {
-        toast.error("❌ Distributor fehlt", {
-          description: `Bitte Distributor für ${
-            item.product_name ?? item.sony_article ?? "Produkt"
-          } auswählen.`,
-          duration: TOAST_DURATION,
-        });
+        toast.error(
+          tr("bestellung.toast.missingDistributorTitle", "❌ Distributor fehlt"),
+          {
+            description: tr(
+              "bestellung.toast.missingDistributorText",
+              "Bitte Distributor für {product} auswählen.",
+              {
+                product:
+                  item.product_name ??
+                  item.sony_article ??
+                  tr("bestellung.cartSheet.product.unknown", "Produkt"),
+              }
+            ),
+            duration: TOAST_DURATION,
+          }
+        );
         return;
       }
 
       if (
-        item.lowest_price_source === "Andere" &&
+        item.lowest_price_source ===
+          tr("bestellung.cartSheet.product.other", "Andere") &&
         !item.lowest_price_source_custom?.trim()
       ) {
-        toast.error("❌ Anbieter fehlt", {
-          description: `Bitte Händlernamen für „Andere“ bei ${
-            item.product_name ?? "Produkt"
-          } angeben.`,
-          duration: TOAST_DURATION,
-        });
+        toast.error(
+          tr("bestellung.toast.missingProviderNameTitle", "❌ Anbieter fehlt"),
+          {
+            description: tr(
+              "bestellung.toast.missingProviderNameText",
+              "Bitte Händlernamen für „Andere“ bei {product} angeben.",
+              {
+                product:
+                  item.product_name ??
+                  tr("bestellung.cartSheet.product.unknown", "Produkt"),
+              }
+            ),
+            duration: TOAST_DURATION,
+          }
+        );
+        return;
+      }
+
+      if (
+        item.campaign_id &&
+        item.is_display_item &&
+        (historicalDisplayMap[Number(item.product_id)] || 0) > 0 &&
+        !String(item.comment ?? "").trim()
+      ) {
+        toast.error(
+          tr(
+            "bestellung.toast.missingDisplayReasonTitle",
+            "Begründung für zusätzliches Display fehlt"
+          ),
+          {
+            description: tr(
+              "bestellung.toast.missingDisplayReasonText",
+              "Bitte für {product} im Kommentarfeld angeben, weshalb ein weiteres Display benötigt wird.",
+              {
+                product:
+                  item.product_name ??
+                  item.sony_article ??
+                  tr("bestellung.cartSheet.product.unknown", "dieses Produkt"),
+              }
+            ),
+            duration: TOAST_DURATION,
+          }
+        );
         return;
       }
     }
@@ -1800,10 +2313,20 @@ export default function CartBestellung() {
 
     for (const code of allCodes) {
       if (!codeToId.get(code)) {
-        toast.error("❌ Unbekannter Distributor-Code", {
-          description: `Distributor "${code}" konnte nicht gefunden werden.`,
-          duration: TOAST_DURATION,
-        });
+        toast.error(
+          tr(
+            "bestellung.toast.unknownDistributorCodeTitle",
+            "❌ Unbekannter Distributor-Code"
+          ),
+          {
+            description: tr(
+              "bestellung.toast.unknownDistributorCodeText",
+              'Distributor "{code}" konnte nicht gefunden werden.',
+              { code }
+            ),
+            duration: TOAST_DURATION,
+          }
+        );
         return;
       }
     }
@@ -1825,7 +2348,13 @@ export default function CartBestellung() {
       for (const [codeLower, items] of Object.entries(itemsByCode)) {
         const distiUuid = codeToId.get(codeLower);
         if (!distiUuid) {
-          throw new Error(`Distributor-Code "${codeLower}" nicht gefunden.`);
+          throw new Error(
+            tr(
+              "bestellung.toast.unknownDistributorCodeText",
+              'Distributor "{code}" konnte nicht gefunden werden.',
+              { code: codeLower }
+            )
+          );
         }
 
         const { data: fullProducts, error: prodErr } = await supabase
@@ -1914,7 +2443,9 @@ export default function CartBestellung() {
           );
 
           const dealerPrice = safeNum(
-            i.price != null && i.price > 0 ? i.price : poiAlt
+            i.price_manual_override === true
+              ? i.price_manual_override_value ?? i.price ?? poiAlt
+              : i.price ?? poiAlt
           );
 
           const distiRow = distis.find(
@@ -1936,7 +2467,7 @@ export default function CartBestellung() {
             ean: i.ean || null,
             product_name: i.product_name || i.sony_article || null,
             sony_article: i.sony_article || null,
-            menge: toInt(i.quantity),
+            menge: toQtyInt(i.quantity),
             preis: dealerPrice,
             source: "manual",
             pricing_mode:
@@ -1975,7 +2506,8 @@ export default function CartBestellung() {
             lowest_price_netto: netto,
             lowest_price_source: i.lowest_price_source?.trim() || null,
             lowest_price_source_custom:
-              i.lowest_price_source === "Andere"
+              i.lowest_price_source ===
+              tr("bestellung.cartSheet.product.other", "Andere")
                 ? i.lowest_price_source_custom?.trim() || null
                 : null,
             margin_street:
@@ -1995,7 +2527,6 @@ export default function CartBestellung() {
             serial: i.serial || null,
             comment: i.comment || null,
             project_id: i.project_id || null,
-
             max_qty_per_dealer:
               i.max_qty_per_dealer != null
                 ? Number(i.max_qty_per_dealer)
@@ -2021,12 +2552,21 @@ export default function CartBestellung() {
         );
 
         if (!rpcResult?.ok || !rpcResult.submission_id) {
-          toast.error("Bestellung nicht möglich", {
-            description:
-              rpcResult?.message ??
-              "Die Bestellung konnte nicht gespeichert werden.",
-            duration: TOAST_DURATION,
-          });
+          toast.error(
+            tr(
+              "bestellung.toast.orderNotPossibleTitle",
+              "Bestellung nicht möglich"
+            ),
+            {
+              description:
+                rpcResult?.message ??
+                tr(
+                  "bestellung.toast.orderNotPossibleText",
+                  "Die Bestellung konnte nicht gespeichert werden."
+                ),
+              duration: TOAST_DURATION,
+            }
+          );
           setLoading(false);
           return;
         }
@@ -2048,7 +2588,10 @@ export default function CartBestellung() {
             });
 
             if (!res.ok) {
-              let errorText = "Datei-Upload fehlgeschlagen";
+              let errorText = tr(
+                "bestellung.toast.fileUploadFailed",
+                "Datei-Upload fehlgeschlagen"
+              );
 
               try {
                 const contentType = res.headers.get("content-type") || "";
@@ -2058,13 +2601,15 @@ export default function CartBestellung() {
                   errorText =
                     json?.error ||
                     json?.message ||
-                    `Upload fehlgeschlagen (${res.status})`;
+                    `${tr("bestellung.toast.fileUploadFailed", "Upload fehlgeschlagen")} (${res.status})`;
                 } else {
                   const text = await res.text();
-                  errorText = text || `Upload fehlgeschlagen (${res.status})`;
+                  errorText =
+                    text ||
+                    `${tr("bestellung.toast.fileUploadFailed", "Upload fehlgeschlagen")} (${res.status})`;
                 }
               } catch {
-                errorText = `Upload fehlgeschlagen (${res.status})`;
+                errorText = `${tr("bestellung.toast.fileUploadFailed", "Upload fehlgeschlagen")} (${res.status})`;
               }
 
               throw new Error(errorText);
@@ -2073,7 +2618,10 @@ export default function CartBestellung() {
             console.error("❌ Fehler bei /api/orders/upload:", err);
             throw new Error(
               err?.message ||
-                "Die Bestellung wurde gespeichert, aber der Datei-Upload ist fehlgeschlagen."
+                tr(
+                  "bestellung.toast.fileUploadPartialFailure",
+                  "Die Bestellung wurde gespeichert, aber der Datei-Upload ist fehlgeschlagen."
+                )
             );
           }
         }
@@ -2091,22 +2639,25 @@ export default function CartBestellung() {
       setDeliveryStreet("");
       setDeliveryZip("");
       setDeliveryCity("");
-      setDeliveryCountry("Schweiz");
+      setDeliveryCountry(tr("bestellung.cartSheet.altDelivery.defaultCountry", "Schweiz"));
       setDeliveryEmail("");
       setDeliveryPhone("");
       setOrderDetails((prev) => ({ ...prev, files: [] }));
 
-      toast.success("✅ Bestellung gespeichert", {
-        description: "Die Bestellung wurde erfolgreich übermittelt.",
+      toast.success(tr("bestellung.toast.orderSavedTitle", "✅ Bestellung gespeichert"), {
+        description: tr(
+          "bestellung.toast.orderSavedText",
+          "Die Bestellung wurde erfolgreich übermittelt."
+        ),
         duration: TOAST_DURATION,
       });
     } catch (err: any) {
       console.error("Order API Error:", err);
 
       const errorMessage =
-        err?.message || err?.toString?.() || "Unbekannter Fehler";
+        err?.message || err?.toString?.() || tr("bestellung.toast.unknownError", "Unbekannter Fehler");
 
-      toast.error("❌ Fehler beim Speichern", {
+      toast.error(tr("bestellung.toast.saveErrorTitle", "❌ Fehler beim Speichern"), {
         description: errorMessage,
         duration: TOAST_DURATION,
       });
@@ -2139,14 +2690,14 @@ export default function CartBestellung() {
         <SheetHeader className="border-b px-4 pb-3">
           <SheetTitle className="flex items-center gap-2 text-base font-semibold text-slate-900">
             <ShoppingCart className="h-5 w-5 text-blue-600" />
-            Bestellung zum Bestpreis
+            {tr("bestellung.cartSheet.title", "Bestellung zum Bestpreis")}
           </SheetTitle>
         </SheetHeader>
 
         {projectDetails?.project_id && (
           <div className="mx-4 mb-2 mt-3">
             <SectionCard
-              title="Verknüpftes Projekt"
+              title={tr("bestellung.cartSheet.linkedProject.title", "Verknüpftes Projekt")}
               tone="purple"
               icon={<ClipboardList className="h-4 w-4 text-purple-600" />}
             >
@@ -2158,19 +2709,22 @@ export default function CartBestellung() {
 
                   {projectDetails.customer && (
                     <p className="mt-1 text-xs text-slate-600">
-                      Kunde: {projectDetails.customer}
+                      {tr("bestellung.cartSheet.linkedProject.customer", "Kunde")}:{" "}
+                      {projectDetails.customer}
                     </p>
                   )}
 
                   {projectDetails.submission_id && (
                     <div className="mt-2 flex items-center gap-2 text-xs text-slate-500">
-                      <span>Projekt:</span>
+                      <span>
+                        {tr("bestellung.cartSheet.linkedProject.project", "Projekt")}:
+                      </span>
 
                       {projectDetails.project_id ? (
                         <Link
                           href={`/projekt-bestellung/${projectDetails.project_id}`}
                           className="font-mono font-semibold text-purple-700 hover:underline"
-                          title="Projekt öffnen"
+                          title={tr("bestellung.cartSheet.linkedProject.open", "Projekt öffnen")}
                         >
                           P-{projectDetails.submission_id}
                         </Link>
@@ -2186,12 +2740,18 @@ export default function CartBestellung() {
                           navigator.clipboard.writeText(
                             `P-${projectDetails.submission_id}`
                           );
-                          toast.success("Projekt-ID kopiert", {
-                            duration: TOAST_DURATION,
-                          });
+                          toast.success(
+                            tr(
+                              "bestellung.toast.projectIdCopied",
+                              "Projekt-ID kopiert"
+                            ),
+                            {
+                              duration: TOAST_DURATION,
+                            }
+                          );
                         }}
                         className="rounded-lg p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700"
-                        title="Projekt-ID kopieren"
+                        title={tr("bestellung.cartSheet.linkedProject.copyId", "Projekt-ID kopieren")}
                       >
                         <Copy className="h-3.5 w-3.5" />
                       </button>
@@ -2207,7 +2767,7 @@ export default function CartBestellung() {
                   }}
                   className="text-xs font-medium text-red-600 hover:underline"
                 >
-                  Projekt entfernen
+                  {tr("bestellung.cartSheet.linkedProject.remove", "Projekt entfernen")}
                 </button>
               </div>
             </SectionCard>
@@ -2216,7 +2776,7 @@ export default function CartBestellung() {
 
         <div className="mx-4 mt-1">
           <SectionCard
-            title="Händlerinformationen"
+            title={tr("bestellung.cartSheet.dealerInfo.title", "Händlerinformationen")}
             tone="default"
             icon={<Store className="h-4 w-4 text-blue-600" />}
           >
@@ -2228,42 +2788,48 @@ export default function CartBestellung() {
               <div className="flex items-center gap-2">
                 <Hash className="h-4 w-4 text-slate-400" />
                 <span>
-                  Kd-Nr.: <span className="font-medium">{dealerLoginNr || "–"}</span>
+                  {tr("bestellung.cartSheet.dealerInfo.customerNo", "Kd-Nr.")}:{" "}
+                  <span className="font-medium">{dealerLoginNr || "–"}</span>
                 </span>
               </div>
 
               <div className="flex items-center gap-2">
                 <User className="h-4 w-4 text-slate-400" />
                 <span>
-                  AP: <span className="font-medium">{dealerContact || "–"}</span>
+                  {tr("bestellung.cartSheet.dealerInfo.contactPerson", "AP")}:{" "}
+                  <span className="font-medium">{dealerContact || "–"}</span>
                 </span>
               </div>
 
               <div className="flex items-center gap-2">
                 <Phone className="h-4 w-4 text-slate-400" />
                 <span>
-                  Tel.: <span className="font-medium">{dealerPhone || "–"}</span>
+                  {tr("bestellung.cartSheet.dealerInfo.phone", "Tel.")}:{" "}
+                  <span className="font-medium">{dealerPhone || "–"}</span>
                 </span>
               </div>
 
               <div className="flex items-center gap-2">
                 <Mail className="h-4 w-4 text-slate-400" />
                 <span>
-                  E-Mail: <span className="font-medium">{dealerEmail || "–"}</span>
+                  {tr("bestellung.cartSheet.dealerInfo.email", "E-Mail")}:{" "}
+                  <span className="font-medium">{dealerEmail || "–"}</span>
                 </span>
               </div>
 
               <div className="flex items-center gap-2">
                 <MapPin className="h-4 w-4 text-slate-400" />
                 <span>
-                  Ort: <span className="font-medium">{dealerCityZip || "–"}</span>
+                  {tr("bestellung.cartSheet.dealerInfo.location", "Ort")}:{" "}
+                  <span className="font-medium">{dealerCityZip || "–"}</span>
                 </span>
               </div>
 
               <div className="flex items-center gap-2">
                 <BadgeInfo className="h-4 w-4 text-slate-400" />
                 <span>
-                  KAM: <span className="font-medium">{dealerKam || "–"}</span>
+                  {tr("bestellung.cartSheet.dealerInfo.kam", "KAM")}:{" "}
+                  <span className="font-medium">{dealerKam || "–"}</span>
                 </span>
               </div>
             </div>
@@ -2274,10 +2840,12 @@ export default function CartBestellung() {
           <div className="flex flex-1 flex-col items-center justify-center space-y-4 text-center">
             <CheckCircle2 className="h-12 w-12 text-emerald-600" />
             <p className="text-lg font-semibold text-emerald-700">
-              Bestellung gespeichert!
+              {tr("bestellung.toast.orderSavedTitle", "Bestellung gespeichert!")}
             </p>
             <SheetClose asChild>
-              <Button>Schließen</Button>
+              <Button>
+                {tr("bestellung.cartSheet.summary.close", "Schließen")}
+              </Button>
             </SheetClose>
           </div>
         ) : (
@@ -2285,14 +2853,19 @@ export default function CartBestellung() {
             <div className="order-2 min-h-0 space-y-4 overflow-y-auto pr-1 lg:order-1">
               {hasNormalProducts && (
                 <SectionCard
-                  title="Haupt-Distributor"
+                  title={tr("bestellung.cartSheet.distributor.title", "Haupt-Distributor")}
                   tone="blue"
                   icon={<Truck className="h-4 w-4 text-blue-600" />}
                 >
                   <div className="space-y-2">
                     <Select onValueChange={(v) => setDistributor(v)} value={distributor}>
                       <SelectTrigger className="h-10 text-sm">
-                        <SelectValue placeholder="Bitte auswählen" />
+                        <SelectValue
+                          placeholder={tr(
+                            "bestellung.cartSheet.distributor.placeholder",
+                            "Bitte auswählen"
+                          )}
+                        />
                       </SelectTrigger>
 
                       <SelectContent>
@@ -2305,7 +2878,10 @@ export default function CartBestellung() {
                     </Select>
 
                     <p className="text-xs italic text-slate-500">
-                      Standardmäßig über ElectronicPartner Schweiz AG.
+                      {tr(
+                        "bestellung.cartSheet.distributor.defaultHint",
+                        "Standardmäßig über ElectronicPartner Schweiz AG."
+                      )}
                     </p>
                   </div>
                 </SectionCard>
@@ -2313,14 +2889,15 @@ export default function CartBestellung() {
 
               {activeCampaignIdFromCart && bonusTiers.length > 0 && (
                 <SectionCard
-                  title="Bonus live im Warenkorb"
+                  title={tr("bestellung.cartSheet.bonus.title", "Bonus live im Warenkorb")}
                   tone="green"
                   icon={<Sparkles className="h-4 w-4 text-emerald-600" />}
                 >
                   <div className="flex flex-wrap items-start justify-between gap-3">
                     <div>
                       <p className="text-sm text-slate-900">
-                        {activeCampaignNameFromCart || "Aktive Kampagne"}
+                        {activeCampaignNameFromCart ||
+                          tr("bestellung.cartSheet.bonus.activeCampaign", "Aktive Kampagne")}
                       </p>
                     </div>
 
@@ -2339,24 +2916,30 @@ export default function CartBestellung() {
                     </div>
 
                     <div className="flex items-center justify-between text-[11px] text-slate-500">
-                      <span>Von {formatCurrencyCH(previousBonusThresholdValue, 0, 2)}</span>
-                      <span>Bis {formatCurrencyCH(currentBonusTargetValue, 0, 2)}</span>
+                      <span>
+                        {tr("bestellung.cartSheet.bonus.from", "Von")}{" "}
+                        {formatCurrencyCH(previousBonusThresholdValue, 0, 2)}
+                      </span>
+                      <span>
+                        {tr("bestellung.cartSheet.bonus.to", "Bis")}{" "}
+                        {formatCurrencyCH(currentBonusTargetValue, 0, 2)}
+                      </span>
                     </div>
                   </div>
 
                   <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
                     <MiniStat
-                      label="Bereits bestellt"
+                      label={tr("bestellung.cartSheet.bonus.alreadyBooked", "Bereits bestellt")}
                       value={formatCurrencyCH(bookedRevenue, 0, 2)}
                       tone="green"
                     />
                     <MiniStat
-                      label="Diese Bestellung"
+                      label={tr("bestellung.cartSheet.bonus.thisOrder", "Diese Bestellung")}
                       value={formatCurrencyCH(liveCartProgressValue, 0, 2)}
                       tone="green"
                     />
                     <MiniStat
-                      label="Nach Absenden"
+                      label={tr("bestellung.cartSheet.bonus.afterSubmit", "Nach Absenden")}
                       value={formatCurrencyCH(totalProgressAfterSubmit, 0, 2)}
                       tone="green"
                     />
@@ -2364,19 +2947,21 @@ export default function CartBestellung() {
 
                   <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
                     <MiniStat
-                      label="Aktuell erreichte Stufe"
+                      label={tr("bestellung.cartSheet.bonus.currentTier", "Aktuell erreichte Stufe")}
                       value={
                         <div className="space-y-1">
                           <div>
                             {liveReachedBonusTier
                               ? liveReachedBonusTier.label ||
-                                `Stufe ${liveReachedBonusTier.tier_level}`
-                              : "Noch keine"}
+                                tr("bestellung.campaign.progress.level", "Stufe {level}", {
+                                  level: liveReachedBonusTier.tier_level,
+                                })
+                              : tr("bestellung.cartSheet.bonus.noneYet", "Noch keine")}
                           </div>
 
                           {liveReachedBonusTier && (
                             <div className="text-xs text-emerald-700">
-                              Bonus:{" "}
+                              {tr("bestellung.cartSheet.bonus.bonus", "Bonus")}:{" "}
                               {liveReachedBonusTier.bonus_type === "percent"
                                 ? `${liveReachedBonusTier.bonus_value}%`
                                 : `${formatNumberCH(liveReachedBonusTier.bonus_value, 0, 2)} CHF`}
@@ -2385,7 +2970,8 @@ export default function CartBestellung() {
 
                           {liveReachedBonusTier?.bonus_type === "percent" && (
                             <div className="text-xs text-slate-500">
-                              ≈ {formatNumberCH(estimatedBonusValue, 0, 0)} CHF Bonus
+                              ≈ {formatNumberCH(estimatedBonusValue, 0, 0)} CHF{" "}
+                              {tr("bestellung.cartSheet.bonus.estimatedBonus", "Bonus")}
                             </div>
                           )}
                         </div>
@@ -2393,7 +2979,10 @@ export default function CartBestellung() {
                     />
 
                     <MiniStat
-                      label="Fortschritt zur nächsten Stufe"
+                      label={tr(
+                        "bestellung.cartSheet.bonus.progressToNext",
+                        "Fortschritt zur nächsten Stufe"
+                      )}
                       value={`${liveBonusProgressPercent}%`}
                     />
                   </div>
@@ -2402,31 +2991,45 @@ export default function CartBestellung() {
                     <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm">
                       <div className="mb-2 flex items-center gap-2 text-amber-900">
                         <Trophy className="h-4 w-4" />
-                        <p className="font-semibold">Nächste Bonusstufe</p>
+                        <p className="font-semibold">
+                          {tr("bestellung.cartSheet.bonus.nextTier", "Nächste Bonusstufe")}
+                        </p>
                       </div>
 
                       <p className="text-amber-800">
                         {liveNextBonusTier.label ||
-                          `Stufe ${liveNextBonusTier.tier_level}`}{" "}
-                        ab {formatCurrencyCH(liveNextBonusTier.threshold_value, 0, 2)}
+                          tr("bestellung.campaign.progress.level", "Stufe {level}", {
+                            level: liveNextBonusTier.tier_level,
+                          })}{" "}
+                        {tr("bestellung.cartSheet.bonus.fromThreshold", "ab")}{" "}
+                        {formatCurrencyCH(liveNextBonusTier.threshold_value, 0, 2)}
                       </p>
 
                       <p className="text-amber-800">
-                        Bonus:{" "}
+                        {tr("bestellung.cartSheet.bonus.bonus", "Bonus")}:{" "}
                         {liveNextBonusTier.bonus_type === "percent"
                           ? `${liveNextBonusTier.bonus_value}%`
                           : `${formatNumberCH(liveNextBonusTier.bonus_value, 0, 2)} CHF`}
                       </p>
 
                       <p className="mt-1 font-medium text-amber-900">
-                        Es fehlen noch: {formatCurrencyCH(liveRemainingToNextTier, 0, 2)}
+                        {tr(
+                          "bestellung.cartSheet.summary.missingToNext",
+                          "Es fehlen noch: {amount}",
+                          { amount: formatCurrencyCH(liveRemainingToNextTier, 0, 2) }
+                        )}
                       </p>
                     </div>
                   ) : (
                     <div className="mt-4 rounded-xl border border-indigo-200 bg-indigo-50 p-4 text-sm">
                       <div className="flex items-center gap-2 text-indigo-900">
                         <Trophy className="h-4 w-4" />
-                        <p className="font-semibold">Höchste Bonusstufe erreicht</p>
+                        <p className="font-semibold">
+                          {tr(
+                            "bestellung.cartSheet.bonus.highestTierReached",
+                            "Höchste Bonusstufe erreicht"
+                          )}
+                        </p>
                       </div>
                     </div>
                   )}
@@ -2434,31 +3037,53 @@ export default function CartBestellung() {
               )}
 
               <SectionCard
-                title="Bestellangaben"
+                title={tr("bestellung.cartSheet.order.title", "Bestellangaben")}
                 tone="default"
                 icon={<ClipboardList className="h-4 w-4 text-blue-600" />}
               >
                 <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                   <div>
-                    <FieldLabel>Lieferung</FieldLabel>
+                    <FieldLabel>
+                      {tr("bestellung.cartSheet.order.delivery", "Lieferung")}
+                    </FieldLabel>
 
                     <Select
                       value={deliveryMode}
                       onValueChange={(v) => setDeliveryMode(v as "sofort" | "termin")}
                     >
                       <SelectTrigger className="h-10 text-sm">
-                        <SelectValue placeholder="Bitte wählen" />
+                        <SelectValue
+                          placeholder={tr(
+                            "bestellung.cartSheet.order.deliveryPlaceholder",
+                            "Bitte wählen"
+                          )}
+                        />
                       </SelectTrigger>
 
                       <SelectContent>
-                        <SelectItem value="sofort">Sofort</SelectItem>
-                        <SelectItem value="termin">Zum Termin</SelectItem>
+                        <SelectItem value="sofort">
+                          {tr(
+                            "bestellung.cartSheet.order.deliveryImmediate",
+                            "Sofort"
+                          )}
+                        </SelectItem>
+                        <SelectItem value="termin">
+                          {tr(
+                            "bestellung.cartSheet.order.deliveryScheduled",
+                            "Zum Termin"
+                          )}
+                        </SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
 
                   <div>
-                    <FieldLabel>Lieferdatum (optional)</FieldLabel>
+                    <FieldLabel>
+                      {tr(
+                        "bestellung.cartSheet.order.deliveryDateOptional",
+                        "Lieferdatum (optional)"
+                      )}
+                    </FieldLabel>
 
                     <Input
                       type="date"
@@ -2471,25 +3096,41 @@ export default function CartBestellung() {
                 </div>
 
                 <div className="mt-3">
-                  <FieldLabel>Wichtige Infos zur Bestellung (Kommentar)</FieldLabel>
+                  <FieldLabel>
+                    {tr(
+                      "bestellung.cartSheet.order.comment",
+                      "Wichtige Infos zur Bestellung (Kommentar)"
+                    )}
+                  </FieldLabel>
 
                   <textarea
                     value={orderComment}
                     onChange={(e) => setOrderComment(e.target.value)}
                     className="min-h-[110px] w-full rounded-xl border border-slate-300 p-3 text-sm outline-none ring-0 transition focus:border-slate-400"
                     rows={4}
-                    placeholder="z. B. 'Muss zwingend bis 15.10. geliefert werden'…"
+                    placeholder={tr(
+                      "bestellung.cartSheet.order.commentPlaceholder",
+                      "z. B. 'Muss zwingend bis 15.10. geliefert werden'…"
+                    )}
                   />
                 </div>
 
                 <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
                   <div>
-                    <FieldLabel>Ihre Bestell-/Referenz-Nr.</FieldLabel>
+                    <FieldLabel>
+                      {tr(
+                        "bestellung.cartSheet.order.reference",
+                        "Ihre Bestell-/Referenz-Nr."
+                      )}
+                    </FieldLabel>
 
                     <Input
                       value={dealerReference}
                       onChange={(e) => setDealerReference(e.target.value)}
-                      placeholder="z. B. 45001234"
+                      placeholder={tr(
+                        "bestellung.cartSheet.order.referencePlaceholder",
+                        "z. B. 45001234"
+                      )}
                       className="h-10 text-sm"
                     />
                   </div>
@@ -2497,7 +3138,10 @@ export default function CartBestellung() {
               </SectionCard>
 
               <SectionCard
-                title="Abweichende Lieferadresse / Direktlieferung"
+                title={tr(
+                  "bestellung.cartSheet.altDelivery.title",
+                  "Abweichende Lieferadresse / Direktlieferung"
+                )}
                 tone="default"
                 icon={<Truck className="h-4 w-4 text-blue-600" />}
               >
@@ -2509,13 +3153,18 @@ export default function CartBestellung() {
                     onChange={(e) => setHasAltDelivery(e.target.checked)}
                     className="h-4 w-4"
                   />
-                  Zusätzliche Lieferadresse verwenden
+                  {tr(
+                    "bestellung.cartSheet.altDelivery.toggle",
+                    "Zusätzliche Lieferadresse verwenden"
+                  )}
                 </label>
 
                 {hasAltDelivery && (
                   <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
                     <div>
-                      <FieldLabel>Name / Firma</FieldLabel>
+                      <FieldLabel>
+                        {tr("bestellung.cartSheet.altDelivery.name", "Name / Firma")}
+                      </FieldLabel>
                       <Input
                         value={deliveryName}
                         onChange={(e) => setDeliveryName(e.target.value)}
@@ -2524,7 +3173,9 @@ export default function CartBestellung() {
                     </div>
 
                     <div>
-                      <FieldLabel>Straße / Nr.</FieldLabel>
+                      <FieldLabel>
+                        {tr("bestellung.cartSheet.altDelivery.street", "Straße / Nr.")}
+                      </FieldLabel>
                       <Input
                         value={deliveryStreet}
                         onChange={(e) => setDeliveryStreet(e.target.value)}
@@ -2533,7 +3184,9 @@ export default function CartBestellung() {
                     </div>
 
                     <div>
-                      <FieldLabel>PLZ</FieldLabel>
+                      <FieldLabel>
+                        {tr("bestellung.cartSheet.altDelivery.zip", "PLZ")}
+                      </FieldLabel>
                       <Input
                         value={deliveryZip}
                         onChange={(e) => setDeliveryZip(e.target.value)}
@@ -2542,7 +3195,9 @@ export default function CartBestellung() {
                     </div>
 
                     <div>
-                      <FieldLabel>Ort</FieldLabel>
+                      <FieldLabel>
+                        {tr("bestellung.cartSheet.altDelivery.city", "Ort")}
+                      </FieldLabel>
                       <Input
                         value={deliveryCity}
                         onChange={(e) => setDeliveryCity(e.target.value)}
@@ -2551,7 +3206,9 @@ export default function CartBestellung() {
                     </div>
 
                     <div>
-                      <FieldLabel>Land</FieldLabel>
+                      <FieldLabel>
+                        {tr("bestellung.cartSheet.altDelivery.country", "Land")}
+                      </FieldLabel>
                       <Input
                         value={deliveryCountry}
                         onChange={(e) => setDeliveryCountry(e.target.value)}
@@ -2560,7 +3217,12 @@ export default function CartBestellung() {
                     </div>
 
                     <div>
-                      <FieldLabel>Telefon (optional)</FieldLabel>
+                      <FieldLabel>
+                        {tr(
+                          "bestellung.cartSheet.altDelivery.phoneOptional",
+                          "Telefon (optional)"
+                        )}
+                      </FieldLabel>
                       <Input
                         value={deliveryPhone}
                         onChange={(e) => setDeliveryPhone(e.target.value)}
@@ -2569,7 +3231,12 @@ export default function CartBestellung() {
                     </div>
 
                     <div>
-                      <FieldLabel>E-Mail (optional)</FieldLabel>
+                      <FieldLabel>
+                        {tr(
+                          "bestellung.cartSheet.altDelivery.emailOptional",
+                          "E-Mail (optional)"
+                        )}
+                      </FieldLabel>
                       <Input
                         value={deliveryEmail}
                         onChange={(e) => setDeliveryEmail(e.target.value)}
@@ -2581,7 +3248,7 @@ export default function CartBestellung() {
               </SectionCard>
 
               <SectionCard
-                title="Dateien zur Bestellung"
+                title={tr("bestellung.cartSheet.files.title", "Dateien zur Bestellung")}
                 tone="blue"
                 icon={<FileUp className="h-4 w-4 text-blue-600" />}
               >
@@ -2594,7 +3261,11 @@ export default function CartBestellung() {
 
                 {orderDetails.files.length > 0 && (
                   <p className="mt-2 text-xs text-slate-500">
-                    {orderDetails.files.length} Datei(en) angehängt
+                    {tr(
+                      "bestellung.cartSheet.files.attached",
+                      "{count} Datei(en) angehängt",
+                      { count: orderDetails.files.length }
+                    )}
                   </p>
                 )}
               </SectionCard>
@@ -2606,9 +3277,11 @@ export default function CartBestellung() {
                   cart={cart}
                   distis={distis}
                   campaignUsageMap={campaignUsageMap}
+                  historicalDisplayMap={historicalDisplayMap}
                   updateItem={updateItem}
                   addItem={addItem}
                   removeFromCart={removeFromCart}
+                  tr={tr}
                 />
 
                 {cart.length > 0 && (
@@ -2617,28 +3290,41 @@ export default function CartBestellung() {
                       <div className="mb-3 flex items-center gap-2">
                         <Package className="h-4 w-4 text-slate-500" />
                         <p className="text-sm font-semibold text-slate-900">
-                          Zusammenfassung
+                          {tr("bestellung.cartSheet.summary.title", "Zusammenfassung")}
                         </p>
                       </div>
 
                       <div className="space-y-2 text-sm">
                         <div className="flex items-center justify-between">
-                          <span className="font-medium text-slate-600">Gesamt</span>
+                          <span className="font-medium text-slate-600">
+                            {tr("bestellung.cartSheet.summary.pieces", "Gesamt")}
+                          </span>
                           <span className="font-semibold text-slate-900">
-                            {formatNumberCH(totalQuantity)} Stück
+                            {tr(
+                              "bestellung.cartSheet.summary.piecesValue",
+                              "{count} Stück",
+                              { count: formatNumberCH(totalQuantity) }
+                            )}
                           </span>
                         </div>
 
                         <div className="flex items-center justify-between">
-                          <span className="font-medium text-slate-600">Gesamtpreis</span>
+                          <span className="font-medium text-slate-600">
+                            {tr("bestellung.cartSheet.summary.totalPrice", "Gesamtpreis")}
+                          </span>
                           <span className="text-lg font-bold text-slate-900">
-                            {formatNumberCH(totalPrice, 0, 0)} CHF
+                            {formatNumberCH(totalPrice, 2, 2)} CHF
                           </span>
                         </div>
 
                         {bonusTiers.length > 0 && (
                           <div className="flex items-center justify-between">
-                            <span className="font-medium text-slate-600">Bonus-Fortschritt</span>
+                            <span className="font-medium text-slate-600">
+                              {tr(
+                                "bestellung.cartSheet.summary.bonusProgress",
+                                "Bonus-Fortschritt"
+                              )}
+                            </span>
                             <span className="font-semibold text-emerald-700">
                               {formatCurrencyCH(totalProgressAfterSubmit, 0, 2)}
                             </span>
@@ -2648,20 +3334,37 @@ export default function CartBestellung() {
 
                       {totalSaved > 0 && (
                         <div className="mt-3 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-center text-sm font-medium text-emerald-700">
-                          Gesamtersparnis: {formatNumberCH(totalSaved, 0, 0)} CHF
+                          {tr(
+                            "bestellung.cartSheet.summary.totalSavings",
+                            "Gesamtersparnis: {amount}",
+                            { amount: `${formatNumberCH(totalSaved, 2, 2)} CHF` }
+                          )}
                         </div>
                       )}
 
                       {bonusTiers.length > 0 && liveNextBonusTier && (
                         <div className="mt-3 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-center text-sm font-medium text-amber-800">
-                          Noch {formatCurrencyCH(liveRemainingToNextTier, 0, 2)} bis{" "}
-                          {liveNextBonusTier.label || `Stufe ${liveNextBonusTier.tier_level}`}
+                          {tr(
+                            "bestellung.cartSheet.summary.missingToNext",
+                            "Noch {amount} bis {label}",
+                            {
+                              amount: formatCurrencyCH(liveRemainingToNextTier, 0, 2),
+                              label:
+                                liveNextBonusTier.label ||
+                                tr("bestellung.campaign.progress.level", "Stufe {level}", {
+                                  level: liveNextBonusTier.tier_level,
+                                }),
+                            }
+                          )}
                         </div>
                       )}
 
                       {bonusTiers.length > 0 && !liveNextBonusTier && liveReachedBonusTier && (
                         <div className="mt-3 rounded-xl border border-indigo-200 bg-indigo-50 px-3 py-2 text-center text-sm font-medium text-indigo-800">
-                          Höchste Bonusstufe erreicht
+                          {tr(
+                            "bestellung.cartSheet.bonus.highestTierReached",
+                            "Höchste Bonusstufe erreicht"
+                          )}
                         </div>
                       )}
 
@@ -2673,12 +3376,15 @@ export default function CartBestellung() {
                         {loading ? (
                           <>
                             <Loader2 className="h-4 w-4 animate-spin" />
-                            Sende…
+                            {tr("bestellung.cartSheet.summary.submitting", "Sende…")}
                           </>
                         ) : (
                           <>
                             <CheckCircle2 className="h-4 w-4" />
-                            Bestellung absenden
+                            {tr(
+                              "bestellung.cartSheet.summary.submit",
+                              "Bestellung absenden"
+                            )}
                           </>
                         )}
                       </Button>
@@ -2689,7 +3395,10 @@ export default function CartBestellung() {
                         onClick={closeCart}
                       >
                         <ChevronRight className="h-4 w-4" />
-                        Weiter einkaufen
+                        {tr(
+                          "bestellung.cartSheet.summary.continueShopping",
+                          "Weiter einkaufen"
+                        )}
                       </Button>
                     </div>
                   </div>

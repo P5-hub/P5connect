@@ -45,11 +45,7 @@ export default function ProductCardSonyPro({
     return parts[0] ?? "EP";
   })();
 
-  /* ---------------------------------------------------------
-     💎 FIX: Add-to-Cart darf NIEMALS doppelt ausgeführt werden
-  --------------------------------------------------------- */
-
-  // → verhindert doppelte Ausführung trotz Render + Timer
+  // verhindert doppelte AddToCart Calls
   const alreadyAddedRef = useRef(false);
 
   function AddToCartProgressButton() {
@@ -63,7 +59,11 @@ export default function ProductCardSonyPro({
       onAddToCart({
         ...product,
         quantity: qty,
-        price,
+
+        // 🔴 WICHTIG: manual price override
+        price: price,
+        price_manual_override: true,
+        price_manual_override_value: price,
       });
     };
 
@@ -74,12 +74,11 @@ export default function ProductCardSonyPro({
       setProgress(0);
 
       let t = 0;
-      const duration = 1200; // smooth timing
+      const duration = 1200;
 
       const interval = setInterval(() => {
-        t += 16; // ~60 FPS
+        t += 16;
 
-        // Ease-out cubic curve → schöner Verlauf
         const eased = Math.min(1, 1 - Math.pow(1 - t / duration, 3));
         const percent = Math.floor(eased * 100);
 
@@ -88,13 +87,10 @@ export default function ProductCardSonyPro({
         if (percent >= 100) {
           clearInterval(interval);
 
-          // Add exactly once
           setTimeout(() => performAdd(), 0);
 
-          // Show “added”
           setState("added");
 
-          // Rückkehr zu Blau nach 1.4 Sekunden
           setTimeout(() => {
             setState("idle");
             setProgress(0);
@@ -107,20 +103,12 @@ export default function ProductCardSonyPro({
     const isAdded = state === "added";
     const isLoading = state === "progress";
 
-    /* ===========================================
-      🎨 Farblogik
-      idle     → Blau (normal)
-      progress → Blau → Grün Verlauf
-      added    → Grün
-      reset    → zurück zu Blau
-    =========================================== */
-
     const bgClass =
       state === "idle"
         ? "bg-gradient-to-r from-blue-600 to-blue-700"
         : state === "progress"
         ? "bg-gradient-to-r from-blue-600 via-blue-500 to-green-500"
-        : "bg-green-600"; // added
+        : "bg-green-600";
 
     return (
       <button
@@ -133,7 +121,6 @@ export default function ProductCardSonyPro({
           ${bgClass}
         `}
       >
-        {/* Smooth Progress Bar */}
         {isLoading && (
           <div
             className="absolute left-0 top-0 h-full bg-white/20 rounded-xl shadow-inner"
@@ -144,7 +131,6 @@ export default function ProductCardSonyPro({
           />
         )}
 
-        {/* Button Label */}
         <span className="relative z-10 flex items-center justify-center gap-2">
           {isAdded ? (
             <>
@@ -161,7 +147,6 @@ export default function ProductCardSonyPro({
       </button>
     );
   }
-
 
   return (
     <motion.div whileHover={{ y: -3 }} transition={{ duration: 0.18 }}>
@@ -190,21 +175,25 @@ export default function ProductCardSonyPro({
           {/* PRICE BLOCK */}
           <div className="grid grid-cols-2 bg-gray-50 border rounded-xl p-3 text-sm">
             <div>
-              <span className="block text-[11px] text-gray-500">UVP brutto</span>
+              <span className="block text-[11px] text-gray-500">
+                UVP brutto
+              </span>
               <span className="font-medium">
                 {retailPrice ? `${retailPrice.toFixed(2)} CHF` : "-"}
               </span>
             </div>
 
             <div className="text-right">
-              <span className="block text-[11px] text-gray-500">EK normal</span>
+              <span className="block text-[11px] text-gray-500">
+                EK normal
+              </span>
               <span className="font-medium text-blue-600">
                 {dealerInvoice ? `${dealerInvoice.toFixed(2)} CHF` : "-"}
               </span>
             </div>
           </div>
 
-          {/* INPUT FIELDS */}
+          {/* INPUTS */}
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="text-[11px] text-gray-500 mb-1 block">
@@ -231,6 +220,7 @@ export default function ProductCardSonyPro({
                 onBlur={(e) => {
                   const parsed = Number(e.target.value.replace(",", "."));
                   const valid = Number.isFinite(parsed) ? parsed : 0;
+
                   setPrice(valid);
                   setPriceInput(valid.toFixed(2));
                 }}
@@ -245,7 +235,6 @@ export default function ProductCardSonyPro({
             </div>
           )}
 
-          {/* 🚀 Premium Add-To-Cart */}
           <AddToCartProgressButton />
         </CardContent>
       </Card>

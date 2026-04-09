@@ -1,5 +1,7 @@
+// types/Product.ts
+
 export type Product = {
-  product_id: string;
+  product_id: number;
   ean: string | null;
   product_name: string | null;
   sony_article: string | null;
@@ -11,11 +13,8 @@ export type Product = {
   product_description: string | null;
   active_sofortrabatt: boolean | null;
   ph2: string | null;
-  product_image_url?: string | null; // 👈 hinzugefügt!
+  product_image_url?: string | null;
 
-  /** 👇 Zusätzliche Client-seitige Felder */
+  /** optionale UI-/Alias-Felder */
   name?: string;
-  quantity?: number;
-  price?: number;
-  serial?: string;
 };

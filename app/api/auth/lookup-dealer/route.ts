@@ -1,77 +1,97 @@
 import { NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
+import { supabaseAdmin } from "@/lib/supabaseAdmin";
 
-type DealerRow = {
+type DealerLookupRow = {
   dealer_id: number;
   login_nr: string;
-  role: string | null;
+  role: "admin" | "dealer" | string | null;
   store_name: string | null;
   email: string | null;
+  login_email: string;
   auth_user_id: string | null;
 };
 
 export async function POST(req: Request) {
   try {
-    const { loginNr } = await req.json();
+    const body = await req.json();
+    const loginNr = String(body?.loginNr ?? "").trim();
 
-    if (!loginNr || typeof loginNr !== "string") {
-      return NextResponse.json({ error: "Missing loginNr" }, { status: 400 });
-    }
-
-    const supabaseAdmin = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!
-    );
-
-    // ✅ WICHTIG: Wir holen die echte Mail aus dealers.email und zusätzlich auth_user_id
-    const { data, error } = await supabaseAdmin
-      .from("dealers")
-      .select("dealer_id, login_nr, role, store_name, email, auth_user_id")
-      .eq("login_nr", loginNr.trim())
-      .maybeSingle<DealerRow>();
-
-    if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 });
-    }
-
-    if (!data) {
-      return NextResponse.json({ error: "Invalid credentials" }, { status: 401 });
-    }
-
-    // ✅ Primär: dealers.email (die echte Mail)
-    let resolvedEmail = data.email?.trim() || "";
-
-    // ✅ Fallback: falls email leer ist, nutze auth_user_id → auth.users Email
-    if (!resolvedEmail && data.auth_user_id) {
-      const { data: userData, error: userErr } =
-        await supabaseAdmin.auth.admin.getUserById(data.auth_user_id);
-
-      if (!userErr) {
-        resolvedEmail = userData.user?.email?.trim() || "";
-      }
-    }
-
-    if (!resolvedEmail) {
+    if (!loginNr) {
       return NextResponse.json(
-        { error: "No email configured for this login" },
+        { error: "loginNr ist erforderlich." },
         { status: 400 }
       );
     }
 
-    // Einheitliche Response
-    return NextResponse.json(
-      {
-        dealer: {
-          dealer_id: data.dealer_id,
-          login_nr: data.login_nr,
-          role: data.role,
-          store_name: data.store_name,
-          email: resolvedEmail, // ✅ garantiert echte Mail
+    const { data: dealer, error } = await supabaseAdmin
+      .from("dealers")
+      .select(
+        "dealer_id, login_nr, role, store_name, email, login_email, auth_user_id"
+      )
+      .eq("login_nr", loginNr)
+      .maybeSingle<DealerLookupRow>();
+
+    if (error) {
+      return NextResponse.json(
+        { error: "Fehler beim Laden des Dealers: " + error.message },
+        { status: 500 }
+      );
+    }
+
+    if (!dealer) {
+      return NextResponse.json(
+        { error: "Invalid credentials" },
+        { status: 401 }
+      );
+    }
+
+    if (!dealer.auth_user_id) {
+      return NextResponse.json(
+        { error: "Für diesen Benutzer fehlt auth_user_id." },
+        { status: 500 }
+      );
+    }
+
+    // ECHTE Auth-E-Mail direkt aus Supabase Auth holen
+    const { data: authUserData, error: authUserError } =
+      await supabaseAdmin.auth.admin.getUserById(dealer.auth_user_id);
+
+    if (authUserError || !authUserData?.user) {
+      return NextResponse.json(
+        {
+          error:
+            "Auth-Benutzer konnte nicht geladen werden: " +
+            (authUserError?.message ?? "unbekannt"),
         },
+        { status: 500 }
+      );
+    }
+
+    const authEmail = authUserData.user.email?.trim() ?? null;
+
+    if (!authEmail) {
+      return NextResponse.json(
+        { error: "Für diesen Benutzer ist keine Auth-E-Mail hinterlegt." },
+        { status: 500 }
+      );
+    }
+
+    return NextResponse.json({
+      dealer: {
+        dealer_id: dealer.dealer_id,
+        login_nr: dealer.login_nr,
+        role: dealer.role ?? "dealer",
+        store_name: dealer.store_name ?? null,
+        email: authEmail,
+        auth_user_id: dealer.auth_user_id,
       },
-      { status: 200 }
+    });
+  } catch (err: unknown) {
+    const message =
+      err instanceof Error ? err.message : "Unbekannter Fehler";
+    return NextResponse.json(
+      { error: "Unerwarteter Fehler: " + message },
+      { status: 500 }
     );
-  } catch (e: any) {
-    return NextResponse.json({ error: e?.message ?? "Unknown error" }, { status: 500 });
   }
 }

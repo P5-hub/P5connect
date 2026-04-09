@@ -16,6 +16,12 @@ import { sofortrabatt as sofortrabattFr } from "./fr/sofortrabatt";
 import { sofortrabatt as sofortrabattIt } from "./it/sofortrabatt";
 import { sofortrabatt as sofortrabattRm } from "./rm/sofortrabatt";
 
+import { bestellung as bestellungDe } from "./de/bestellung";
+import { bestellung as bestellungEn } from "./en/bestellung";
+import { bestellung as bestellungFr } from "./fr/bestellung";
+import { bestellung as bestellungIt } from "./it/bestellung";
+import { bestellung as bestellungRm } from "./rm/bestellung";
+
 
 
   export type Lang = "de" | "en" | "fr" | "it" | "rm";
@@ -96,6 +102,7 @@ import { sofortrabatt as sofortrabattRm } from "./rm/sofortrabatt";
         priceNet: "Preis (CHF, exkl. MwSt & VRG)",
         bestPrice: "Günstigster Preis (inkl. MwSt.)",
       },
+    bestellung: bestellungDe,
 
       /* 📊 Verkauf melden (Seite + Modal + CSV) */
       sales: {
@@ -166,7 +173,8 @@ import { sofortrabatt as sofortrabattRm } from "./rm/sofortrabatt";
             desc: "Produktnews, Aktionen und Updates für den Februar.",
           },
         },
-
+    
+        
         sales: {
           internal: "Verkauf Innendienst",
           kam: "Ansprechpartner Verkauf",
@@ -486,6 +494,8 @@ import { sofortrabatt as sofortrabattRm } from "./rm/sofortrabatt";
       priceNet: "Price (CHF, excl. VAT & fees)",
       bestPrice: "Best price (incl. VAT)",
     },
+
+    bestellung: bestellungEn,
 
     sales: {
       "page.title": "Report Sales Data",
@@ -851,6 +861,8 @@ import { sofortrabatt as sofortrabattRm } from "./rm/sofortrabatt";
       priceNet: "Prix (CHF, hors TVA & taxes)",
       bestPrice: "Meilleur prix (TVA incl.)",
     },
+
+    bestellung: bestellungFr,
 
     sales: {
       "page.title": "Déclarer des ventes",
@@ -1222,6 +1234,8 @@ import { sofortrabatt as sofortrabattRm } from "./rm/sofortrabatt";
       bestPrice: "Miglior prezzo (incl. IVA)",
     },
 
+    bestellung: bestellungIt,
+
     sales: {
       "page.title": "Segnalare vendite",
       heading: "Segnalare vendite",
@@ -1592,6 +1606,8 @@ import { sofortrabatt as sofortrabattRm } from "./rm/sofortrabatt";
       priceNet: "Pretsch (CHF, senza TVA & taxas)",
       bestPrice: "Meglier pretsch (incl. TVA)",
     },
+
+    bestellung: bestellungRm,
 
     sales: {
       "page.title": "Annunziar datas da vendita",

@@ -1,100 +1,123 @@
 "use client";
 
 import { useState } from "react";
-import { getSupabaseBrowser } from "@/lib/supabaseClient";
+import { useRouter } from "next/navigation";
 import { useI18n } from "@/lib/i18n/I18nProvider";
 
-export default function ResetPasswordRequestPage() {
-  const supabase = getSupabaseBrowser();
+export default function ResetPasswordPage() {
+  const router = useRouter();
   const { t } = useI18n();
 
   const [loginNr, setLoginNr] = useState("");
-  const [message, setMessage] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
-  // Dynamische Redirect-URL
-  const baseUrl =
-    process.env.NODE_ENV === "development"
-      ? "http://localhost:3000"
-      : "https://www.p5connect.ch";
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
 
-  async function handleSend(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    setMessage(null);
+
     setError(null);
-
-    if (!loginNr.trim()) {
-      setError("Bitte Login-Nr. eingeben.");
-      return;
-    }
-
+    setSuccess(null);
     setLoading(true);
 
-    // Händler suchen
-    const { data: dealer, error: dealerError } = await supabase
-      .from("dealers")
-      .select("email")
-      .eq("login_nr", loginNr)
-      .maybeSingle();
+    try {
+      const res = await fetch("/api/auth/request-password-reset", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          loginNr,
+        }),
+      });
 
-    if (dealerError || !dealer?.email) {
-      setError("Diese Login-Nr. ist nicht bekannt.");
-      setLoading(false);
-      return;
-    }
+      const data = await res.json();
 
-    // Reset-Link mailen
-    const { error: resetError } = await supabase.auth.resetPasswordForEmail(
-      dealer.email,
-      {
-        redirectTo: `${baseUrl}/reset-password/change`,
+      if (!res.ok) {
+        setError(data.error || "Fehler beim Senden der Reset-Mail.");
+        setLoading(false);
+        return;
       }
-    );
 
-    if (resetError) {
-      setError("Fehler: " + resetError.message);
+      // bewusst generische Erfolgsmeldung
+      setSuccess(
+        t("auth.reset.mailSent") ||
+          "Falls der Benutzer existiert, wurde eine E-Mail zum Zurücksetzen gesendet."
+      );
+
+      setLoginNr("");
+    } catch (err: any) {
+      setError(err?.message || "Unbekannter Fehler");
+    } finally {
       setLoading(false);
-      return;
     }
-
-    setMessage("Wir haben dir eine E-Mail zum Passwort-Reset gesendet.");
-    setLoading(false);
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-100 px-4">
+    <div className="min-h-screen flex items-center justify-center px-4">
       <form
-        onSubmit={handleSend}
-        className="max-w-md w-full bg-white p-8 rounded-2xl shadow border border-gray-200"
+        onSubmit={handleSubmit}
+        className="w-full max-w-md bg-white dark:bg-gray-900 p-8 rounded-2xl shadow border dark:border-gray-700"
       >
-        <h1 className="text-2xl font-bold text-gray-800 mb-2 text-center">
-          Passwort zurücksetzen
+        <h1 className="text-xl font-semibold mb-6">
+          {t("auth.reset.requestTitle") || "Passwort zurücksetzen"}
         </h1>
 
-        <p className="text-sm text-gray-500 mb-6 text-center">
-          Bitte Login-Nr. eingeben.
+        <p className="text-sm text-gray-600 dark:text-gray-300 mb-6">
+          {t("auth.reset.requestDesc") ||
+            "Bitte geben Sie Ihre Login-Nr ein. Sie erhalten eine E-Mail zum Zurücksetzen des Passworts."}
         </p>
 
-        <label className="block text-sm font-medium text-gray-700 mb-1">
-          Login-Nr.
+        <label className="block mb-1 text-sm font-medium">
+          {t("login.loginNr") || "Login-Nr"}
         </label>
 
         <input
           type="text"
-          className="border border-gray-300 rounded-lg p-3 w-full mb-4 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+          required
           value={loginNr}
           onChange={(e) => setLoginNr(e.target.value)}
+          className="
+            border p-3 w-full rounded mb-4
+            bg-white dark:bg-gray-800
+            text-gray-900 dark:text-gray-100
+          "
+          placeholder="z.B. 2612400162"
         />
 
-        {error && <p className="text-red-600 text-sm mb-4">{error}</p>}
-        {message && <p className="text-green-600 text-sm mb-4">{message}</p>}
+        {error && (
+          <p className="text-red-600 mb-3 text-sm">
+            {error}
+          </p>
+        )}
+
+        {success && (
+          <p className="text-green-600 mb-3 text-sm">
+            {success}
+          </p>
+        )}
 
         <button
+          type="submit"
           disabled={loading}
-          className="bg-indigo-600 text-white w-full py-3 rounded-lg text-sm font-medium hover:bg-indigo-700 transition disabled:opacity-50"
+          className="
+            w-full bg-indigo-600 hover:bg-indigo-700
+            text-white py-3 rounded-lg
+            disabled:opacity-50
+          "
         >
-          {loading ? "Sende Link..." : "Link anfordern"}
+          {loading
+            ? "⏳"
+            : t("auth.reset.send") || "Reset-Mail senden"}
+        </button>
+
+        <button
+          type="button"
+          onClick={() => router.push("/login")}
+          className="w-full mt-3 text-sm text-gray-600 hover:underline"
+        >
+          {t("auth.reset.backToLogin") || "Zurück zum Login"}
         </button>
       </form>
     </div>

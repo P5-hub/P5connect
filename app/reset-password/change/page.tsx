@@ -1,7 +1,7 @@
 "use client";
 export const dynamic = "force-dynamic";
 
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { getSupabaseBrowser } from "@/lib/supabaseClient";
 import { useI18n } from "@/lib/i18n/I18nProvider";
@@ -15,43 +15,68 @@ export default function ResetPasswordChangePage() {
   const [newPassword, setNewPassword] = useState("");
   const [confirm, setConfirm] = useState("");
   const [loading, setLoading] = useState(false);
+  const [initializing, setInitializing] = useState(true);
+  const [canSubmit, setCanSubmit] = useState(false);
 
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
 
   useEffect(() => {
-    const codeParam = params.get("code");
-    const emailParam = params.get("email");
+    let mounted = true;
 
-    if (!codeParam || !emailParam) {
-      setError(t("auth.reset.invalidLink"));
-      return;
-    }
+    async function initRecovery() {
+      setError(null);
+      setSuccess(null);
+      setInitializing(true);
+      setCanSubmit(false);
 
-    const code: string = codeParam;
-    const email: string = emailParam;
+      try {
+        const tokenHash = params.get("token_hash");
+        const type = params.get("type");
 
-    async function exchange() {
-      const { error: verifyErr } = await supabase.auth.verifyOtp({
-        type: "recovery",
-        email,
-        token_hash: code,
-      });
-
-      if (verifyErr) {
-        setError(t("auth.reset.expired"));
-        return;
-      }
-
-      setTimeout(async () => {
-        const { data, error } = await supabase.auth.getUser();
-        if (error || !data?.user) {
-          setError(t("auth.reset.noSession"));
+        if (!tokenHash || type !== "recovery") {
+          if (!mounted) return;
+          setError(
+            t("auth.reset.invalidLink") || "Reset-Link ist ungültig."
+          );
+          setInitializing(false);
+          return;
         }
-      }, 300);
+
+        const { error: verifyError } = await supabase.auth.verifyOtp({
+          token_hash: tokenHash,
+          type: "recovery",
+        });
+
+        if (!mounted) return;
+
+        if (verifyError) {
+          setError(
+            t("auth.reset.expired") ||
+              "Der Reset-Link ist abgelaufen oder ungültig."
+          );
+          setInitializing(false);
+          return;
+        }
+
+        setCanSubmit(true);
+        setInitializing(false);
+      } catch (err: unknown) {
+        if (!mounted) return;
+        const msg =
+          err instanceof Error
+            ? err.message
+            : t("auth.reset.invalidLink") || "Ungültiger Reset-Link.";
+        setError(msg);
+        setInitializing(false);
+      }
     }
 
-    exchange();
+    initRecovery();
+
+    return () => {
+      mounted = false;
+    };
   }, [params, supabase, t]);
 
   async function handleSubmit(e: React.FormEvent) {
@@ -59,30 +84,60 @@ export default function ResetPasswordChangePage() {
     setError(null);
     setSuccess(null);
 
+    if (!canSubmit) {
+      setError(
+        t("auth.reset.invalidLink") ||
+          "Reset-Link ungültig. Bitte fordere einen neuen Link an."
+      );
+      return;
+    }
+
     if (newPassword !== confirm) {
-      setError(t("auth.reset.mismatch"));
+      setError(
+        t("auth.reset.mismatch") || "Die Passwörter stimmen nicht überein."
+      );
       return;
     }
 
     if (newPassword.length < 8) {
-      setError(t("auth.reset.short"));
+      setError(
+        t("auth.reset.short") ||
+          "Das Passwort muss mindestens 8 Zeichen lang sein."
+      );
       return;
     }
 
     setLoading(true);
 
-    const { error: updErr } = await supabase.auth.updateUser({
-      password: newPassword,
-    });
+    try {
+      const { error: updErr } = await supabase.auth.updateUser({
+        password: newPassword,
+      });
 
-    if (updErr) {
-      setError("❌ " + updErr.message);
+      if (updErr) {
+        setError("❌ " + updErr.message);
+        return;
+      }
+
+      setSuccess(
+        t("auth.reset.success") || "Passwort erfolgreich geändert."
+      );
+
+      await supabase.auth.signOut();
+
+      setTimeout(() => {
+        router.replace("/login");
+        router.refresh();
+      }, 1500);
+    } catch (err: unknown) {
+      const msg =
+        err instanceof Error
+          ? err.message
+          : t("auth.reset.invalidLink") || "Ungültiger Reset-Link.";
+      setError(msg);
+    } finally {
       setLoading(false);
-      return;
     }
-
-    setSuccess(t("auth.reset.success"));
-    setTimeout(() => router.push("/login"), 1800);
   }
 
   return (
@@ -92,40 +147,63 @@ export default function ResetPasswordChangePage() {
         className="w-full max-w-md bg-white dark:bg-gray-900 p-8 rounded-2xl shadow border dark:border-gray-700"
       >
         <h1 className="text-xl font-semibold mb-6">
-          {t("auth.reset.title")}
+          {t("auth.reset.title") || "Neues Passwort setzen"}
         </h1>
 
-        <label className="block mb-1 text-sm font-medium">
-          {t("auth.reset.newPassword")}
-        </label>
-        <input
-          type="password"
-          className="border p-3 w-full rounded mb-4"
-          value={newPassword}
-          onChange={(e) => setNewPassword(e.target.value)}
-          required
-        />
+        {initializing ? (
+          <p className="text-sm text-gray-600 dark:text-gray-300">
+            {t("auth.reset.loading") || "Link wird geprüft..."}
+          </p>
+        ) : (
+          <>
+            <label className="block mb-1 text-sm font-medium">
+              {t("auth.reset.newPassword") || "Neues Passwort"}
+            </label>
+            <input
+              type="password"
+              className="border p-3 w-full rounded mb-4 bg-white dark:bg-gray-800"
+              value={newPassword}
+              onChange={(e) => setNewPassword(e.target.value)}
+              required
+              disabled={loading || !!success || !canSubmit}
+            />
 
-        <label className="block mb-1 text-sm font-medium">
-          {t("auth.reset.confirm")}
-        </label>
-        <input
-          type="password"
-          className="border p-3 w-full rounded mb-4"
-          value={confirm}
-          onChange={(e) => setConfirm(e.target.value)}
-          required
-        />
+            <label className="block mb-1 text-sm font-medium">
+              {t("auth.reset.confirm") || "Passwort bestätigen"}
+            </label>
+            <input
+              type="password"
+              className="border p-3 w-full rounded mb-4 bg-white dark:bg-gray-800"
+              value={confirm}
+              onChange={(e) => setConfirm(e.target.value)}
+              required
+              disabled={loading || !!success || !canSubmit}
+            />
 
-        {error && <p className="text-red-600 mb-3">{error}</p>}
-        {success && <p className="text-green-600 mb-3">{success}</p>}
+            {error && <p className="text-red-600 mb-3">{error}</p>}
+            {success && <p className="text-green-600 mb-3">{success}</p>}
 
-        <button
-          disabled={loading}
-          className="w-full bg-indigo-600 hover:bg-indigo-700 text-white py-3 rounded-lg disabled:opacity-50"
-        >
-          {loading ? "⏳" : t("auth.reset.submit")}
-        </button>
+            <button
+              type="submit"
+              disabled={loading || !!success || !canSubmit}
+              className="w-full bg-indigo-600 hover:bg-indigo-700 text-white py-3 rounded-lg disabled:opacity-50"
+            >
+              {loading
+                ? "⏳"
+                : t("auth.reset.submit") || "Passwort ändern"}
+            </button>
+
+            {!canSubmit && !success && (
+              <button
+                type="button"
+                onClick={() => router.push("/reset-password")}
+                className="w-full mt-3 text-sm text-gray-600 hover:underline"
+              >
+                {t("auth.reset.requestNew") || "Neuen Reset-Link anfordern"}
+              </button>
+            )}
+          </>
+        )}
       </form>
     </div>
   );

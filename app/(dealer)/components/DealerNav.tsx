@@ -92,7 +92,7 @@ export default function DealerNav() {
 
   const goPassword = () => {
     setMobileOpen(false);
-    router.push("/reset-password/change");
+    router.push("/password");
   };
 
   const doLogout = async () => {
