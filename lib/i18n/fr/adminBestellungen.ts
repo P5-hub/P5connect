@@ -1,0 +1,23 @@
+export const adminBestellungen = {
+  searchPlaceholder:
+    "Rechercher une commande (revendeur, e-mail, #ID, campagne)…",
+  open: "Ouvert",
+  approved: "Approuvé",
+  rejected: "Refusé",
+  all: "Toutes",
+  reload: "Recharger",
+  type: "Type",
+  allTypes: "Tous les types",
+  onlyMesse: "Foire uniquement",
+  onlyDisplay: "Display uniquement",
+  onlyStandard: "Standard uniquement",
+  loading: "Chargement des commandes…",
+  empty: "Aucune commande trouvée.",
+  unknownDealer: "Revendeur inconnu",
+  fromProject: "depuis projet",
+  pos: "Pos.",
+  statusApproved: "Approuvé",
+  statusRejected: "Refusé",
+  statusPending: "Ouvert",
+  messeOrder: "Commande salon",
+} as const;

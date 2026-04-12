@@ -22,6 +22,7 @@ import CampaignProductEditor, {
   type PricingMode,
   type ProductOption,
 } from "@/components/admin/CampaignProductEditor";
+import { useI18n } from "@/lib/i18n/I18nProvider";
 
 type CampaignType = "messe" | "monatsaktion" | "promotion";
 type TargetUnit = "qty" | "revenue" | "points";
@@ -112,6 +113,7 @@ function toRequiredNumber(value: string): number | null {
 
 export default function PromotionsPage() {
   const supabase = useMemo(() => createClient(), []);
+  const { t } = useI18n();
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -200,12 +202,12 @@ export default function PromotionsPage() {
       console.error("❌ Fehler beim Laden:", error);
       setMessage({
         type: "error",
-        text: "Daten konnten nicht geladen werden.",
+        text: t("adminPromotions.messages.loadError"),
       });
     } finally {
       setLoading(false);
     }
-  }, [supabase]);
+  }, [supabase, t]);
 
   useEffect(() => {
     loadAll();
@@ -265,34 +267,34 @@ export default function PromotionsPage() {
   };
 
   const validateBeforeSave = () => {
-    if (!form.name.trim()) return "Bitte einen Kampagnennamen eingeben.";
-    if (!form.start_date) return "Bitte ein Startdatum wählen.";
-    if (!form.end_date) return "Bitte ein Enddatum wählen.";
+    if (!form.name.trim()) return t("adminPromotions.validation.nameRequired");
+    if (!form.start_date) return t("adminPromotions.validation.startDateRequired");
+    if (!form.end_date) return t("adminPromotions.validation.endDateRequired");
     if (form.end_date < form.start_date) {
-      return "Enddatum darf nicht vor dem Startdatum liegen.";
+      return t("adminPromotions.validation.endBeforeStart");
     }
 
     const selectedProducts = campaignProducts.filter((p) => p.product_id);
     if (selectedProducts.length === 0) {
-      return "Bitte mindestens ein Produkt hinzufügen.";
+      return t("adminPromotions.validation.productRequired");
     }
 
     const ids = selectedProducts.map((p) => p.product_id);
     if (new Set(ids).size !== ids.length) {
-      return "Ein Produkt wurde mehrfach ausgewählt.";
+      return t("adminPromotions.validation.duplicateProduct");
     }
 
     const filledTargets = dealerTargets.filter((row) => row.dealer_id || row.target_value);
     for (const row of filledTargets) {
-      if (!row.dealer_id) return "Bei Händler-Zielen fehlt ein Händler.";
+      if (!row.dealer_id) return t("adminPromotions.validation.targetDealerMissing");
       if (toRequiredNumber(row.target_value) == null) {
-        return "Bei Händler-Zielen fehlt ein gültiger Zielwert.";
+        return t("adminPromotions.validation.targetValueInvalid");
       }
     }
 
     const targetDealerIds = filledTargets.map((row) => row.dealer_id);
     if (new Set(targetDealerIds).size !== targetDealerIds.length) {
-      return "Ein Händler wurde bei den Zielvorgaben mehrfach verwendet.";
+      return t("adminPromotions.validation.targetDealerDuplicate");
     }
 
     const filledTiers = bonusTiers.filter(
@@ -305,12 +307,12 @@ export default function PromotionsPage() {
     );
 
     for (const row of filledTiers) {
-      if (!row.tier_level) return "Bei Bonus-Tiers fehlt das Tier-Level.";
+      if (!row.tier_level) return t("adminPromotions.validation.tierLevelMissing");
       if (toRequiredNumber(row.threshold_value) == null) {
-        return "Bei Bonus-Tiers fehlt ein gültiger Threshold-Wert.";
+        return t("adminPromotions.validation.thresholdInvalid");
       }
       if (toRequiredNumber(row.bonus_value) == null) {
-        return "Bei Bonus-Tiers fehlt ein gültiger Bonus-Wert.";
+        return t("adminPromotions.validation.bonusValueInvalid");
       }
     }
 
@@ -318,7 +320,7 @@ export default function PromotionsPage() {
       (row) => `${row.dealer_id || "global"}__${row.tier_level}`
     );
     if (new Set(tierKeys).size !== tierKeys.length) {
-      return "Tier-Level ist doppelt vorhanden.";
+      return t("adminPromotions.validation.duplicateTier");
     }
 
     return null;
@@ -415,7 +417,7 @@ export default function PromotionsPage() {
 
       setMessage({
         type: "success",
-        text: "Promotion / Kampagne erfolgreich gespeichert.",
+        text: t("adminPromotions.messages.saveSuccess"),
       });
 
       resetForm();
@@ -429,7 +431,7 @@ export default function PromotionsPage() {
 
       setMessage({
         type: "error",
-        text: error?.message || "Die Kampagne konnte nicht gespeichert werden.",
+        text: error?.message || t("adminPromotions.messages.saveError"),
       });
     } finally {
       setSaving(false);
@@ -455,13 +457,15 @@ export default function PromotionsPage() {
 
       setMessage({
         type: "success",
-        text: nextValue ? "Kampagne aktiviert." : "Kampagne deaktiviert.",
+        text: nextValue
+          ? t("adminPromotions.messages.activated")
+          : t("adminPromotions.messages.deactivated"),
       });
     } catch (error) {
       console.error("❌ Fehler beim Statuswechsel:", error);
       setMessage({
         type: "error",
-        text: "Der Status konnte nicht geändert werden.",
+        text: t("adminPromotions.messages.statusChangeError"),
       });
     } finally {
       setActionLoadingId(null);
@@ -513,7 +517,7 @@ export default function PromotionsPage() {
         .from("campaigns")
         .insert({
           code: duplicateCode,
-          name: `${original.name} (Kopie)`,
+          name: `${original.name} (${t("adminPromotions.labels.copy")})`,
           description: original.description,
           campaign_type: original.campaign_type,
           start_date: original.start_date,
@@ -581,7 +585,7 @@ export default function PromotionsPage() {
 
       setMessage({
         type: "success",
-        text: "Kampagne erfolgreich dupliziert.",
+        text: t("adminPromotions.messages.duplicateSuccess"),
       });
 
       await loadAll();
@@ -589,7 +593,7 @@ export default function PromotionsPage() {
       console.error("❌ Fehler beim Duplizieren:", error);
       setMessage({
         type: "error",
-        text: error?.message || "Kampagne konnte nicht dupliziert werden.",
+        text: error?.message || t("adminPromotions.messages.duplicateError"),
       });
     } finally {
       setActionLoadingId(null);
@@ -598,7 +602,7 @@ export default function PromotionsPage() {
 
   const deleteCampaign = async (campaignId: number, name: string) => {
     const confirmed = window.confirm(
-      `Möchtest du die Kampagne "${name}" wirklich löschen?`
+      t("adminPromotions.messages.confirmDelete", { name })
     );
     if (!confirmed) return;
 
@@ -617,13 +621,13 @@ export default function PromotionsPage() {
 
       setMessage({
         type: "success",
-        text: "Kampagne erfolgreich gelöscht.",
+        text: t("adminPromotions.messages.deleteSuccess"),
       });
     } catch (error: any) {
       console.error("❌ Fehler beim Löschen:", error);
       setMessage({
         type: "error",
-        text: error?.message || "Kampagne konnte nicht gelöscht werden.",
+        text: error?.message || t("adminPromotions.messages.deleteError"),
       });
     } finally {
       setActionLoadingId(null);
@@ -667,21 +671,23 @@ export default function PromotionsPage() {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h2 className="text-lg font-semibold text-gray-800">
-            Promotionen verwalten
+            {t("adminPromotions.page.title")}
           </h2>
           <p className="text-sm text-gray-500">
-            Hier erfasst du Promotionen, Messeaktionen und Monatsaktionen für das Frontend.
+            {t("adminPromotions.page.description")}
           </p>
         </div>
 
         <div className="flex gap-2">
           <Button variant="outline" onClick={resetForm}>
             <RotateCcw className="w-4 h-4 mr-2" />
-            Reset
+            {t("adminPromotions.actions.reset")}
           </Button>
           <Button onClick={handleSave} disabled={saving}>
             <Save className="w-4 h-4 mr-2" />
-            {saving ? "Speichere..." : "Promotion speichern"}
+            {saving
+              ? t("adminPromotions.actions.saving")
+              : t("adminPromotions.actions.save")}
           </Button>
         </div>
       </div>
@@ -704,29 +710,37 @@ export default function PromotionsPage() {
       )}
 
       <Card className="p-5 rounded-2xl border border-gray-200 bg-white">
-        <h3 className="text-base font-semibold mb-4">1. Stammdaten</h3>
+        <h3 className="text-base font-semibold mb-4">
+          {t("adminPromotions.sections.masterData")}
+        </h3>
 
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
           <div>
-            <label className="block text-sm text-gray-700 mb-1">Code</label>
+            <label className="block text-sm text-gray-700 mb-1">
+              {t("adminPromotions.fields.code")}
+            </label>
             <Input
               value={form.code}
               onChange={(e) => setForm((prev) => ({ ...prev, code: e.target.value }))}
-              placeholder="z. B. PROMO-TV-2026"
+              placeholder={t("adminPromotions.placeholders.code")}
             />
           </div>
 
           <div>
-            <label className="block text-sm text-gray-700 mb-1">Name *</label>
+            <label className="block text-sm text-gray-700 mb-1">
+              {t("adminPromotions.fields.name")} *
+            </label>
             <Input
               value={form.name}
               onChange={(e) => setForm((prev) => ({ ...prev, name: e.target.value }))}
-              placeholder="z. B. Frühlingspromotion"
+              placeholder={t("adminPromotions.placeholders.name")}
             />
           </div>
 
           <div>
-            <label className="block text-sm text-gray-700 mb-1">Typ *</label>
+            <label className="block text-sm text-gray-700 mb-1">
+              {t("adminPromotions.fields.type")} *
+            </label>
             <select
               value={form.campaign_type}
               onChange={(e) =>
@@ -737,9 +751,9 @@ export default function PromotionsPage() {
               }
               className="w-full border rounded-md px-3 py-2 text-sm bg-white"
             >
-              <option value="promotion">promotion</option>
-              <option value="messe">messe</option>
-              <option value="monatsaktion">monatsaktion</option>
+              <option value="promotion">{t("adminPromotions.types.promotion")}</option>
+              <option value="messe">{t("adminPromotions.types.messe")}</option>
+              <option value="monatsaktion">{t("adminPromotions.types.monatsaktion")}</option>
             </select>
           </div>
 
@@ -752,7 +766,7 @@ export default function PromotionsPage() {
                   setForm((prev) => ({ ...prev, active: e.target.checked }))
                 }
               />
-              Aktiv
+              {t("adminPromotions.fields.active")}
             </label>
 
             <label className="flex items-center gap-2 text-sm text-gray-700">
@@ -766,12 +780,14 @@ export default function PromotionsPage() {
                   }))
                 }
               />
-              Display erlaubt
+              {t("adminPromotions.fields.allowDisplay")}
             </label>
           </div>
 
           <div>
-            <label className="block text-sm text-gray-700 mb-1">Startdatum *</label>
+            <label className="block text-sm text-gray-700 mb-1">
+              {t("adminPromotions.fields.startDate")} *
+            </label>
             <Input
               type="date"
               value={form.start_date}
@@ -782,7 +798,9 @@ export default function PromotionsPage() {
           </div>
 
           <div>
-            <label className="block text-sm text-gray-700 mb-1">Enddatum *</label>
+            <label className="block text-sm text-gray-700 mb-1">
+              {t("adminPromotions.fields.endDate")} *
+            </label>
             <Input
               type="date"
               value={form.end_date}
@@ -793,13 +811,15 @@ export default function PromotionsPage() {
           </div>
 
           <div className="md:col-span-2 xl:col-span-2">
-            <label className="block text-sm text-gray-700 mb-1">Beschreibung</label>
+            <label className="block text-sm text-gray-700 mb-1">
+              {t("adminPromotions.fields.description")}
+            </label>
             <textarea
               value={form.description}
               onChange={(e) =>
                 setForm((prev) => ({ ...prev, description: e.target.value }))
               }
-              placeholder="Beschreibung / Bedingungen"
+              placeholder={t("adminPromotions.placeholders.description")}
               className="w-full min-h-[42px] border rounded-md px-3 py-2 text-sm bg-white"
             />
           </div>
@@ -812,20 +832,24 @@ export default function PromotionsPage() {
         onAdd={addCampaignProduct}
         onRemove={removeCampaignProduct}
         onUpdate={updateCampaignProduct}
-        title="2. Produkte"
+        title={t("adminPromotions.sections.products")}
       />
 
       <Card className="p-5 rounded-2xl border border-gray-200 bg-white">
         <div className="flex items-center justify-between mb-4">
-          <h3 className="text-base font-semibold">3. Händler-Ziele (optional)</h3>
+          <h3 className="text-base font-semibold">
+            {t("adminPromotions.sections.dealerTargets")}
+          </h3>
           <Button variant="outline" onClick={addDealerTarget}>
             <Plus className="w-4 h-4 mr-2" />
-            Ziel hinzufügen
+            {t("adminPromotions.actions.addTarget")}
           </Button>
         </div>
 
         {dealerTargets.length === 0 ? (
-          <p className="text-sm text-gray-500">Keine Händler-Ziele definiert.</p>
+          <p className="text-sm text-gray-500">
+            {t("adminPromotions.empty.noDealerTargets")}
+          </p>
         ) : (
           <div className="space-y-3">
             {dealerTargets.map((row, index) => (
@@ -834,7 +858,9 @@ export default function PromotionsPage() {
                 className="grid grid-cols-1 md:grid-cols-4 xl:grid-cols-5 gap-3 rounded-xl border border-gray-200 p-4 bg-gray-50"
               >
                 <div className="xl:col-span-2">
-                  <label className="block text-sm text-gray-700 mb-1">Händler</label>
+                  <label className="block text-sm text-gray-700 mb-1">
+                    {t("adminPromotions.fields.dealer")}
+                  </label>
                   <select
                     value={row.dealer_id}
                     onChange={(e) =>
@@ -842,7 +868,7 @@ export default function PromotionsPage() {
                     }
                     className="w-full border rounded-md px-3 py-2 text-sm bg-white"
                   >
-                    <option value="">Bitte wählen...</option>
+                    <option value="">{t("adminPromotions.select.pleaseChoose")}</option>
                     {dealers.map((d) => (
                       <option key={d.dealer_id} value={d.dealer_id}>
                         {d.name} {d.email ? `(${d.email})` : ""}
@@ -852,7 +878,9 @@ export default function PromotionsPage() {
                 </div>
 
                 <div>
-                  <label className="block text-sm text-gray-700 mb-1">Zielwert</label>
+                  <label className="block text-sm text-gray-700 mb-1">
+                    {t("adminPromotions.fields.targetValue")}
+                  </label>
                   <Input
                     value={row.target_value}
                     onChange={(e) =>
@@ -863,7 +891,9 @@ export default function PromotionsPage() {
                 </div>
 
                 <div>
-                  <label className="block text-sm text-gray-700 mb-1">Einheit</label>
+                  <label className="block text-sm text-gray-700 mb-1">
+                    {t("adminPromotions.fields.unit")}
+                  </label>
                   <select
                     value={row.target_unit}
                     onChange={(e) =>
@@ -871,14 +901,16 @@ export default function PromotionsPage() {
                     }
                     className="w-full border rounded-md px-3 py-2 text-sm bg-white"
                   >
-                    <option value="qty">qty</option>
-                    <option value="revenue">revenue</option>
-                    <option value="points">points</option>
+                    <option value="qty">{t("adminPromotions.units.qty")}</option>
+                    <option value="revenue">{t("adminPromotions.units.revenue")}</option>
+                    <option value="points">{t("adminPromotions.units.points")}</option>
                   </select>
                 </div>
 
                 <div>
-                  <label className="block text-sm text-gray-700 mb-1">Current Value</label>
+                  <label className="block text-sm text-gray-700 mb-1">
+                    {t("adminPromotions.fields.currentValue")}
+                  </label>
                   <div className="flex gap-2">
                     <Input
                       value={row.current_value}
@@ -904,15 +936,19 @@ export default function PromotionsPage() {
 
       <Card className="p-5 rounded-2xl border border-gray-200 bg-white">
         <div className="flex items-center justify-between mb-4">
-          <h3 className="text-base font-semibold">4. Bonus-Tiers (optional)</h3>
+          <h3 className="text-base font-semibold">
+            {t("adminPromotions.sections.bonusTiers")}
+          </h3>
           <Button variant="outline" onClick={addBonusTier}>
             <Plus className="w-4 h-4 mr-2" />
-            Bonus-Tier hinzufügen
+            {t("adminPromotions.actions.addBonusTier")}
           </Button>
         </div>
 
         {bonusTiers.length === 0 ? (
-          <p className="text-sm text-gray-500">Keine Bonus-Tiers definiert.</p>
+          <p className="text-sm text-gray-500">
+            {t("adminPromotions.empty.noBonusTiers")}
+          </p>
         ) : (
           <div className="space-y-3">
             {bonusTiers.map((row, index) => (
@@ -921,7 +957,9 @@ export default function PromotionsPage() {
                 className="grid grid-cols-1 md:grid-cols-3 xl:grid-cols-6 gap-3 rounded-xl border border-gray-200 p-4 bg-gray-50"
               >
                 <div>
-                  <label className="block text-sm text-gray-700 mb-1">Händler optional</label>
+                  <label className="block text-sm text-gray-700 mb-1">
+                    {t("adminPromotions.fields.dealerOptional")}
+                  </label>
                   <select
                     value={row.dealer_id}
                     onChange={(e) =>
@@ -929,7 +967,7 @@ export default function PromotionsPage() {
                     }
                     className="w-full border rounded-md px-3 py-2 text-sm bg-white"
                   >
-                    <option value="">Global</option>
+                    <option value="">{t("adminPromotions.labels.global")}</option>
                     {dealers.map((d) => (
                       <option key={d.dealer_id} value={d.dealer_id}>
                         {d.name}
@@ -939,7 +977,9 @@ export default function PromotionsPage() {
                 </div>
 
                 <div>
-                  <label className="block text-sm text-gray-700 mb-1">Tier-Level</label>
+                  <label className="block text-sm text-gray-700 mb-1">
+                    {t("adminPromotions.fields.tierLevel")}
+                  </label>
                   <Input
                     value={row.tier_level}
                     onChange={(e) =>
@@ -950,7 +990,9 @@ export default function PromotionsPage() {
                 </div>
 
                 <div>
-                  <label className="block text-sm text-gray-700 mb-1">Threshold</label>
+                  <label className="block text-sm text-gray-700 mb-1">
+                    {t("adminPromotions.fields.threshold")}
+                  </label>
                   <Input
                     value={row.threshold_value}
                     onChange={(e) =>
@@ -961,7 +1003,9 @@ export default function PromotionsPage() {
                 </div>
 
                 <div>
-                  <label className="block text-sm text-gray-700 mb-1">Bonus-Typ</label>
+                  <label className="block text-sm text-gray-700 mb-1">
+                    {t("adminPromotions.fields.bonusType")}
+                  </label>
                   <select
                     value={row.bonus_type}
                     onChange={(e) =>
@@ -969,15 +1013,17 @@ export default function PromotionsPage() {
                     }
                     className="w-full border rounded-md px-3 py-2 text-sm bg-white"
                   >
-                    <option value="amount">amount</option>
-                    <option value="percent">percent</option>
-                    <option value="credit">credit</option>
-                    <option value="gift">gift</option>
+                    <option value="amount">{t("adminPromotions.bonusTypes.amount")}</option>
+                    <option value="percent">{t("adminPromotions.bonusTypes.percent")}</option>
+                    <option value="credit">{t("adminPromotions.bonusTypes.credit")}</option>
+                    <option value="gift">{t("adminPromotions.bonusTypes.gift")}</option>
                   </select>
                 </div>
 
                 <div>
-                  <label className="block text-sm text-gray-700 mb-1">Bonus-Wert</label>
+                  <label className="block text-sm text-gray-700 mb-1">
+                    {t("adminPromotions.fields.bonusValue")}
+                  </label>
                   <Input
                     value={row.bonus_value}
                     onChange={(e) =>
@@ -988,7 +1034,9 @@ export default function PromotionsPage() {
                 </div>
 
                 <div>
-                  <label className="block text-sm text-gray-700 mb-1">Label</label>
+                  <label className="block text-sm text-gray-700 mb-1">
+                    {t("adminPromotions.fields.label")}
+                  </label>
                   <div className="flex gap-2">
                     <Input
                       value={row.label}
@@ -1015,10 +1063,12 @@ export default function PromotionsPage() {
       <Card className="p-5 rounded-2xl border border-gray-200 bg-white">
         <div className="flex flex-col gap-4 mb-4">
           <div className="flex items-center justify-between gap-3">
-            <h3 className="text-base font-semibold">Bestehende Promotionen / Kampagnen</h3>
+            <h3 className="text-base font-semibold">
+              {t("adminPromotions.sections.existingCampaigns")}
+            </h3>
             <Button variant="outline" onClick={loadAll}>
               <RotateCcw className="w-4 h-4 mr-2" />
-              Neu laden
+              {t("adminPromotions.actions.reload")}
             </Button>
           </div>
 
@@ -1028,7 +1078,7 @@ export default function PromotionsPage() {
               <Input
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Suche nach Name, Code, Typ, Datum..."
+                placeholder={t("adminPromotions.placeholders.search")}
                 className="pl-9"
               />
             </div>
@@ -1038,10 +1088,10 @@ export default function PromotionsPage() {
               onChange={(e) => setTypeFilter(e.target.value as CampaignType | "alle")}
               className="w-full border rounded-md px-3 py-2 text-sm bg-white"
             >
-              <option value="alle">Alle Typen</option>
-              <option value="promotion">promotion</option>
-              <option value="messe">messe</option>
-              <option value="monatsaktion">monatsaktion</option>
+              <option value="alle">{t("adminPromotions.filters.allTypes")}</option>
+              <option value="promotion">{t("adminPromotions.types.promotion")}</option>
+              <option value="messe">{t("adminPromotions.types.messe")}</option>
+              <option value="monatsaktion">{t("adminPromotions.types.monatsaktion")}</option>
             </select>
 
             <select
@@ -1049,17 +1099,21 @@ export default function PromotionsPage() {
               onChange={(e) => setStatusFilter(e.target.value as "alle" | "aktiv" | "inaktiv")}
               className="w-full border rounded-md px-3 py-2 text-sm bg-white"
             >
-              <option value="alle">Alle Stati</option>
-              <option value="aktiv">Aktiv</option>
-              <option value="inaktiv">Inaktiv</option>
+              <option value="alle">{t("adminPromotions.filters.allStatuses")}</option>
+              <option value="aktiv">{t("adminPromotions.filters.active")}</option>
+              <option value="inaktiv">{t("adminPromotions.filters.inactive")}</option>
             </select>
           </div>
         </div>
 
         {loading ? (
-          <p className="text-sm text-gray-500">Lade Kampagnen…</p>
+          <p className="text-sm text-gray-500">
+            {t("adminPromotions.loading.campaigns")}
+          </p>
         ) : filteredCampaigns.length === 0 ? (
-          <p className="text-sm text-gray-500">Keine Kampagnen gefunden.</p>
+          <p className="text-sm text-gray-500">
+            {t("adminPromotions.empty.noCampaigns")}
+          </p>
         ) : (
           <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
             {filteredCampaigns.map((campaign) => (
@@ -1081,7 +1135,9 @@ export default function PromotionsPage() {
                             : "bg-gray-100 text-gray-600"
                         }`}
                       >
-                        {campaign.active ? "Aktiv" : "Inaktiv"}
+                        {campaign.active
+                          ? t("adminPromotions.badges.active")
+                          : t("adminPromotions.badges.inactive")}
                       </span>
 
                       <span className="text-xs px-2 py-1 rounded-full bg-violet-100 text-violet-700">
@@ -1090,7 +1146,7 @@ export default function PromotionsPage() {
                     </div>
 
                     <p className="text-sm text-gray-500 mt-1">
-                      {campaign.code || "Kein Code"}
+                      {campaign.code || t("adminPromotions.labels.noCode")}
                     </p>
 
                     {campaign.description && (
@@ -1098,10 +1154,13 @@ export default function PromotionsPage() {
                     )}
 
                     <p className="text-xs text-gray-500 mt-3">
-                      {campaign.start_date} bis {campaign.end_date}
+                      {campaign.start_date} {t("adminPromotions.labels.to")} {campaign.end_date}
                     </p>
                     <p className="text-xs text-gray-400 mt-1">
-                      Display Orders: {campaign.allow_display_orders ? "ja" : "nein"}
+                      {t("adminPromotions.labels.displayOrders")}:{" "}
+                      {campaign.allow_display_orders
+                        ? t("adminPromotions.labels.yes")
+                        : t("adminPromotions.labels.no")}
                     </p>
                   </div>
 
@@ -1114,13 +1173,15 @@ export default function PromotionsPage() {
                       }
                       disabled={actionLoadingId === campaign.campaign_id}
                     >
-                      {campaign.active ? "Deaktivieren" : "Aktivieren"}
+                      {campaign.active
+                        ? t("adminPromotions.actions.deactivate")
+                        : t("adminPromotions.actions.activate")}
                     </Button>
 
                     <Link href={`/admin/promotions/${campaign.campaign_id}`}>
                       <Button size="sm" variant="outline" className="w-full">
                         <Pencil className="w-4 h-4 mr-2" />
-                        Bearbeiten
+                        {t("adminPromotions.actions.edit")}
                       </Button>
                     </Link>
 
@@ -1132,7 +1193,7 @@ export default function PromotionsPage() {
                       disabled={actionLoadingId === campaign.campaign_id}
                     >
                       <Copy className="w-4 h-4 mr-2" />
-                      Duplizieren
+                      {t("adminPromotions.actions.duplicate")}
                     </Button>
 
                     <Button
@@ -1143,7 +1204,7 @@ export default function PromotionsPage() {
                       disabled={actionLoadingId === campaign.campaign_id}
                     >
                       <Trash2 className="w-4 h-4 mr-2" />
-                      Löschen
+                      {t("adminPromotions.actions.delete")}
                     </Button>
                   </div>
                 </div>

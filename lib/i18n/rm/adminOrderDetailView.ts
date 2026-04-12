@@ -1,0 +1,72 @@
+export const adminOrderDetailView = {
+  empty: {
+    noProducts: "Nagins products chattads.",
+  },
+  header: {
+    title: "Cumanda #{id} – {dealer}",
+  },
+  footer: {
+    totalAmount: "Import total:",
+  },
+  dialog: {
+    mailPreview: "Prevista da l’e-mail",
+  },
+  actions: {
+    edit: "Modifitgar",
+    done: "Finì",
+    cancel: "Interrumper",
+  },
+  sections: {
+    campaignLogic: "Pretschs da campagna / logica",
+    rrpSalesPrices: "Pretsch cusseglia / pretschs da vendita",
+    oldDealerPrices: "Pretschs dal commerziant (vegls)",
+    streetPriceNewDealerPrice: "Streetprice / nov pretsch dal commerziant",
+    lowestMarketProvider: "Pli favuraivel purschider (martgà)",
+  },
+  fields: {
+    ean: "EAN",
+    mode: "Moda",
+    quantity: "Quantitad",
+    pricingMode: "Moda da pretsch",
+    orderMode: "Moda da cumanda",
+    messePriceNet: "Pretsch da fiera netto",
+    displayPriceNet: "Pretsch da display netto",
+    rrpGross: "Pretsch brut recumandà",
+    rrpNet: "Pretsch netto recumandà",
+    vatShort: "−{amount} TVA",
+    vrgShort: "−{amount} VRG",
+    oldEk: "Vegl pretsch d’acquist",
+    oldDistiEkPoi: "Vegl pretsch distributur (POI vegl)",
+    streetPriceGross: "Streetprice brutto",
+    streetPriceNet: "Streetprice netto",
+    investChf: "Invest (CHF)",
+    marginOnStreet: "Marja sin street (%)",
+    newDealerPrice: "Nov pretsch commerziant / EK (CHF)",
+    marginToRrpNet: "Marja tar il pretsch netto recumandà",
+    providerSource: "Purschider / funtauna",
+    customProviderPlaceholder: "Num dal commerziant (obligatori)",
+    distributor: "Distributur",
+    distributorPlaceholder: "– tscherner –",
+  },
+  badges: {
+    tradeFairOrder: "Cumanda da fiera",
+    standardOrder: "Cumanda standard",
+    messePrice: "Pretsch da fiera",
+    display: "Display",
+    messeDisplay: "Fiera + display",
+    standard: "Standard",
+    notBonusRelevant: "Betg relevant per bonus",
+  },
+  values: {
+    tradeFair: "Fiera",
+    standard: "Standard",
+    campaignNumber: "Campagna #{id}",
+  },
+  marketSources: {
+    placeholder: "Tscherna per plaschair",
+    other: "Auter",
+  },
+  fallbacks: {
+    product: "Product",
+  },
+} as const;

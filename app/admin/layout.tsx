@@ -5,6 +5,7 @@ import { usePathname, useRouter } from "next/navigation";
 import React, { ReactNode, useMemo, useState, useEffect, useRef } from "react";
 
 import I18nProvider, { useI18n } from "@/lib/i18n/I18nProvider";
+import type { Lang } from "@/lib/i18n/translations";
 import { createClient } from "@/utils/supabase/client";
 
 import {
@@ -33,6 +34,19 @@ type PendingKey =
   | "aktionen"
   | "cashback";
 
+type DealerListItem = {
+  dealer_id: number | string;
+  name?: string | null;
+  email?: string | null;
+  login_nr?: string | null;
+};
+
+type UpdateUserApiResponse = {
+  success?: boolean;
+  error?: string;
+  changedOwnAccount?: boolean;
+};
+
 /* ------------------------------------------------------------------
    HILFSFUNKTIONEN
 ------------------------------------------------------------------ */
@@ -47,6 +61,23 @@ function generateRandomPassword(length: number = 12): string {
   return pwd;
 }
 
+function getLanguageLabel(lang: Lang) {
+  switch (lang) {
+    case "de":
+      return "Deutsch";
+    case "en":
+      return "English";
+    case "fr":
+      return "Français";
+    case "it":
+      return "Italiano";
+    case "rm":
+      return "Rumantsch";
+    default:
+      return "English";
+  }
+}
+
 /* ------------------------------------------------------------------
    INNER LAYOUT
 ------------------------------------------------------------------ */
@@ -58,7 +89,7 @@ function AdminLayoutInner({ children }: { children: ReactNode }) {
   const { t, lang, setLang } = useI18n();
 
   const [openLang, setOpenLang] = useState(false);
-  const [dealers, setDealers] = useState<any[]>([]);
+  const [dealers, setDealers] = useState<DealerListItem[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
 
   const langRef = useRef<HTMLDivElement | null>(null);
@@ -77,7 +108,6 @@ function AdminLayoutInner({ children }: { children: ReactNode }) {
     }
   );
 
-  // Admin state
   const [currentAdminEmail, setCurrentAdminEmail] = useState<string | null>(
     null
   );
@@ -85,7 +115,6 @@ function AdminLayoutInner({ children }: { children: ReactNode }) {
     null
   );
 
-  // Modal state
   const [isUserModalOpen, setIsUserModalOpen] = useState(false);
   const [modalLogin, setModalLogin] = useState("");
   const [modalNewLogin, setModalNewLogin] = useState("");
@@ -95,7 +124,6 @@ function AdminLayoutInner({ children }: { children: ReactNode }) {
   const [modalSuccess, setModalSuccess] = useState<string | null>(null);
   const [showPassword, setShowPassword] = useState(false);
 
-  // Toast
   const [toast, setToast] = useState<{
     type: "success" | "error";
     message: string;
@@ -122,6 +150,7 @@ function AdminLayoutInner({ children }: { children: ReactNode }) {
         setCurrentAdminLogin(login);
       }
     };
+
     loadAdmin();
   }, [supabase]);
 
@@ -133,7 +162,7 @@ function AdminLayoutInner({ children }: { children: ReactNode }) {
     setModalSuccess(null);
     setShowPassword(false);
     setIsUserModalOpen(true);
-    setMobileMenuOpen(false); // falls offen
+    setMobileMenuOpen(false);
   };
 
   const closeUserModal = () => {
@@ -141,127 +170,132 @@ function AdminLayoutInner({ children }: { children: ReactNode }) {
     setIsUserModalOpen(false);
   };
 
-const handleUserUpdate = async () => {
-  setModalError(null);
-  setModalSuccess(null);
+  const handleUserUpdate = async () => {
+    setModalError(null);
+    setModalSuccess(null);
 
-  const loginTrimmed = modalLogin.trim();
-  const newLoginTrimmed = modalNewLogin.trim();
-  const newPasswordTrimmed = modalNewPassword.trim();
+    const loginTrimmed = modalLogin.trim();
+    const newLoginTrimmed = modalNewLogin.trim();
+    const newPasswordTrimmed = modalNewPassword.trim();
 
-  if (!loginTrimmed) {
-    const msg = "Login / LoginNr ist erforderlich.";
-    setModalError(msg);
-    showToast("error", msg);
-    return;
-  }
-
-  if (!newPasswordTrimmed || newPasswordTrimmed.length < 6) {
-    const msg = "Das neue Passwort muss mindestens 6 Zeichen haben.";
-    setModalError(msg);
-    showToast("error", msg);
-    return;
-  }
-
-  if (newLoginTrimmed) {
-    const loginRegex = /^[A-Za-z0-9_-]+$/;
-    if (!loginRegex.test(newLoginTrimmed)) {
-      const msg =
-        "Neuer Login darf nur Buchstaben, Zahlen, '-' und '_' enthalten.";
+    if (!loginTrimmed) {
+      const msg = t("adminAccount.loginRequired");
       setModalError(msg);
       showToast("error", msg);
       return;
     }
-  }
 
-  const finalNewLogin = newLoginTrimmed || loginTrimmed;
-  const loginChanged = finalNewLogin !== loginTrimmed;
-  const passwordChanged = newPasswordTrimmed.length > 0;
-
-  if (loginChanged || passwordChanged) {
-    let confirmText = "Änderung bestätigen?";
-
-    if (loginChanged && passwordChanged) {
-      confirmText = `Sie ändern den Login von "${loginTrimmed}" auf "${finalNewLogin}" und setzen zusätzlich ein neues Passwort. Fortfahren?`;
-    } else if (loginChanged) {
-      confirmText = `Sie ändern den Login von "${loginTrimmed}" auf "${finalNewLogin}". Fortfahren?`;
-    } else if (passwordChanged) {
-      confirmText = "Sie setzen ein neues Passwort. Fortfahren?";
+    if (!newPasswordTrimmed || newPasswordTrimmed.length < 6) {
+      const msg = t("adminAccount.passwordMinLength");
+      setModalError(msg);
+      showToast("error", msg);
+      return;
     }
 
-    const confirmed = window.confirm(confirmText);
-    if (!confirmed) return;
-  }
+    if (newLoginTrimmed) {
+      const loginRegex = /^[A-Za-z0-9_-]+$/;
+      if (!loginRegex.test(newLoginTrimmed)) {
+        const msg = t("adminAccount.invalidLoginFormat");
+        setModalError(msg);
+        showToast("error", msg);
+        return;
+      }
+    }
 
-  const payload = {
-    oldLogin: loginTrimmed,
-    newLogin: finalNewLogin,
-    newPassword: newPasswordTrimmed,
-    performedBy: currentAdminEmail || currentAdminLogin || "admin-unknown",
+    const finalNewLogin = newLoginTrimmed || loginTrimmed;
+    const loginChanged = finalNewLogin !== loginTrimmed;
+    const passwordChanged = newPasswordTrimmed.length > 0;
+
+    if (loginChanged || passwordChanged) {
+      let confirmText = t("adminAccount.confirmTitle");
+
+      if (loginChanged && passwordChanged) {
+        confirmText = t("adminAccount.confirmLoginAndPasswordChange", {
+          old: loginTrimmed,
+          new: finalNewLogin,
+        });
+      } else if (loginChanged) {
+        confirmText = t("adminAccount.confirmLoginChange", {
+          old: loginTrimmed,
+          new: finalNewLogin,
+        });
+      } else if (passwordChanged) {
+        confirmText = t("adminAccount.confirmPasswordChange");
+      }
+
+      const confirmed = window.confirm(confirmText);
+      if (!confirmed) return;
+    }
+
+    const payload = {
+      oldLogin: loginTrimmed,
+      newLogin: finalNewLogin,
+      newPassword: newPasswordTrimmed,
+      performedBy: currentAdminEmail || currentAdminLogin || "admin-unknown",
+    };
+
+    try {
+      setModalLoading(true);
+
+      const res = await fetch("/api/admin/update-user", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+
+      const data = (await res.json()) as UpdateUserApiResponse;
+
+      if (!res.ok || !data.success) {
+        const msg = data.error || t("adminAccount.updateFailed");
+        setModalError(msg);
+        showToast("error", msg);
+        return;
+      }
+
+      const changedOwnAccount = Boolean(data?.changedOwnAccount);
+
+      let successMsg = t("adminAccount.successDefault");
+      if (loginChanged && passwordChanged) {
+        successMsg = t("adminAccount.successLoginAndPassword");
+      } else if (loginChanged) {
+        successMsg = t("adminAccount.successLogin");
+      } else if (passwordChanged) {
+        successMsg = t("adminAccount.successPassword");
+      }
+
+      setModalLogin(finalNewLogin);
+      setModalNewLogin("");
+      setModalNewPassword("");
+      setShowPassword(false);
+
+      if (changedOwnAccount) {
+        const fullMsg = `${successMsg} ${t("adminAccount.reloginNow")}`;
+        setModalSuccess(fullMsg);
+        showToast("success", fullMsg);
+
+        await new Promise((resolve) => setTimeout(resolve, 1600));
+
+        setIsUserModalOpen(false);
+        await supabase.auth.signOut();
+        window.location.href = "/login";
+        return;
+      }
+
+      setModalSuccess(successMsg);
+      showToast("success", successMsg);
+
+      setTimeout(() => {
+        setIsUserModalOpen(false);
+        setModalSuccess(null);
+      }, 1000);
+    } catch {
+      const msg = t("adminAccount.requestFailed");
+      setModalError(msg);
+      showToast("error", msg);
+    } finally {
+      setModalLoading(false);
+    }
   };
-
-  try {
-    setModalLoading(true);
-
-    const res = await fetch("/api/admin/update-user", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    });
-
-    const data = await res.json();
-
-    if (!res.ok || !data.success) {
-      const msg = data.error || "Unbekannter Fehler bei der Aktualisierung.";
-      setModalError(msg);
-      showToast("error", msg);
-      return;
-    }
-
-    const changedOwnAccount = Boolean(data?.changedOwnAccount);
-
-    let successMsg = "Zugang erfolgreich aktualisiert.";
-    if (loginChanged && passwordChanged) {
-      successMsg = "Login und Passwort erfolgreich aktualisiert.";
-    } else if (loginChanged) {
-      successMsg = "Login erfolgreich aktualisiert.";
-    } else if (passwordChanged) {
-      successMsg = "Passwort erfolgreich aktualisiert.";
-    }
-
-    setModalLogin(finalNewLogin);
-    setModalNewLogin("");
-    setModalNewPassword("");
-    setShowPassword(false);
-
-    if (changedOwnAccount) {
-      setModalSuccess(`${successMsg} Du wirst jetzt neu angemeldet...`);
-      showToast("success", `${successMsg} Du wirst jetzt neu angemeldet...`);
-
-      // kurz sichtbar lassen, damit der Nutzer den Erfolg wahrnimmt
-      await new Promise((resolve) => setTimeout(resolve, 1600));
-
-      setIsUserModalOpen(false);
-      await supabase.auth.signOut();
-      window.location.href = "/login";
-      return;
-    }
-
-    setModalSuccess(successMsg);
-    showToast("success", successMsg);
-
-    setTimeout(() => {
-      setIsUserModalOpen(false);
-      setModalSuccess(null);
-    }, 1000);
-  } catch {
-    const msg = "Fehler beim Senden der Anfrage.";
-    setModalError(msg);
-    showToast("error", msg);
-  } finally {
-    setModalLoading(false);
-  }
-};
 
   const handleGeneratePassword = async () => {
     const pwd = generateRandomPassword(12);
@@ -270,12 +304,12 @@ const handleUserUpdate = async () => {
     try {
       if (navigator && "clipboard" in navigator) {
         await navigator.clipboard.writeText(pwd);
-        showToast("success", "Zufallspasswort generiert und kopiert.");
+        showToast("success", t("adminAccount.passwordGeneratedCopied"));
       } else {
-        showToast("success", "Zufallspasswort generiert.");
+        showToast("success", t("adminAccount.passwordGenerated"));
       }
     } catch {
-      showToast("success", "Zufallspasswort generiert.");
+      showToast("success", t("adminAccount.passwordGenerated"));
     }
   };
 
@@ -284,7 +318,7 @@ const handleUserUpdate = async () => {
   };
 
   /* ------------------------------------------------------------------
-     Click outside Language Dropdown (nur Desktop-Button relevant)
+     Click outside Language Dropdown
   ------------------------------------------------------------------ */
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
@@ -292,6 +326,7 @@ const handleUserUpdate = async () => {
         setOpenLang(false);
       }
     }
+
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
@@ -306,8 +341,11 @@ const handleUserUpdate = async () => {
         .select("dealer_id, name, email, login_nr")
         .order("name", { ascending: true });
 
-      if (data) setDealers(data);
+      if (data) {
+        setDealers(data as DealerListItem[]);
+      }
     };
+
     loadDealers();
   }, [supabase]);
 
@@ -379,10 +417,12 @@ const handleUserUpdate = async () => {
   ------------------------------------------------------------------ */
   const filteredDealers = useMemo(() => {
     const lower = searchTerm.toLowerCase();
+
     return dealers.filter((d) => {
       const name = d.name?.toLowerCase() || "";
       const email = d.email?.toLowerCase() || "";
       const login = d.login_nr?.toLowerCase?.() || "";
+
       return (
         name.includes(lower) ||
         email.includes(lower) ||
@@ -403,56 +443,56 @@ const handleUserUpdate = async () => {
     {
       href: "/admin/promotions",
       key: "promotions",
-      label: t("admin.promotions"),
+      label: t("adminCommon.promotions"),
       color: "text-blue-600",
     },
     {
       href: "/admin/sofortrabatt",
       key: "sofortrabatt",
-      label: t("admin.instantDiscount"),
+      label: t("adminCommon.instantDiscount"),
       color: "text-pink-600",
     },
     {
       href: "/admin/projekte",
       key: "projekts",
-      label: t("admin.projects"),
+      label: t("adminCommon.projects"),
       color: "text-indigo-600",
     },
     {
       href: "/admin/bestellungen",
       key: "bestellungen",
-      label: t("admin.orders"),
+      label: t("adminCommon.orders"),
       color: "text-green-600",
     },
     {
       href: "/admin/support",
       key: "support",
-      label: t("admin.support"),
+      label: t("adminCommon.support"),
       color: "text-orange-600",
     },
     {
       href: "/admin/aktionen",
       key: "aktionen",
-      label: t("admin.monthlyOffers"),
+      label: t("adminCommon.monthlyOffers"),
       color: "text-teal-600",
     },
     {
       href: "/admin/reports",
       key: null,
-      label: t("admin.reports"),
+      label: t("adminCommon.reports"),
       color: "text-gray-600",
     },
     {
       href: "/admin/infos",
       key: null,
-      label: t("admin.info"),
+      label: t("adminCommon.info"),
       color: "text-gray-500",
     },
   ];
 
   const activeColor = useMemo(() => {
-    const m = navItems.find((item) => pathname.startsWith(item.href));
-    return m ? m.color : "text-gray-800";
+    const match = navItems.find((item) => pathname.startsWith(item.href));
+    return match ? match.color : "text-gray-800";
   }, [pathname, navItems]);
 
   const handleImpersonate = (dealerId: string) => {
@@ -466,16 +506,7 @@ const handleUserUpdate = async () => {
     router.push("/login");
   };
 
-  const langLabel =
-    lang === "de"
-      ? "Deutsch"
-      : lang === "fr"
-      ? "Français"
-      : lang === "it"
-      ? "Italiano"
-      : lang === "rm"
-      ? "Rumantsch"
-      : "English";
+  const langLabel = getLanguageLabel(lang);
 
   /* ------------------------------------------------------------------
      RENDER
@@ -483,10 +514,8 @@ const handleUserUpdate = async () => {
 
   return (
     <div className="min-h-screen flex flex-col bg-gray-50">
-      {/* HEADER */}
       <header className="bg-white shadow-md fixed top-0 left-0 right-0 z-50 border-b">
         <div className="flex justify-between items-center px-3 md:px-6 py-2 md:py-3">
-          {/* LOGO */}
           <Link
             href="/dashboard"
             className="font-semibold text-gray-800 text-base md:text-lg flex items-center gap-0"
@@ -494,16 +523,16 @@ const handleUserUpdate = async () => {
             <span className="text-black">P</span>
             <span className={`${activeColor} transition-colors`}>5</span>
             <span className="text-black hidden sm:inline">
-              connect Admin Dashboard
+              {t("nav.dashboard")}
             </span>
-            <span className="text-black sm:hidden">connect</span>
+            <span className="text-black sm:hidden">
+              {t("nav.dashboardTitle")}
+            </span>
           </Link>
 
-          {/* RIGHT ACTIONS - DESKTOP */}
           <div className="hidden md:flex items-center gap-5">
             <PendingIndicator />
 
-            {/* IMPERSONATION */}
             <div className="relative flex items-center gap-2">
               <UserRound className="w-5 h-5 text-blue-600" />
 
@@ -511,7 +540,7 @@ const handleUserUpdate = async () => {
                 <Search className="absolute left-3 top-2.5 w-4 h-4 text-gray-400" />
                 <input
                   type="text"
-                  placeholder="Händler suchen..."
+                  placeholder={t("adminCommon.common.searchDealer")}
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   className="pl-9 pr-3 py-1.5 text-sm border border-blue-200 bg-blue-50 text-blue-800 rounded-md w-52 outline-none"
@@ -521,25 +550,24 @@ const handleUserUpdate = async () => {
               <select
                 onChange={(e) => handleImpersonate(e.target.value)}
                 className="border border-blue-200 bg-blue-50 text-blue-800 text-sm rounded-md px-2 py-1.5 w-52"
+                value=""
               >
-                <option value="">{t("admin.actAsDealer")}</option>
+                <option value="">{t("adminCommon.actAsDealer")}</option>
                 {filteredDealers.map((d) => (
-                  <option key={d.dealer_id} value={d.dealer_id}>
+                  <option key={d.dealer_id} value={String(d.dealer_id)}>
                     {d.name} ({d.email})
                   </option>
                 ))}
               </select>
             </div>
 
-            {/* LOGIN / PASSWORT */}
             <button
               onClick={openUserModal}
               className="bg-yellow-500 hover:bg-yellow-600 text-white text-sm px-3 py-1.5 rounded flex items-center gap-1"
             >
-              🔐 Login / Passwort
+              {t("adminAccount.button")}
             </button>
 
-            {/* LANGUAGE SWITCH */}
             <div className="relative" ref={langRef}>
               <button
                 onClick={() => setOpenLang((o) => !o)}
@@ -551,11 +579,11 @@ const handleUserUpdate = async () => {
 
               {openLang && (
                 <div className="absolute right-0 mt-2 w-36 bg-white border rounded shadow-md z-50">
-                  {["de", "en", "fr", "it", "rm"].map((l) => (
+                  {(["de", "en", "fr", "it", "rm"] as Lang[]).map((l) => (
                     <button
                       key={l}
                       onClick={() => {
-                        setLang(l as any);
+                        setLang(l);
                         setOpenLang(false);
                       }}
                       className={`block w-full text-left px-3 py-2 text-sm hover:bg-gray-50 ${
@@ -564,40 +592,29 @@ const handleUserUpdate = async () => {
                           : "text-gray-700"
                       }`}
                     >
-                      {l === "de"
-                        ? "Deutsch"
-                        : l === "fr"
-                        ? "Français"
-                        : l === "it"
-                        ? "Italiano"
-                        : l === "rm"
-                        ? "Rumantsch"
-                        : "English"}
+                      {getLanguageLabel(l)}
                     </button>
                   ))}
                 </div>
               )}
             </div>
 
-            {/* LOGOUT */}
             <button
               onClick={handleLogout}
               className="bg-red-500 hover:bg-red-600 text-white text-sm px-3 py-1.5 rounded flex items-center gap-1"
             >
               <LogOut className="w-4 h-4" />
-              Logout
+              {t("adminCommon.common.logout")}
             </button>
           </div>
 
-          {/* RIGHT ACTIONS - MOBILE */}
           <div className="flex md:hidden items-center gap-2">
-            {/* Pending indicator (optional: falls zu groß, ersetzbar durch Icon) */}
             <button
               type="button"
               onClick={() => setMobileMenuOpen(true)}
               className="p-2 rounded hover:bg-gray-100"
-              aria-label="Benachrichtigungen / Menü öffnen"
-              title="Öffnen"
+              aria-label={t("adminCommon.common.open")}
+              title={t("adminCommon.common.open")}
             >
               <Bell className="w-5 h-5 text-gray-700" />
             </button>
@@ -606,19 +623,18 @@ const handleUserUpdate = async () => {
               type="button"
               onClick={() => setMobileMenuOpen(true)}
               className="p-2 rounded hover:bg-gray-100"
-              aria-label="Menü öffnen"
-              title="Menü"
+              aria-label={t("adminCommon.common.open")}
+              title={t("adminCommon.common.open")}
             >
               <Menu className="w-5 h-5 text-gray-800" />
             </button>
           </div>
         </div>
 
-        {/* NAVIGATION - DESKTOP */}
         <nav className="hidden md:flex gap-6 px-6 py-2 bg-white border-t shadow-sm overflow-x-auto">
           {navItems.map((item) => {
             const isActive = pathname.startsWith(item.href);
-            const count = item.key ? pendingCounts[item.key as PendingKey] : 0;
+            const count = item.key ? pendingCounts[item.key] : 0;
 
             return (
               <Link
@@ -638,7 +654,6 @@ const handleUserUpdate = async () => {
         </nav>
       </header>
 
-      {/* MOBILE DRAWER */}
       {mobileMenuOpen && (
         <div className="fixed inset-0 z-[70]">
           <div
@@ -647,37 +662,37 @@ const handleUserUpdate = async () => {
           />
           <div className="absolute right-0 top-0 h-full w-[86%] max-w-sm bg-white shadow-xl flex flex-col">
             <div className="flex items-center justify-between px-4 py-3 border-b">
-              <div className="font-semibold text-gray-900">Admin Menü</div>
+              <div className="font-semibold text-gray-900">
+                {t("adminCommon.common.adminMenu")}
+              </div>
               <button
                 className="p-2 rounded hover:bg-gray-100"
                 onClick={() => setMobileMenuOpen(false)}
-                aria-label="Schliessen"
+                aria-label={t("adminCommon.common.close")}
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
             <div className="p-4 space-y-4 overflow-y-auto">
-              {/* Pending indicator als kompakter Block */}
               <div className="rounded border bg-gray-50 p-3">
                 <div className="text-sm font-medium text-gray-800 mb-2">
-                  Offene Punkte
+                  {t("adminCommon.common.pendingItems")}
                 </div>
                 <PendingIndicator />
               </div>
 
-              {/* Dealer search + impersonate */}
               <div className="space-y-2">
                 <div className="text-sm font-medium text-gray-800 flex items-center gap-2">
                   <UserRound className="w-4 h-4 text-blue-600" />
-                  Als Händler agieren
+                  {t("adminCommon.actAsDealer")}
                 </div>
 
                 <div className="relative">
                   <Search className="absolute left-3 top-2.5 w-4 h-4 text-gray-400" />
                   <input
                     type="text"
-                    placeholder="Händler suchen..."
+                    placeholder={t("adminCommon.common.searchDealer")}
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
                     className="w-full pl-9 pr-3 py-2 text-sm border border-blue-200 bg-blue-50 text-blue-800 rounded-md outline-none"
@@ -687,66 +702,54 @@ const handleUserUpdate = async () => {
                 <select
                   onChange={(e) => handleImpersonate(e.target.value)}
                   className="w-full border border-blue-200 bg-blue-50 text-blue-800 text-sm rounded-md px-2 py-2"
+                  value=""
                 >
-                  <option value="">{t("admin.actAsDealer")}</option>
+                  <option value="">{t("adminCommon.actAsDealer")}</option>
                   {filteredDealers.map((d) => (
-                    <option key={d.dealer_id} value={d.dealer_id}>
+                    <option key={d.dealer_id} value={String(d.dealer_id)}>
                       {d.name} ({d.email})
                     </option>
                   ))}
                 </select>
               </div>
 
-              {/* Login/Passwort */}
               <button
                 onClick={openUserModal}
                 className="w-full bg-yellow-500 hover:bg-yellow-600 text-white text-sm px-3 py-2 rounded flex items-center justify-center gap-2"
               >
-                🔐 Login / Passwort
+                {t("adminAccount.button")}
               </button>
 
-              {/* Sprache */}
               <div className="rounded border p-3">
                 <div className="flex items-center gap-2 text-sm font-medium text-gray-800 mb-2">
                   <Globe className="w-4 h-4" />
-                  Sprache
+                  {t("adminCommon.common.language")}
                 </div>
                 <div className="grid grid-cols-2 gap-2">
-                  {["de", "en", "fr", "it", "rm"].map((l) => (
+                  {(["de", "en", "fr", "it", "rm"] as Lang[]).map((l) => (
                     <button
                       key={l}
-                      onClick={() => setLang(l as any)}
+                      onClick={() => setLang(l)}
                       className={`px-3 py-2 rounded text-sm border ${
                         l === lang
                           ? "bg-gray-900 text-white border-gray-900"
                           : "bg-white text-gray-800 hover:bg-gray-50"
                       }`}
                     >
-                      {l === "de"
-                        ? "Deutsch"
-                        : l === "fr"
-                        ? "Français"
-                        : l === "it"
-                        ? "Italiano"
-                        : l === "rm"
-                        ? "Rumantsch"
-                        : "English"}
+                      {getLanguageLabel(l)}
                     </button>
                   ))}
                 </div>
               </div>
 
-              {/* Navigation */}
               <div className="rounded border p-3">
                 <div className="text-sm font-medium text-gray-800 mb-2">
-                  Navigation
+                  {t("adminCommon.common.navigation")}
                 </div>
                 <div className="flex flex-col gap-1">
                   {navItems.map((item) => {
                     const isActive = pathname.startsWith(item.href);
-                    const count = item.key
-                      ? pendingCounts[item.key as PendingKey]
-                      : 0;
+                    const count = item.key ? pendingCounts[item.key] : 0;
 
                     return (
                       <Link
@@ -769,34 +772,31 @@ const handleUserUpdate = async () => {
                 </div>
               </div>
 
-              {/* Logout */}
               <button
                 onClick={handleLogout}
                 className="w-full bg-red-500 hover:bg-red-600 text-white text-sm px-3 py-2 rounded flex items-center justify-center gap-2"
               >
                 <LogOut className="w-4 h-4" />
-                Logout
+                {t("adminCommon.common.logout")}
               </button>
             </div>
           </div>
         </div>
       )}
 
-      {/* CONTENT */}
       <main className="flex-1 p-3 md:p-6 pt-16 md:pt-28">{children}</main>
 
-      {/* MODAL: LOGIN / PASSWORT ÄNDERN */}
       {isUserModalOpen && (
         <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/40 p-3">
           <div className="bg-white rounded-lg shadow-xl w-full max-w-md p-6">
             <h2 className="text-lg font-semibold mb-4">
-              Login / Passwort ändern
+              {t("adminAccount.modalTitle")}
             </h2>
 
             <div className="space-y-3">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Aktueller Login / LoginNr *
+                  {t("adminAccount.currentLogin")}
                 </label>
                 <div className="flex gap-2">
                   <input
@@ -804,37 +804,37 @@ const handleUserUpdate = async () => {
                     value={modalLogin}
                     onChange={(e) => setModalLogin(e.target.value)}
                     className="w-full border rounded-md px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500"
-                    placeholder="z.B. VAdminP5 oder Händler-LoginNr"
+                    placeholder={t("adminAccount.currentLoginPlaceholder")}
                   />
                   <button
                     type="button"
                     onClick={handleFillAdminLogin}
                     className="px-2 py-1 text-xs border rounded text-gray-600 hover:bg-gray-50"
                   >
-                    Mein Login
+                    {t("adminCommon.common.myLogin")}
                   </button>
                 </div>
               </div>
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Neuer Login (optional)
+                  {t("adminAccount.newLogin")}
                 </label>
                 <input
                   type="text"
                   value={modalNewLogin}
                   onChange={(e) => setModalNewLogin(e.target.value)}
                   className="w-full border rounded-md px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500"
-                  placeholder="Leer lassen, wenn Login gleich bleiben soll"
+                  placeholder={t("adminAccount.newLoginPlaceholder")}
                 />
                 <p className="text-xs text-gray-500 mt-1">
-                  Erlaubt: Buchstaben, Zahlen, „-“, „_“.
+                  {t("adminAccount.newLoginHint")}
                 </p>
               </div>
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Neues Passwort *
+                  {t("adminAccount.newPassword")}
                 </label>
                 <div className="flex gap-2 items-center">
                   <input
@@ -842,14 +842,16 @@ const handleUserUpdate = async () => {
                     value={modalNewPassword}
                     onChange={(e) => setModalNewPassword(e.target.value)}
                     className="w-full border rounded-md px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500"
-                    placeholder="Mindestens 6 Zeichen"
+                    placeholder={t("adminAccount.newPasswordPlaceholder")}
                   />
                   <button
                     type="button"
                     onClick={() => setShowPassword((s) => !s)}
                     className="px-2 py-1 text-xs border rounded text-gray-600 hover:bg-gray-50"
                   >
-                    {showPassword ? "Verbergen" : "Anzeigen"}
+                    {showPassword
+                      ? t("adminCommon.common.hide")
+                      : t("adminCommon.common.show")}
                   </button>
                 </div>
                 <div className="flex gap-2 mt-2">
@@ -858,7 +860,7 @@ const handleUserUpdate = async () => {
                     onClick={handleGeneratePassword}
                     className="px-2 py-1 text-xs border rounded text-blue-600 border-blue-300 hover:bg-blue-50"
                   >
-                    Zufallspasswort erzeugen
+                    {t("adminAccount.generatePassword")}
                   </button>
                 </div>
               </div>
@@ -877,21 +879,22 @@ const handleUserUpdate = async () => {
                 disabled={modalLoading}
                 className="px-3 py-1.5 text-sm rounded border border-gray-300 text-gray-700 hover:bg-gray-50 disabled:opacity-50"
               >
-                Abbrechen
+                {t("adminCommon.common.cancel")}
               </button>
               <button
                 onClick={handleUserUpdate}
                 disabled={modalLoading}
                 className="px-3 py-1.5 text-sm rounded bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50"
               >
-                {modalLoading ? "Speichere..." : "Speichern"}
+                {modalLoading
+                  ? t("adminCommon.common.loading")
+                  : t("adminCommon.common.save")}
               </button>
             </div>
           </div>
         </div>
       )}
 
-      {/* TOAST */}
       {toast && (
         <div className="fixed top-4 right-4 z-[90]">
           <div

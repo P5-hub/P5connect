@@ -15,6 +15,7 @@ import UnifiedCart from "@/app/(dealer)/components/cart/UnifiedCart";
 import { useActiveDealer } from "@/app/(dealer)/hooks/useActiveDealer";
 import { motion, AnimatePresence } from "framer-motion";
 import { ArrowLeft, Download } from "lucide-react";
+import { useI18n } from "@/lib/i18n/I18nProvider";
 
 /* ------------------------------------------------------------------ */
 /* TYPES */
@@ -33,18 +34,12 @@ type CsvRow = {
 /* ------------------------------------------------------------------ */
 function getCurrentIsoCalendarWeek(): number {
   const d = new Date();
-  const date = new Date(Date.UTC(
-    d.getFullYear(),
-    d.getMonth(),
-    d.getDate()
-  ));
+  const date = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
 
   date.setUTCDate(date.getUTCDate() + 4 - (date.getUTCDay() || 7));
   const yearStart = new Date(Date.UTC(date.getUTCFullYear(), 0, 1));
 
-  return Math.ceil(
-    (((date.getTime() - yearStart.getTime()) / 86400000) + 1) / 7
-  );
+  return Math.ceil((((date.getTime() - yearStart.getTime()) / 86400000) + 1) / 7);
 }
 
 function getLastCalendarWeek(): number {
@@ -52,16 +47,14 @@ function getLastCalendarWeek(): number {
   const d = new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()));
   d.setUTCDate(d.getUTCDate() - ((d.getUTCDay() + 6) % 7) - 7);
   const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
-  return Math.ceil(
-    (((d.getTime() - yearStart.getTime()) / 86400000) + 1) / 7
-  );
+  return Math.ceil((((d.getTime() - yearStart.getTime()) / 86400000) + 1) / 7);
 }
+
 function getCalendarWeekFromDate(dateStr: string): number | null {
   if (!dateStr) return null;
 
   let date: Date | null = null;
 
-  // Fall 1: deutsches Format DD.MM.YYYY
   if (dateStr.includes(".")) {
     const parts = dateStr.split(".");
     if (parts.length === 3) {
@@ -72,54 +65,36 @@ function getCalendarWeekFromDate(dateStr: string): number | null {
     }
   }
 
-  // Fall 2: ISO-Format YYYY-MM-DD
   if (!date && dateStr.includes("-")) {
     const parsed = new Date(dateStr);
     if (!isNaN(parsed.getTime())) {
       date = new Date(
-        Date.UTC(
-          parsed.getFullYear(),
-          parsed.getMonth(),
-          parsed.getDate()
-        )
+        Date.UTC(parsed.getFullYear(), parsed.getMonth(), parsed.getDate())
       );
     }
   }
 
   if (!date || isNaN(date.getTime())) return null;
 
-  // ISO-Kalenderwoche
   date.setUTCDate(date.getUTCDate() + 4 - (date.getUTCDay() || 7));
   const yearStart = new Date(Date.UTC(date.getUTCFullYear(), 0, 1));
-  return Math.ceil(
-    (((date.getTime() - yearStart.getTime()) / 86400000) + 1) / 7
-  );
+  return Math.ceil((((date.getTime() - yearStart.getTime()) / 86400000) + 1) / 7);
 }
-
 
 export default function VerkaufForm() {
   const { dealer, loading } = useActiveDealer();
+  const { t } = useI18n();
 
   const [step, setStep] = useState<"choose" | "manual" | "upload">("choose");
-
-  /* ---------------- MANUELL ---------------- */
 
   const [cart, setCart] = useState<any[]>([]);
   const [open, setOpen] = useState(false);
 
-  /* ---------------- CSV ---------------- */
-
   const [rows, setRows] = useState<CsvRow[]>([]);
 
-  // ✅ Erweiterung: letzte abgeschlossene KW
-  const [calendarWeek, setCalendarWeek] = useState<number>(
-    getLastCalendarWeek()
-  );
-
-  // ❗ bewusst number lassen (damit Manual NICHT kaputt geht)
+  const [calendarWeek, setCalendarWeek] = useState<number>(getLastCalendarWeek());
   const [inhouseQtyShare, setInhouseQtyShare] = useState<number>(50);
   const [inhouseRevenueShare, setInhouseRevenueShare] = useState<number>(50);
-  // CSV Bestätigung (Stufe 3)
   const [confirmSonyShareCsv, setConfirmSonyShareCsv] = useState(false);
 
   /* ------------------------------------------------------------------ */
@@ -148,19 +123,13 @@ export default function VerkaufForm() {
             setRows(normalized);
             setConfirmSonyShareCsv(false);
 
-
-            // ⬇️⬇️⬇️ SCHRITT 2: HIER ⬇️⬇️⬇️
-            const firstDate = normalized.find(r => r.date)?.date;
-            const kw = firstDate
-              ? getCalendarWeekFromDate(firstDate)
-              : null;
-
+            const firstDate = normalized.find((r) => r.date)?.date;
+            const kw = firstDate ? getCalendarWeekFromDate(firstDate) : null;
 
             if (kw) {
               setCalendarWeek(kw);
             }
           },
-
         });
       } else {
         const buf = await file.arrayBuffer();
@@ -171,21 +140,15 @@ export default function VerkaufForm() {
         setRows(normalized);
         setConfirmSonyShareCsv(false);
 
-
-        // ⬇️⬇️⬇️ SCHRITT 2: HIER ⬇️⬇️⬇️
-        const firstDate = normalized.find(r => r.date)?.date;
-        const kw = firstDate
-          ? getCalendarWeekFromDate(firstDate)
-          : null;
-
+        const firstDate = normalized.find((r) => r.date)?.date;
+        const kw = firstDate ? getCalendarWeekFromDate(firstDate) : null;
 
         if (kw) {
           setCalendarWeek(kw);
         }
-
       }
     } catch {
-      toast.error("Fehler beim Lesen der Datei");
+      toast.error(t("sales.page.fileReadError"));
     }
   };
 
@@ -203,34 +166,24 @@ export default function VerkaufForm() {
     [rows]
   );
 
-  const totalQty =
-    inhouseQtyShare > 0 ? sonyQty / (inhouseQtyShare / 100) : 0;
+  const totalQty = inhouseQtyShare > 0 ? sonyQty / (inhouseQtyShare / 100) : 0;
 
   const totalRevenue =
-    inhouseRevenueShare > 0
-      ? sonyRevenue / (inhouseRevenueShare / 100)
-      : 0;
+    inhouseRevenueShare > 0 ? sonyRevenue / (inhouseRevenueShare / 100) : 0;
 
   /* ------------------------------------------------------------------ */
   /* SUBMIT CSV */
   /* ------------------------------------------------------------------ */
 
   const submitCsvSales = async () => {
-    // ✅ Erweiterung: bewusste Bestätigung erzwingen
-    if (
-      inhouseQtyShare <= 0 ||
-      inhouseRevenueShare <= 0
-    ) {
-      toast.error(
-        "Bitte bestätigen Sie den SONY-Anteil für Stück und Umsatz."
-      );
+    if (!confirmSonyShareCsv) {
+      toast.error(t("sales.errors.confirmSonyShare"));
       return;
     }
 
-
     try {
       if (!dealer?.dealer_id) {
-        toast.error("Händler nicht gefunden.");
+        toast.error(t("sales.errors.dealerNotFound"));
         return;
       }
 
@@ -253,46 +206,44 @@ export default function VerkaufForm() {
       const data = await res.json();
 
       if (!res.ok) {
-        throw new Error(data.error || "Fehler beim Speichern");
+        throw new Error(data.error || t("sales.page.saveError"));
       }
 
-      toast.success("Verkaufsdaten erfolgreich gemeldet");
+      toast.success(t("sales.page.success"));
 
       setRows([]);
+      setConfirmSonyShareCsv(false);
       setStep("choose");
     } catch (err: any) {
-      toast.error(err.message || "Fehler beim Melden");
+      toast.error(err?.message || t("sales.page.submitError"));
     }
   };
 
   /* ------------------------------------------------------------------ */
 
-  if (loading) return <p>⏳ Händlerdaten werden geladen…</p>;
-  if (!dealer) return <p className="text-red-500">Händler nicht gefunden</p>;
+  if (loading) return <p>{t("sales.loading.dealerData")}</p>;
+  if (!dealer) return <p className="text-red-500">{t("sales.errors.dealerNotFound")}</p>;
 
   return (
     <div className="p-4">
       <AnimatePresence mode="wait">
-        {/* ================= STEP CHOOSE ================= */}
-
         {step === "choose" && (
           <motion.div key="choose">
             <div className="grid md:grid-cols-2 gap-4">
               <div className="border p-5 rounded-xl">
-                <h2 className="font-semibold mb-2">Manuell melden</h2>
+                <h2 className="font-semibold mb-2">{t("sales.page.manualTitle")}</h2>
                 <Button
                   onClick={() => {
                     setCalendarWeek(getCurrentIsoCalendarWeek());
                     setStep("manual");
                   }}
                 >
-                  Weiter
+                  {t("sales.page.next")}
                 </Button>
-
               </div>
 
               <div className="border p-5 rounded-xl">
-                <h2 className="font-semibold mb-2">CSV / Excel Upload</h2>
+                <h2 className="font-semibold mb-2">{t("sales.page.uploadTitle")}</h2>
                 <div className="flex gap-2">
                   <Button
                     variant="outline"
@@ -307,22 +258,22 @@ export default function VerkaufForm() {
                     }}
                   >
                     <Download className="w-4 h-4 mr-2" />
-                    CSV-Vorlage
+                    {t("sales.page.template")}
                   </Button>
 
-                  <Button onClick={() => setStep("upload")}>Weiter</Button>
+                  <Button onClick={() => setStep("upload")}>
+                    {t("sales.page.next")}
+                  </Button>
                 </div>
               </div>
             </div>
           </motion.div>
         )}
 
-        {/* ================= STEP MANUAL ================= */}
-
         {step === "manual" && (
           <motion.div key="manual">
             <Button variant="outline" onClick={() => setStep("choose")}>
-              <ArrowLeft className="w-4 h-4 mr-2" /> Zurück
+              <ArrowLeft className="w-4 h-4 mr-2" /> {t("sales.page.back")}
             </Button>
 
             <ProductList
@@ -350,21 +301,17 @@ export default function VerkaufForm() {
           </motion.div>
         )}
 
-        {/* ================= STEP UPLOAD ================= */}
-
         {step === "upload" && (
           <motion.div key="upload">
             <Button variant="outline" onClick={() => setStep("choose")}>
-              <ArrowLeft className="w-4 h-4 mr-2" /> Zurück
+              <ArrowLeft className="w-4 h-4 mr-2" /> {t("sales.page.back")}
             </Button>
 
             <div className="mt-6 space-y-4">
               <Input
                 type="file"
                 accept=".csv,.xlsx"
-                onChange={(e) =>
-                  e.target.files && parseFile(e.target.files[0])
-                }
+                onChange={(e) => e.target.files && parseFile(e.target.files[0])}
               />
 
               {rows.length > 0 && (
@@ -372,11 +319,11 @@ export default function VerkaufForm() {
                   <table className="w-full border text-sm">
                     <thead>
                       <tr>
-                        <th>EAN</th>
-                        <th>Produkt</th>
-                        <th>Menge</th>
-                        <th>Preis</th>
-                        <th>Datum</th>
+                        <th>{t("sales.upload.fileTable.ean")}</th>
+                        <th>{t("sales.upload.fileTable.product")}</th>
+                        <th>{t("sales.upload.fileTable.quantity")}</th>
+                        <th>{t("sales.upload.fileTable.price")}</th>
+                        <th>{t("sales.upload.fileTable.date")}</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -395,37 +342,33 @@ export default function VerkaufForm() {
                   <div className="grid md:grid-cols-3 gap-4">
                     <div>
                       <label className="text-sm font-medium">
-                        Kalenderwoche
+                        {t("sales.upload.calendarWeek")}
                       </label>
                       <Input
                         type="number"
                         min={1}
                         max={53}
                         value={calendarWeek}
-                        onChange={(e) =>
-                          setCalendarWeek(Number(e.target.value))
-                        }
+                        onChange={(e) => setCalendarWeek(Number(e.target.value))}
                       />
                     </div>
 
                     <div>
                       <label className="text-sm font-medium">
-                        SONY Anteil Stück (%)
+                        {t("sales.upload.sonyShareQty")}
                       </label>
                       <Input
                         type="number"
                         min={0}
                         max={100}
                         value={inhouseQtyShare}
-                        onChange={(e) =>
-                          setInhouseQtyShare(Number(e.target.value))
-                        }
+                        onChange={(e) => setInhouseQtyShare(Number(e.target.value))}
                       />
                     </div>
 
                     <div>
                       <label className="text-sm font-medium">
-                        SONY Anteil Umsatz (%)
+                        {t("sales.upload.sonyShareRevenue")}
                       </label>
                       <Input
                         type="number"
@@ -440,13 +383,20 @@ export default function VerkaufForm() {
                   </div>
 
                   <div className="border rounded p-4 text-sm">
-                    <p>Sony Stückzahl: {sonyQty}</p>
-                    <p>Gesamtstückzahl Händler: {Math.round(totalQty)}</p>
-                    <p>Sony Umsatz: CHF {sonyRevenue.toFixed(2)}</p>
                     <p>
-                      Gesamtumsatz Händler: CHF {totalRevenue.toFixed(2)}
+                      {t("sales.upload.sonyQty")}: {sonyQty}
+                    </p>
+                    <p>
+                      {t("sales.upload.totalQty")}: {Math.round(totalQty)}
+                    </p>
+                    <p>
+                      {t("sales.upload.sonyRevenue")}: CHF {sonyRevenue.toFixed(2)}
+                    </p>
+                    <p>
+                      {t("sales.upload.totalRevenue")}: CHF {totalRevenue.toFixed(2)}
                     </p>
                   </div>
+
                   <div className="border-t pt-3">
                     <label className="flex items-start gap-2 text-xs text-gray-700">
                       <input
@@ -455,10 +405,7 @@ export default function VerkaufForm() {
                         onChange={(e) => setConfirmSonyShareCsv(e.target.checked)}
                         className="mt-0.5"
                       />
-                      <span>
-                        Ich bestätige, dass die gemeldeten <b>SONY-Anteile (Stück & Umsatz)</b>
-                        den tatsächlichen Verkaufsverhältnissen dieser Kalenderwoche entsprechen.
-                      </span>
+                      <span>{t("sales.upload.confirmSonyShare")}</span>
                     </label>
                   </div>
 
@@ -467,9 +414,8 @@ export default function VerkaufForm() {
                     disabled={!confirmSonyShareCsv}
                     onClick={submitCsvSales}
                   >
-                    Verkaufsdaten melden
+                    {t("sales.page.submit")}
                   </Button>
-
                 </>
               )}
             </div>

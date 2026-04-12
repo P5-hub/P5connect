@@ -1,0 +1,23 @@
+export const adminBestellungen = {
+  searchPlaceholder:
+    "Cerca ordine (rivenditore, e-mail, #ID, campagna)…",
+  open: "Aperto",
+  approved: "Approvato",
+  rejected: "Rifiutato",
+  all: "Tutti",
+  reload: "Ricarica",
+  type: "Tipo",
+  allTypes: "Tutti i tipi",
+  onlyMesse: "Solo fiera",
+  onlyDisplay: "Solo display",
+  onlyStandard: "Solo standard",
+  loading: "Caricamento ordini…",
+  empty: "Nessun ordine trovato.",
+  unknownDealer: "Rivenditore sconosciuto",
+  fromProject: "da progetto",
+  pos: "Pos.",
+  statusApproved: "Approvato",
+  statusRejected: "Rifiutato",
+  statusPending: "Aperto",
+  messeOrder: "Ordine fiera",
+} as const;

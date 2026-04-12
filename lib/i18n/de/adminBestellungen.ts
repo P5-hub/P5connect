@@ -1,0 +1,23 @@
+export const adminBestellungen = {
+  searchPlaceholder:
+    "Suche Bestellung (Händler, E-Mail, #ID, Kampagne)…",
+  open: "Offen",
+  approved: "Bestätigt",
+  rejected: "Abgelehnt",
+  all: "Alle",
+  reload: "Neu laden",
+  type: "Typ",
+  allTypes: "Alle Typen",
+  onlyMesse: "Nur Messe",
+  onlyDisplay: "Nur Display",
+  onlyStandard: "Nur Standard",
+  loading: "Lade Bestellungen…",
+  empty: "Keine Bestellungen gefunden.",
+  unknownDealer: "Unbekannter Händler",
+  fromProject: "aus Projekt",
+  pos: "Pos.",
+  statusApproved: "Bestätigt",
+  statusRejected: "Abgelehnt",
+  statusPending: "Offen",
+  messeOrder: "Messebestellung",
+} as const;

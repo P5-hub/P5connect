@@ -40,12 +40,7 @@ export default function ResetPasswordPage() {
         return;
       }
 
-      // bewusst generische Erfolgsmeldung
-      setSuccess(
-        t("auth.reset.mailSent") ||
-          "Falls der Benutzer existiert, wurde eine E-Mail zum Zurücksetzen gesendet."
-      );
-
+      setSuccess(t("auth.reset.mailSent"));
       setLoginNr("");
     } catch (err: any) {
       setError(err?.message || "Unbekannter Fehler");
@@ -61,16 +56,15 @@ export default function ResetPasswordPage() {
         className="w-full max-w-md bg-white dark:bg-gray-900 p-8 rounded-2xl shadow border dark:border-gray-700"
       >
         <h1 className="text-xl font-semibold mb-6">
-          {t("auth.reset.requestTitle") || "Passwort zurücksetzen"}
+          {t("auth.reset.requestTitle")}
         </h1>
 
         <p className="text-sm text-gray-600 dark:text-gray-300 mb-6">
-          {t("auth.reset.requestDesc") ||
-            "Bitte geben Sie Ihre Login-Nr ein. Sie erhalten eine E-Mail zum Zurücksetzen des Passworts."}
+          {t("auth.reset.requestDesc")}
         </p>
 
         <label className="block mb-1 text-sm font-medium">
-          {t("login.loginNr") || "Login-Nr"}
+          {t("auth.login.loginNr")}
         </label>
 
         <input
@@ -83,20 +77,12 @@ export default function ResetPasswordPage() {
             bg-white dark:bg-gray-800
             text-gray-900 dark:text-gray-100
           "
-          placeholder="z.B. 2612400162"
+          placeholder={t("auth.login.loginNrPlaceholder")}
         />
 
-        {error && (
-          <p className="text-red-600 mb-3 text-sm">
-            {error}
-          </p>
-        )}
+        {error && <p className="text-red-600 mb-3 text-sm">{error}</p>}
 
-        {success && (
-          <p className="text-green-600 mb-3 text-sm">
-            {success}
-          </p>
-        )}
+        {success && <p className="text-green-600 mb-3 text-sm">{success}</p>}
 
         <button
           type="submit"
@@ -107,9 +93,7 @@ export default function ResetPasswordPage() {
             disabled:opacity-50
           "
         >
-          {loading
-            ? "⏳"
-            : t("auth.reset.send") || "Reset-Mail senden"}
+          {loading ? "⏳" : t("auth.reset.send")}
         </button>
 
         <button
@@ -117,7 +101,7 @@ export default function ResetPasswordPage() {
           onClick={() => router.push("/login")}
           className="w-full mt-3 text-sm text-gray-600 hover:underline"
         >
-          {t("auth.reset.backToLogin") || "Zurück zum Login"}
+          {t("auth.reset.backToLogin")}
         </button>
       </form>
     </div>

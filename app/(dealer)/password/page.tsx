@@ -1,17 +1,20 @@
 "use client";
 
 import ChangePasswordForm from "@/app/(dealer)/components/forms/ChangePasswordForm";
+import { useI18n } from "@/lib/i18n/I18nProvider";
 
 export default function PasswordPage() {
+  const { t } = useI18n();
+
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
       <div className="mx-auto w-full max-w-7xl px-4 py-6 md:px-6 md:py-8">
         <div className="mb-6">
           <h1 className="text-2xl md:text-3xl font-bold text-gray-900 dark:text-gray-100">
-            🔒 Passwort ändern
+            {t("auth.password.pageTitle")}
           </h1>
           <p className="mt-2 text-sm md:text-base text-gray-600 dark:text-gray-300">
-            Ändere hier dein Passwort für deinen aktuell eingeloggten Zugang.
+            {t("auth.password.pageDescription")}
           </p>
         </div>
 
@@ -19,11 +22,10 @@ export default function PasswordPage() {
           <section className="rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 shadow-sm">
             <div className="border-b border-gray-200 dark:border-gray-800 px-5 py-4 md:px-6">
               <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
-                Sicherheitsdaten
+                {t("auth.password.securityTitle")}
               </h2>
               <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">
-                Nach der Änderung wirst du automatisch abgemeldet und musst dich
-                mit dem neuen Passwort erneut einloggen.
+                {t("auth.password.securityDescription")}
               </p>
             </div>
 
@@ -35,21 +37,20 @@ export default function PasswordPage() {
           <aside className="rounded-2xl border border-blue-100 dark:border-blue-900/40 bg-blue-50 dark:bg-blue-950/30 shadow-sm">
             <div className="px-5 py-4 md:px-6">
               <h3 className="text-base font-semibold text-blue-900 dark:text-blue-200">
-                Hinweise
+                {t("auth.password.notesTitle")}
               </h3>
 
               <div className="mt-3 space-y-3 text-sm text-blue-900/90 dark:text-blue-100/90">
                 <div className="rounded-xl bg-white/70 dark:bg-blue-900/20 px-4 py-3 border border-blue-100 dark:border-blue-900/30">
-                  Verwende mindestens 8 Zeichen.
+                  {t("auth.password.noteMinLength")}
                 </div>
 
                 <div className="rounded-xl bg-white/70 dark:bg-blue-900/20 px-4 py-3 border border-blue-100 dark:border-blue-900/30">
-                  Diese Seite ist nur für eingeloggte Benutzer gedacht.
+                  {t("auth.password.noteLoggedInOnly")}
                 </div>
 
                 <div className="rounded-xl bg-white/70 dark:bg-blue-900/20 px-4 py-3 border border-blue-100 dark:border-blue-900/30">
-                  Falls du dein Passwort vergessen hast, nutze bitte auf der
-                  Login-Seite die Funktion „Passwort vergessen“.
+                  {t("auth.password.noteForgotPassword")}
                 </div>
               </div>
             </div>

@@ -1,0 +1,28 @@
+export const adminCommon = {
+  promotions: "Promotiuns",
+  instantDiscount: "Rabatt immediat",
+  projects: "Projects",
+  orders: "Cumondas",
+  support: "Support",
+  monthlyOffers: "Offertas mensilas",
+  reports: "Rapports",
+  info: "Infurmaziuns",
+  actAsDealer: "Agir sco commerziant",
+
+  common: {
+    logout: "Sortir",
+    language: "Lingua",
+    navigation: "Navigaziun",
+    adminMenu: "Menu admin",
+    open: "Avrir",
+    close: "Serrar",
+    save: "Memorisar",
+    cancel: "Interrumper",
+    loading: "Memorisaziun...",
+    myLogin: "Mes login",
+    show: "Mussar",
+    hide: "Zuppentar",
+    searchDealer: "Tschertgar commerziant...",
+    pendingItems: "Puncts averts",
+  },
+} as const;

@@ -36,9 +36,7 @@ export default function ResetPasswordChangePage() {
 
         if (!tokenHash || type !== "recovery") {
           if (!mounted) return;
-          setError(
-            t("auth.reset.invalidLink") || "Reset-Link ist ungültig."
-          );
+          setError(t("auth.reset.invalidLink"));
           setInitializing(false);
           return;
         }
@@ -51,10 +49,7 @@ export default function ResetPasswordChangePage() {
         if (!mounted) return;
 
         if (verifyError) {
-          setError(
-            t("auth.reset.expired") ||
-              "Der Reset-Link ist abgelaufen oder ungültig."
-          );
+          setError(t("auth.reset.expired"));
           setInitializing(false);
           return;
         }
@@ -64,9 +59,7 @@ export default function ResetPasswordChangePage() {
       } catch (err: unknown) {
         if (!mounted) return;
         const msg =
-          err instanceof Error
-            ? err.message
-            : t("auth.reset.invalidLink") || "Ungültiger Reset-Link.";
+          err instanceof Error ? err.message : t("auth.reset.invalidLink");
         setError(msg);
         setInitializing(false);
       }
@@ -85,25 +78,17 @@ export default function ResetPasswordChangePage() {
     setSuccess(null);
 
     if (!canSubmit) {
-      setError(
-        t("auth.reset.invalidLink") ||
-          "Reset-Link ungültig. Bitte fordere einen neuen Link an."
-      );
+      setError(t("auth.reset.invalidLink"));
       return;
     }
 
     if (newPassword !== confirm) {
-      setError(
-        t("auth.reset.mismatch") || "Die Passwörter stimmen nicht überein."
-      );
+      setError(t("auth.reset.mismatch"));
       return;
     }
 
     if (newPassword.length < 8) {
-      setError(
-        t("auth.reset.short") ||
-          "Das Passwort muss mindestens 8 Zeichen lang sein."
-      );
+      setError(t("auth.reset.short"));
       return;
     }
 
@@ -119,9 +104,7 @@ export default function ResetPasswordChangePage() {
         return;
       }
 
-      setSuccess(
-        t("auth.reset.success") || "Passwort erfolgreich geändert."
-      );
+      setSuccess(t("auth.reset.success"));
 
       await supabase.auth.signOut();
 
@@ -131,9 +114,7 @@ export default function ResetPasswordChangePage() {
       }, 1500);
     } catch (err: unknown) {
       const msg =
-        err instanceof Error
-          ? err.message
-          : t("auth.reset.invalidLink") || "Ungültiger Reset-Link.";
+        err instanceof Error ? err.message : t("auth.reset.invalidLink");
       setError(msg);
     } finally {
       setLoading(false);
@@ -147,17 +128,17 @@ export default function ResetPasswordChangePage() {
         className="w-full max-w-md bg-white dark:bg-gray-900 p-8 rounded-2xl shadow border dark:border-gray-700"
       >
         <h1 className="text-xl font-semibold mb-6">
-          {t("auth.reset.title") || "Neues Passwort setzen"}
+          {t("auth.reset.title")}
         </h1>
 
         {initializing ? (
           <p className="text-sm text-gray-600 dark:text-gray-300">
-            {t("auth.reset.loading") || "Link wird geprüft..."}
+            {t("auth.reset.loading")}
           </p>
         ) : (
           <>
             <label className="block mb-1 text-sm font-medium">
-              {t("auth.reset.newPassword") || "Neues Passwort"}
+              {t("auth.reset.newPassword")}
             </label>
             <input
               type="password"
@@ -169,7 +150,7 @@ export default function ResetPasswordChangePage() {
             />
 
             <label className="block mb-1 text-sm font-medium">
-              {t("auth.reset.confirm") || "Passwort bestätigen"}
+              {t("auth.reset.confirm")}
             </label>
             <input
               type="password"
@@ -188,9 +169,7 @@ export default function ResetPasswordChangePage() {
               disabled={loading || !!success || !canSubmit}
               className="w-full bg-indigo-600 hover:bg-indigo-700 text-white py-3 rounded-lg disabled:opacity-50"
             >
-              {loading
-                ? "⏳"
-                : t("auth.reset.submit") || "Passwort ändern"}
+              {loading ? "⏳" : t("auth.reset.submit")}
             </button>
 
             {!canSubmit && !success && (
@@ -199,7 +178,7 @@ export default function ResetPasswordChangePage() {
                 onClick={() => router.push("/reset-password")}
                 className="w-full mt-3 text-sm text-gray-600 hover:underline"
               >
-                {t("auth.reset.requestNew") || "Neuen Reset-Link anfordern"}
+                {t("auth.reset.requestNew")}
               </button>
             )}
           </>

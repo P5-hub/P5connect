@@ -1,0 +1,101 @@
+export const sales = {
+    page: {
+        title: "Verkaufsdaten melden",
+        heading: "Verkaufsdaten melden",
+        manualTitle: "Manuell melden",
+        uploadTitle: "CSV / Excel Upload",
+        manual: "Manuell melden",
+        upload: "CSV / Excel Upload",
+        uploadTemplate: "CSV-Vorlage",
+        template: "CSV-Vorlage",
+        next: "Weiter",
+        back: "Zurück",
+        clearCsv: "CSV leeren",
+        modalTitle: "Verkaufsdaten melden",
+        quantity: "Anzahl",
+        priceOptional: "Preis (optional)",
+        date: "Datum",
+        inhouseShare: "Inhouse Share (%)",
+        calendarWeek: "Kalenderwoche",
+        noteForAllProducts: "Gilt automatisch für alle Produkte in dieser Meldung.",
+        noteForUpload: "Gilt automatisch für alle Datensätze im Upload.",
+        totalQuantity: "Gesamtmenge",
+        totalRevenue: "Gesamtumsatz",
+        reportSale: "Verkauf melden",
+        submit: "Verkaufsdaten melden",
+        submitSingle: "Verkauf melden",
+        saving: "Speichern…",
+        saved: "Verkaufsdaten gespeichert",
+        success: "Verkaufsdaten erfolgreich gemeldet",
+        saveError: "Fehler beim Speichern",
+        submitError: "Fehler beim Melden",
+        serverError: "Serverfehler",
+        fileReadError: "Fehler beim Lesen der Datei",
+    },
+
+    loading: {
+        dealer: "⏳ Händler wird geladen…",
+        dealerData: "⏳ Händlerdaten werden geladen…",
+    },
+
+    errors: {
+        dealerNotFound: "Händler nicht gefunden",
+        dealerLoadFailed: "Händler konnte nicht geladen werden.",
+        noDealer: "Kein Händler gefunden.",
+        emptyCart: "Keine Produkte im Warenkorb.",
+        confirmSonyShare:
+        "Bitte bestätigen Sie den SONY-Anteil für Stück und Umsatz.",
+    },
+
+    card: {
+        unknownModel: "Unbekanntes Modell",
+        ean: "EAN",
+        quantity: "Anzahl",
+        price: "Preis (CHF)",
+        serialNumber: "Seriennr.",
+        serialPlaceholder: "SN...",
+        added: "✅ Hinzugefügt",
+        report: "📊 Melden",
+    },
+
+    choose: {
+        manual: "Manuell melden",
+        upload: "CSV / Excel Upload",
+    },
+
+    upload: {
+        fileTable: {
+        ean: "EAN",
+        product: "Produkt",
+        quantity: "Menge",
+        price: "Preis",
+        date: "Datum",
+        },
+        calendarWeek: "Kalenderwoche",
+        sonyShareQty: "SONY Anteil Stück (%)",
+        sonyShareRevenue: "SONY Anteil Umsatz (%)",
+        sonyQty: "Sony Stückzahl",
+        totalQty: "Gesamtstückzahl Händler",
+        sonyRevenue: "Sony Umsatz",
+        totalRevenue: "Gesamtumsatz Händler",
+        confirmSonyShare:
+        "Ich bestätige, dass die gemeldeten SONY-Anteile (Stück & Umsatz) den tatsächlichen Verkaufsverhältnissen dieser Kalenderwoche entsprechen.",
+    },
+
+    cart: {
+        title: "Verkaufsdaten melden",
+        close: "Schließen",
+        submit: "Verkauf melden",
+        saving: "Speichern…",
+        sonyShareQty: "SONY Anteil Stück (%)",
+        sonyShareRevenue: "SONY Anteil Umsatz (%)",
+        dealer: {
+        customerNo: "Kd-Nr.",
+        contact: "AP",
+        phone: "Tel.",
+        email: "E-Mail",
+        city: "Ort",
+        kam: "KAM",
+        },
+    },   
+} as const;    

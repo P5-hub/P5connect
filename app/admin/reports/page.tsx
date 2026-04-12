@@ -2,11 +2,14 @@
 
 import { useState } from "react";
 import { Download, RefreshCcw, Search, Loader2 } from "lucide-react";
+import { useI18n } from "@/lib/i18n/I18nProvider";
 
 import AdminReportKPIs from "@/components/admin/AdminReportKPIs";
 import AdminRecentActivity from "@/components/admin/AdminRecentActivity";
 
 export default function ReportsPage() {
+  const { t } = useI18n();
+
   const [searchTerm, setSearchTerm] = useState("");
   const [exportType, setExportType] = useState("bestellung");
   const [fromDate, setFromDate] = useState("");
@@ -26,11 +29,11 @@ export default function ReportsPage() {
           type: exportType,
           from: fromDate || null,
           to: toDate || null,
-          search: searchTerm || null, // ✅ NEU
+          search: searchTerm || null,
         }),
       });
 
-      if (!res.ok) throw new Error("Export fehlgeschlagen");
+      if (!res.ok) throw new Error(t("adminReports.messages.exportError"));
 
       const blob = await res.blob();
       const a = document.createElement("a");
@@ -45,9 +48,9 @@ export default function ReportsPage() {
       a.click();
       setTimeout(() => URL.revokeObjectURL(a.href), 3000);
 
-      setLastExport(new Date().toLocaleString("de-CH"));
+      setLastExport(new Date().toLocaleString());
     } catch (e: any) {
-      alert(e?.message || "Export fehlgeschlagen");
+      alert(e?.message || t("adminReports.messages.exportError"));
     } finally {
       setLoading(false);
     }
@@ -59,7 +62,7 @@ export default function ReportsPage() {
       {/* ================= HEADER ================= */}
       <div className="flex justify-between items-center">
         <h1 className="text-2xl font-semibold text-gray-800 flex items-center gap-2">
-          📊 Datenexport & Berichte
+          📊 {t("adminReports.title")}
         </h1>
 
         <button
@@ -72,7 +75,9 @@ export default function ReportsPage() {
           ) : (
             <Download className="w-4 h-4" />
           )}
-          {loading ? "Export läuft…" : "Exportieren (Excel)"}
+          {loading
+            ? t("adminReports.actions.exportRunning")
+            : t("adminReports.actions.exportExcel")}
         </button>
       </div>
 
@@ -81,29 +86,39 @@ export default function ReportsPage() {
 
         {/* Typ */}
         <div className="flex items-center gap-2">
-          <span className="text-sm text-gray-700">Typ:</span>
+          <span className="text-sm text-gray-700">
+            {t("adminReports.fields.type")}:
+          </span>
           <select
             value={exportType}
             onChange={(e) => setExportType(e.target.value)}
             className="border rounded px-2 py-1 text-sm"
           >
-            <option value="bestellung">Bestellungen</option>
-            <option value="verkauf">Verkäufe</option>
-            <option value="projekt">Projekte</option>
-            <option value="support">Support</option>
+            <option value="bestellung">
+              {t("adminReports.types.bestellung")}
+            </option>
+            <option value="verkauf">
+              {t("adminReports.types.verkauf")}
+            </option>
+            <option value="projekt">
+              {t("adminReports.types.projekt")}
+            </option>
+            <option value="support">
+              {t("adminReports.types.support")}
+            </option>
           </select>
         </div>
 
         {/* Zeitraum */}
         <div className="flex items-center gap-2 text-sm text-gray-600">
-          <span>Von:</span>
+          <span>{t("adminReports.fields.from")}:</span>
           <input
             type="date"
             value={fromDate}
             onChange={(e) => setFromDate(e.target.value)}
             className="border px-2 py-1 rounded-md text-sm"
           />
-          <span>Bis:</span>
+          <span>{t("adminReports.fields.to")}:</span>
           <input
             type="date"
             value={toDate}
@@ -112,12 +127,12 @@ export default function ReportsPage() {
           />
         </div>
 
-        {/* Suche (nur optisch, noch nicht angebunden) */}
+        {/* Suche */}
         <div className="relative">
           <Search className="absolute left-3 top-2.5 w-4 h-4 text-gray-400" />
           <input
             type="text"
-            placeholder="Produkt oder Händler suchen…"
+            placeholder={t("adminReports.placeholders.search")}
             className="pl-9 pr-3 py-2 text-sm border rounded-md w-64"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
@@ -135,7 +150,7 @@ export default function ReportsPage() {
           className="flex items-center gap-2 text-sm border px-3 py-1.5 rounded-md hover:bg-gray-100"
         >
           <RefreshCcw className="w-4 h-4" />
-          Reset
+          {t("adminReports.actions.reset")}
         </button>
       </div>
 
@@ -158,13 +173,13 @@ export default function ReportsPage() {
       {/* ================= FOOTER ================= */}
       {lastExport && (
         <p className="text-xs text-gray-500 italic">
-          Letzter Export: {lastExport}
+          {t("adminReports.labels.lastExport")}: {lastExport}
         </p>
       )}
 
       <div className="bg-blue-50 border border-blue-100 text-blue-800 text-sm rounded-md p-4">
-        💡 <b>Hinweis:</b>  
-        Anzeige, KPIs und Excel-Export basieren auf exakt denselben Filtern.
+        💡 <b>{t("adminReports.labels.hint")}:</b>{" "}
+        {t("adminReports.labels.hintText")}
       </div>
     </div>
   );

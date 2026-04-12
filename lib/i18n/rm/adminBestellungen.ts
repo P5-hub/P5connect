@@ -1,0 +1,23 @@
+export const adminBestellungen = {
+  searchPlaceholder:
+    "Tschertgar cumonda (commerziant, e-mail, #ID, campagna)…",
+  open: "Avert",
+  approved: "Approvà",
+  rejected: "Refusà",
+  all: "Tut",
+  reload: "Chargiar da nov",
+  type: "Tip",
+  allTypes: "Tut ils tips",
+  onlyMesse: "Mo fiera",
+  onlyDisplay: "Mo display",
+  onlyStandard: "Mo standard",
+  loading: "Chargiament da las cumondas…",
+  empty: "Naginas cumondas chattadas.",
+  unknownDealer: "Commerziant nunenconuschent",
+  fromProject: "ord project",
+  pos: "Pos.",
+  statusApproved: "Approvà",
+  statusRejected: "Refusà",
+  statusPending: "Avert",
+  messeOrder: "Cumonda da fiera",
+} as const;

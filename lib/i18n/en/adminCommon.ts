@@ -1,0 +1,28 @@
+export const adminCommon = {
+  promotions: "Promotions",
+  instantDiscount: "Instant Discount",
+  projects: "Projects",
+  orders: "Orders",
+  support: "Support",
+  monthlyOffers: "Monthly Offers",
+  reports: "Reports",
+  info: "Info",
+  actAsDealer: "Act as dealer",
+
+  common: {
+    logout: "Logout",
+    language: "Language",
+    navigation: "Navigation",
+    adminMenu: "Admin menu",
+    open: "Open",
+    close: "Close",
+    save: "Save",
+    cancel: "Cancel",
+    loading: "Saving...",
+    myLogin: "My login",
+    show: "Show",
+    hide: "Hide",
+    searchDealer: "Search dealer...",
+    pendingItems: "Pending items",
+  },
+} as const;

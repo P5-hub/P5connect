@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/dialog";
 import { sendOrderNotification } from "@/lib/notifications/sendOrderNotification";
 import OrderDetailView from "@/components/admin/OrderDetailView";
+import { useI18n } from "@/lib/i18n/I18nProvider";
 
 // 🔹 Typen
 type Dealer = {
@@ -35,7 +36,7 @@ type SofortrabattProduct = {
 };
 
 type SubmissionRecord = {
-  submission_id?: number; // Für submissions & Sofortrabatt (gemappt von claim_id)
+  submission_id?: number;
   dealer_id?: number;
   status?: "pending" | "approved" | "rejected" | null;
   datum?: string;
@@ -43,20 +44,13 @@ type SubmissionRecord = {
   typ?: string;
   kommentar?: string;
   dealers?: Dealer | null;
-
-  // ✅ WICHTIG für Projekte
   project_id?: string | null;
-
-  // Sofortrabatt-spezifisch
   rabatt_level?: number | null;
   rabatt_betrag?: number | null;
   products?: any;
-
-  // ✅ Sofortrabatt: invoice path(s)
   invoice_file_url?: any;
 };
 
-// Projekt-spezifisch
 type ProjectFile = {
   id: number;
   file_name: string;
@@ -74,10 +68,10 @@ type SubmissionFile = {
 };
 
 type UniversalDetailProps = {
-  tableName: string; // "submissions" oder "sofortrabatt_claims"
-  typeFilter?: string; // z. B. "bestellung", "projekt", "support", "sofortrabatt"
+  tableName: string;
+  typeFilter?: string;
   title: string;
-  storageBucket?: string; // für Sofortrabatt invoice API
+  storageBucket?: string;
 };
 
 export default function UniversalDetailPage({
@@ -86,6 +80,7 @@ export default function UniversalDetailPage({
   title,
   storageBucket = "sofortrabatt-invoices",
 }: UniversalDetailProps) {
+  const { t } = useI18n();
   const params = useParams();
   const rawId = (params as any).claim_id || (params as any).id;
   const id = rawId ? Number(rawId) : null;
@@ -103,20 +98,22 @@ export default function UniversalDetailPage({
 
   const [activeTab, setActiveTab] = useState<"dealer" | "disti">("dealer");
 
-  // Sofortrabatt invoice (mehrere möglich)
   const [invoiceUrls, setInvoiceUrls] = useState<Record<string, string>>({});
   const [invoicePaths, setInvoicePaths] = useState<string[]>([]);
 
-  // Projekt files
   const [projectFiles, setProjectFiles] = useState<ProjectFile[]>([]);
-  // order files
   const [orderFiles, setOrderFiles] = useState<SubmissionFile[]>([]);
   const [uploading, setUploading] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
 
-  // Sofortrabatt-Erkennung
   const isSofort =
     tableName === "sofortrabatt_claims" || typeFilter === "sofortrabatt";
+
+  const getStatusText = (status?: string | null) => {
+    if (status === "approved") return t("adminUniversalDetail.status.approved");
+    if (status === "rejected") return t("adminUniversalDetail.status.rejected");
+    return t("adminUniversalDetail.status.pending");
+  };
 
   // -----------------------------
   // Helpers: Signed URLs
@@ -135,7 +132,7 @@ export default function UniversalDetailPage({
       const text = await res.text();
       if (!res.ok) {
         console.error("Invoice API error:", text);
-        toast.error("Invoice-URL konnte nicht geladen werden.");
+        toast.error(t("adminUniversalDetail.errors.invoiceUrl"));
         return null;
       }
 
@@ -143,7 +140,7 @@ export default function UniversalDetailPage({
       return json?.url ?? null;
     } catch (e) {
       console.error("loadInvoiceUrl failed:", e);
-      toast.error("Fehler beim Laden der Rechnung.");
+      toast.error(t("adminUniversalDetail.errors.invoiceLoad"));
       return null;
     }
   };
@@ -159,7 +156,7 @@ export default function UniversalDetailPage({
       const text = await res.text();
       if (!res.ok) {
         console.error("Project document API error:", text);
-        toast.error("Projektdatei konnte nicht geladen werden.");
+        toast.error(t("adminUniversalDetail.errors.projectFileLoad"));
         return null;
       }
 
@@ -167,12 +164,11 @@ export default function UniversalDetailPage({
       return json?.url ?? null;
     } catch (e) {
       console.error("loadProjectFileUrl failed:", e);
-      toast.error("Fehler beim Laden der Projektdatei.");
+      toast.error(t("adminUniversalDetail.errors.projectFileError"));
       return null;
     }
   };
 
-  // ✅ B: robustes Normalisieren (string | JSON-string-array | array)
   const normalizeInvoicePaths = (raw: any): string[] => {
     if (!raw) return [];
     if (Array.isArray(raw)) return raw.filter(Boolean);
@@ -180,7 +176,6 @@ export default function UniversalDetailPage({
     if (typeof raw === "string") {
       const s = raw.trim();
 
-      // JSON Array?
       if (s.startsWith("[") && s.endsWith("]")) {
         try {
           const parsed = JSON.parse(s);
@@ -190,7 +185,6 @@ export default function UniversalDetailPage({
         }
       }
 
-      // single path
       return [s];
     }
 
@@ -214,19 +208,17 @@ export default function UniversalDetailPage({
 
         if (error || !data) {
           console.error(error);
-          toast.error("Datensatz nicht gefunden.");
+          toast.error(t("adminUniversalDetail.errors.notFound"));
           setRecord(null);
           return;
         }
 
         const anyData: any = data;
 
-        // ✅ Invoice paths normalisieren + URLs resetten
         const paths = normalizeInvoicePaths(anyData.invoice_file_url);
         setInvoicePaths(paths);
         setInvoiceUrls({});
 
-        // ✅ optional: direkt vor-laden (kannst du auch lazy machen)
         if (paths.length > 0) {
           const next: Record<string, string> = {};
           await Promise.all(
@@ -238,7 +230,6 @@ export default function UniversalDetailPage({
           setInvoiceUrls(next);
         }
 
-        // Dealer nachladen
         let dealer: Dealer | null = null;
         if (anyData.dealer_id) {
           const { data: dealerRow } = await supabase
@@ -265,10 +256,8 @@ export default function UniversalDetailPage({
           invoice_file_url: anyData.invoice_file_url,
         });
 
-        // Projekte sind hier nicht relevant
         setProjectFiles([]);
       } else {
-        // ✅ project_id MUSS mit-selectt werden
         let query = supabase
           .from("submissions")
           .select(
@@ -285,7 +274,7 @@ export default function UniversalDetailPage({
 
         if (error || !data) {
           console.error(error);
-          toast.error("Datensatz nicht gefunden.");
+          toast.error(t("adminUniversalDetail.errors.notFound"));
           setRecord(null);
           return;
         }
@@ -299,19 +288,17 @@ export default function UniversalDetailPage({
             : anyData.dealers || null,
         });
 
-        // ✅ Sofortrabatt invoice states resetten, damit UI sauber bleibt
         setInvoicePaths([]);
         setInvoiceUrls({});
       }
     } catch (e) {
       console.error(e);
-      toast.error("Fehler beim Laden.");
+      toast.error(t("adminUniversalDetail.errors.load"));
     } finally {
       setLoading(false);
     }
   };
 
-  // Realtime Status refresh
   useEffect(() => {
     fetchData();
     if (!id) return;
@@ -352,9 +339,6 @@ export default function UniversalDetailPage({
     loadRole();
   }, [supabase]);
 
-  // -----------------------------
-  // Projekt-Dateien nachladen (nur wenn record geladen ist)
-  // -----------------------------
   useEffect(() => {
     const run = async () => {
       if (!record) return;
@@ -383,8 +367,8 @@ export default function UniversalDetailPage({
   }, [record?.typ, record?.project_id]);
 
   const dealerName = useMemo(
-    () => record?.dealers?.name ?? "Unbekannt",
-    [record?.dealers?.name]
+    () => record?.dealers?.name ?? t("adminDashboardList.labels.unknown"),
+    [record?.dealers?.name, t]
   );
 
   const dealerMail = useMemo(
@@ -392,17 +376,12 @@ export default function UniversalDetailPage({
     [record?.dealers?.mail_dealer, record?.dealers?.email]
   );
 
-  // -----------------------------
-  // Bestell-Dateien nachladen
-  // -----------------------------
   useEffect(() => {
-    // ❗ Seite entscheidet, nicht der Record
     if (typeFilter !== "bestellung") {
       setOrderFiles([]);
       return;
     }
 
-    // ❗ Warten bis Submission-ID wirklich da ist
     if (!record?.submission_id) return;
 
     (async () => {
@@ -422,9 +401,6 @@ export default function UniversalDetailPage({
     })();
   }, [record?.submission_id, typeFilter, supabase]);
 
-  // ===============================
-  // Sofortrabatt: Products normalisieren (robust)
-  // ===============================
   const normalizedProducts = useMemo<SofortrabattProduct[]>(() => {
     if (!record?.products) return [];
 
@@ -445,7 +421,6 @@ export default function UniversalDetailPage({
     return comment.includes("tv55_soundbar_percent");
   }, [record?.kommentar]);
 
-  // Status-Update
   const updateStatus = async (newStatus: "approved" | "rejected" | "pending") => {
     if (!record?.submission_id) return;
 
@@ -458,17 +433,16 @@ export default function UniversalDetailPage({
       .update({ status: newStatus, updated_at: new Date().toISOString() })
       .eq(idColumn, idValue);
 
-    if (error) return toast.error("Status-Update fehlgeschlagen.");
-    toast.success("Status aktualisiert.");
+    if (error) return toast.error(t("adminUniversalDetail.errors.statusUpdate"));
+    toast.success(t("adminUniversalDetail.success.statusUpdated"));
     setRecord((r) => (r ? { ...r, status: newStatus } : r));
   };
 
-  // Mail-Preview (Bestellungen)
   const handlePreviewMail = async () => {
     try {
       setSendingMail(true);
 
-      if (!record?.submission_id) throw new Error("Keine Submission-ID.");
+      if (!record?.submission_id) throw new Error(t("adminUniversalDetail.errors.noSubmissionId"));
 
       const res = await sendOrderNotification({
         submissionId: Number(record.submission_id),
@@ -477,9 +451,9 @@ export default function UniversalDetailPage({
       });
 
       if (!res.ok) {
-        setDealerPreview("<p>Keine Vorschau verfügbar.</p>");
-        setDistiPreview("<p>Keine Vorschau verfügbar.</p>");
-        toast.warning("Keine Vorschau verfügbar.");
+        setDealerPreview(`<p>${t("adminUniversalDetail.errors.noPreviewAvailable")}</p>`);
+        setDistiPreview(`<p>${t("adminUniversalDetail.errors.noPreviewAvailable")}</p>`);
+        toast.warning(t("adminUniversalDetail.errors.noPreviewAvailable"));
         return;
       }
 
@@ -487,52 +461,48 @@ export default function UniversalDetailPage({
         setActiveTab("dealer");
 
         const dealerHtml =
-          res.dealer?.html ?? "<p>Keine Händler-Mail vorhanden.</p>";
+          res.dealer?.html ?? `<p>${t("adminUniversalDetail.empty.noPreviewDealer")}</p>`;
         const distiHtml =
-          res.disti?.html ?? "<p>Keine Disti-Mail vorhanden.</p>";
+          res.disti?.html ?? `<p>${t("adminUniversalDetail.empty.noPreviewDisti")}</p>`;
 
         setDealerPreview(dealerHtml);
         setDistiPreview(distiHtml);
         return;
       }
 
-      setDealerPreview("<p>Keine Vorschau verfügbar.</p>");
-      setDistiPreview("<p>Keine Vorschau verfügbar.</p>");
-      toast.warning("Keine Vorschau verfügbar.");
+      setDealerPreview(`<p>${t("adminUniversalDetail.errors.noPreviewAvailable")}</p>`);
+      setDistiPreview(`<p>${t("adminUniversalDetail.errors.noPreviewAvailable")}</p>`);
+      toast.warning(t("adminUniversalDetail.errors.noPreviewAvailable"));
     } catch (e) {
       console.error(e);
-      toast.error("Fehler bei der Vorschau.");
+      toast.error(t("adminUniversalDetail.errors.previewLoad"));
     } finally {
       setSendingMail(false);
     }
   };
 
-  // Bestätigen + Mail (nur Bestellungen)
   const handleApproveWithMail = async () => {
     try {
       setSendingMail(true);
-      if (!record?.submission_id) throw new Error("Keine Submission-ID.");
+      if (!record?.submission_id) throw new Error(t("adminUniversalDetail.errors.noSubmissionId"));
 
       const res = await sendOrderNotification({
         submissionId: Number(record.submission_id),
         stage: "confirmed",
       });
 
-      if (!res.ok) throw new Error("E-Mail Versand fehlgeschlagen.");
+      if (!res.ok) throw new Error(t("adminUniversalDetail.errors.mailSend"));
 
       await updateStatus("approved");
-      toast.success("Bestellung bestätigt & E-Mail gesendet.");
+      toast.success(t("adminUniversalDetail.success.approveWithMail"));
     } catch (e) {
       console.error(e);
-      toast.error("E-Mail Versand fehlgeschlagen.");
+      toast.error(t("adminUniversalDetail.errors.mailSend"));
     } finally {
       setSendingMail(false);
     }
   };
 
-  // -----------------------------
-  // Datei-Upload für Bestellung (ADMIN)
-  // -----------------------------
   const handleOrderFileUpload = async (file: File) => {
     if (!record?.submission_id) return;
 
@@ -556,7 +526,7 @@ export default function UniversalDetailPage({
 
       if (insertError) throw insertError;
 
-      toast.success("Datei hochgeladen");
+      toast.success(t("adminUniversalDetail.success.orderFileUploaded"));
 
       const { data } = await supabase
         .from("submission_files")
@@ -567,7 +537,7 @@ export default function UniversalDetailPage({
       setOrderFiles(data ?? []);
     } catch (e) {
       console.error(e);
-      toast.error("Upload fehlgeschlagen");
+      toast.error(t("adminUniversalDetail.errors.uploadFailed"));
     } finally {
       setUploading(false);
     }
@@ -598,7 +568,6 @@ export default function UniversalDetailPage({
     }
   };
 
-  // Datei anzeigen (Browser / Office entscheidet)
   const previewOrderFile = async (file: SubmissionFile) => {
     try {
       const res = await fetch("/api/admin/order/document", {
@@ -614,16 +583,15 @@ export default function UniversalDetailPage({
       if (!res.ok) throw new Error("API error");
 
       const { url } = await res.json();
-      if (!url) throw new Error("Keine URL");
+      if (!url) throw new Error(t("adminUniversalDetail.errors.noUrl"));
 
       window.open(url, "_blank");
     } catch (e) {
       console.error(e);
-      toast.error("Datei konnte nicht angezeigt werden");
+      toast.error(t("adminUniversalDetail.errors.orderFilePreview"));
     }
   };
 
-  // Datei herunterladen (erzwingen)
   const downloadOrderFile = async (file: SubmissionFile) => {
     try {
       const res = await fetch("/api/admin/order/document", {
@@ -637,7 +605,7 @@ export default function UniversalDetailPage({
       });
 
       const { url } = await res.json();
-      if (!url) throw new Error("Keine URL");
+      if (!url) throw new Error(t("adminUniversalDetail.errors.noUrl"));
 
       const a = document.createElement("a");
       a.href = url;
@@ -647,13 +615,16 @@ export default function UniversalDetailPage({
       document.body.removeChild(a);
     } catch (e) {
       console.error(e);
-      toast.error("Download fehlgeschlagen");
+      toast.error(t("adminUniversalDetail.errors.orderFileDownload"));
     }
   };
 
-  // Datei löschen (ADMIN)
   const deleteOrderFile = async (file: SubmissionFile) => {
-    const confirmed = confirm(`Datei "${file.file_name}" wirklich löschen?`);
+    const confirmed = confirm(
+      t("adminUniversalDetail.orderFiles.confirmDelete", {
+        fileName: file.file_name,
+      })
+    );
     if (!confirmed) return;
 
     try {
@@ -668,17 +639,29 @@ export default function UniversalDetailPage({
         .eq("id", file.id);
       if (dbError) throw dbError;
 
-      toast.success("Datei gelöscht");
+      toast.success(t("adminUniversalDetail.success.orderFileDeleted"));
       setOrderFiles((prev) => prev.filter((f) => f.id !== file.id));
     } catch (e) {
       console.error(e);
-      toast.error("Datei konnte nicht gelöscht werden");
+      toast.error(t("adminUniversalDetail.errors.orderFileDelete"));
     }
   };
 
-  if (loading) return <p className="p-6 text-sm text-gray-500">Lade Daten…</p>;
-  if (!record)
-    return <p className="p-6 text-sm text-gray-500">Kein Datensatz gefunden.</p>;
+  if (loading) {
+    return (
+      <p className="p-6 text-sm text-gray-500">
+        {t("adminUniversalDetail.loading.data")}
+      </p>
+    );
+  }
+
+  if (!record) {
+    return (
+      <p className="p-6 text-sm text-gray-500">
+        {t("adminUniversalDetail.empty.noRecord")}
+      </p>
+    );
+  }
 
   const statusColor =
     record?.status === "approved"
@@ -689,18 +672,16 @@ export default function UniversalDetailPage({
 
   return (
     <div className="p-6 space-y-8 max-w-5xl mx-auto">
-      {/* Zurück */}
       <div className="flex items-center justify-between mb-2">
         <Button
           variant="outline"
           onClick={() => router.back()}
           className={`gap-1 ${theme.border} ${theme.color}`}
         >
-          <ArrowLeft className="w-4 h-4" /> Zurück
+          <ArrowLeft className="w-4 h-4" /> {t("adminUniversalDetail.actions.back")}
         </Button>
       </div>
 
-      {/* Kopfkarte */}
       <Card className="rounded-2xl border bg-white shadow-[0_2px_12px_rgba(0,0,0,0.06)]">
         <CardHeader className="pb-4 border-b bg-white rounded-t-2xl">
           <h2 className="text-xl font-semibold">
@@ -709,13 +690,13 @@ export default function UniversalDetailPage({
 
           <div className="text-sm text-gray-700 mt-1 space-y-1">
             <p>
-              <strong>Händler:</strong> {dealerName}
+              <strong>{t("adminUniversalDetail.labels.dealer")}:</strong> {dealerName}
             </p>
             <p>
-              <strong>E-Mail:</strong> {dealerMail}
+              <strong>{t("adminUniversalDetail.labels.email")}:</strong> {dealerMail}
             </p>
             <p>
-              <strong>Datum:</strong>{" "}
+              <strong>{t("adminUniversalDetail.labels.date")}:</strong>{" "}
               {record?.datum || record?.created_at
                 ? new Date((record?.datum || record?.created_at) ?? "").toLocaleDateString(
                     "de-CH"
@@ -723,16 +704,10 @@ export default function UniversalDetailPage({
                 : "-"}
             </p>
             <p className={`mt-1 font-medium ${statusColor}`}>
-              Status:{" "}
-              {record?.status === "approved"
-                ? "✅ Bestätigt"
-                : record?.status === "rejected"
-                ? "❌ Abgelehnt"
-                : "⏳ Offen"}
+              {t("adminUniversalDetail.labels.status")}: {getStatusText(record?.status)}
             </p>
           </div>
 
-          {/* Buttonleiste */}
           <div className="flex flex-wrap items-center gap-2 mt-4">
             <Button
               size="sm"
@@ -740,7 +715,7 @@ export default function UniversalDetailPage({
               onClick={() => updateStatus("approved")}
               className="rounded-full"
             >
-              <Check className="w-4 h-4 mr-1" /> Bestätigen
+              <Check className="w-4 h-4 mr-1" /> {t("adminUniversalDetail.actions.approve")}
             </Button>
             <Button
               size="sm"
@@ -748,7 +723,7 @@ export default function UniversalDetailPage({
               onClick={() => updateStatus("rejected")}
               className="rounded-full"
             >
-              <X className="w-4 h-4 mr-1" /> Ablehnen
+              <X className="w-4 h-4 mr-1" /> {t("adminUniversalDetail.actions.reject")}
             </Button>
             <Button
               size="sm"
@@ -756,7 +731,7 @@ export default function UniversalDetailPage({
               onClick={() => updateStatus("pending")}
               className="rounded-full"
             >
-              <RotateCcw className="w-4 h-4 mr-1" /> Reset
+              <RotateCcw className="w-4 h-4 mr-1" /> {t("adminUniversalDetail.actions.reset")}
             </Button>
 
             {typeFilter === "bestellung" && (
@@ -768,7 +743,7 @@ export default function UniversalDetailPage({
                   disabled={sendingMail}
                   className="rounded-full"
                 >
-                  <Mail className="w-4 h-4 mr-1" /> Vorschau
+                  <Mail className="w-4 h-4 mr-1" /> {t("adminUniversalDetail.actions.preview")}
                 </Button>
                 <Button
                   size="sm"
@@ -777,16 +752,14 @@ export default function UniversalDetailPage({
                   disabled={sendingMail}
                   className="rounded-full"
                 >
-                  <Mail className="w-4 h-4 mr-1" /> Bestätigen + Mail
+                  <Mail className="w-4 h-4 mr-1" /> {t("adminUniversalDetail.actions.approveWithMail")}
                 </Button>
               </>
             )}
           </div>
         </CardHeader>
 
-        {/* Detailkarte */}
         <CardContent className="pt-4">
-          {/* Bestellung → OrderDetailView wie bisher */}
           {typeFilter === "bestellung" && (
             <OrderDetailView
               submission={{
@@ -797,12 +770,11 @@ export default function UniversalDetailPage({
             />
           )}
 
-          {/* 📎 Dateien zur Bestellung (Admin Upload) */}
           {typeFilter === "bestellung" && (
             <div className="mt-6 max-w-xl">
               <div className="rounded-xl border border-blue-200 bg-blue-50/40 p-4">
                 <h4 className="text-sm font-semibold text-blue-700 mb-3">
-                  📎 Dateien zur Bestellung
+                  {t("adminUniversalDetail.labels.orderFiles")}
                 </h4>
 
                 <div
@@ -834,17 +806,19 @@ export default function UniversalDetailPage({
                     />
                     <div className="text-center space-y-1">
                       <div className="text-sm font-medium">
-                        ➕ Datei hier ablegen oder klicken
+                        {t("adminUniversalDetail.actions.uploadPrompt")}
                       </div>
                       <div className="text-[11px] text-gray-500">
-                        PDF, Excel, Word – mehrere Dateien möglich
+                        {t("adminUniversalDetail.labels.fileHint")}
                       </div>
                     </div>
                   </label>
                 </div>
 
                 {orderFiles.length === 0 ? (
-                  <p className="text-xs text-gray-500">Keine Dateien vorhanden.</p>
+                  <p className="text-xs text-gray-500">
+                    {t("adminUniversalDetail.empty.noFiles")}
+                  </p>
                 ) : (
                   <div className="flex flex-col gap-2">
                     {orderFiles.map((file) => (
@@ -864,7 +838,7 @@ export default function UniversalDetailPage({
                           type="button"
                           onClick={() => previewOrderFile(file)}
                           className="text-xs px-2 hover:text-blue-700"
-                          title="Im Browser anzeigen"
+                          title={t("adminUniversalDetail.actions.view")}
                         >
                           👁️
                         </button>
@@ -873,7 +847,7 @@ export default function UniversalDetailPage({
                           type="button"
                           onClick={() => downloadOrderFile(file)}
                           className="text-xs px-2 hover:text-green-700"
-                          title="Herunterladen"
+                          title={t("adminUniversalDetail.actions.download")}
                         >
                           ⬇️
                         </button>
@@ -882,7 +856,7 @@ export default function UniversalDetailPage({
                           type="button"
                           onClick={() => deleteOrderFile(file)}
                           className="text-xs px-2 text-red-600 hover:text-red-800"
-                          title="Datei löschen"
+                          title={t("adminUniversalDetail.actions.delete")}
                         >
                           🗑️
                         </button>
@@ -894,60 +868,59 @@ export default function UniversalDetailPage({
             </div>
           )}
 
-          {/* Sofortrabatt Anzeige */}
           {record?.typ === "sofortrabatt" && (
             <div className="mt-6 space-y-6 text-sm text-gray-700">
-              {/* ANTRAGSDETAILS */}
               <div className="rounded-xl border p-4 bg-gray-50">
-                <h4 className="font-semibold mb-3">Antragsdetails</h4>
+                <h4 className="font-semibold mb-3">{t("adminSofortrabatt.detail.title")}</h4>
 
                 <div className="grid grid-cols-2 gap-x-6 gap-y-2">
                   <p>
-                    <strong>Claim-ID:</strong> #{record.submission_id}
+                    <strong>{t("adminUniversalDetail.labels.claimId")}:</strong> #{record.submission_id}
                   </p>
                   <p>
-                    <strong>Status:</strong> {record.status ?? "-"}
+                    <strong>{t("adminUniversalDetail.labels.status")}:</strong> {record.status ?? "-"}
                   </p>
 
                   <p>
-                    <strong>Datum:</strong>{" "}
+                    <strong>{t("adminUniversalDetail.labels.date")}:</strong>{" "}
                     {record.datum ? new Date(record.datum).toLocaleDateString("de-CH") : "-"}
                   </p>
 
                   <p>
-                    <strong>Rabatt-Level:</strong> {record.rabatt_level ?? "-"}
+                    <strong>{t("adminUniversalDetail.labels.discountLevel")}:</strong> {record.rabatt_level ?? "-"}
                   </p>
 
                   <p>
-                    <strong>Rabattbetrag:</strong> CHF {(Number(record.rabatt_betrag) || 0).toFixed(2)}
+                    <strong>{t("adminUniversalDetail.labels.discountAmount")}:</strong> CHF {(Number(record.rabatt_betrag) || 0).toFixed(2)}
                   </p>
 
                   <p>
-                    <strong>Promotion:</strong>{" "}
-                    {isPercentPromo ? "30% / 50%-Promo" : "Klassische Fixbetrag-Promo"}
+                    <strong>{t("adminUniversalDetail.labels.promotion")}:</strong>{" "}
+                    {isPercentPromo
+                      ? t("adminUniversalDetail.labels.percentPromo")
+                      : t("adminUniversalDetail.labels.classicPromo")}
                   </p>
                 </div>
               </div>
 
-              {/* PRODUKTE */}
               <div className="rounded-xl border p-4">
-                <h4 className="font-semibold mb-3">Produkte</h4>
+                <h4 className="font-semibold mb-3">{t("adminUniversalDetail.labels.products")}</h4>
 
                 {normalizedProducts.length === 0 ? (
-                  <p className="text-xs text-gray-500">Keine Produkte vorhanden.</p>
+                  <p className="text-xs text-gray-500">{t("adminUniversalDetail.empty.noProducts")}</p>
                 ) : (
                   <>
                     <div className="overflow-x-auto">
                       <table className="w-full border-collapse text-xs">
                         <thead className="bg-gray-100">
                           <tr>
-                            <th className="text-left p-2">Produkt</th>
-                            <th className="text-left p-2">Kategorie</th>
-                            <th className="text-left p-2">EAN</th>
-                            <th className="text-right p-2">Menge</th>
-                            <th className="text-right p-2">TV Zoll</th>
-                            <th className="text-right p-2">Verkaufspreis</th>
-                            <th className="text-right p-2">Rabatt</th>
+                            <th className="text-left p-2">{t("adminUniversalDetail.labels.product")}</th>
+                            <th className="text-left p-2">{t("adminUniversalDetail.labels.category")}</th>
+                            <th className="text-left p-2">{t("adminUniversalDetail.labels.ean")}</th>
+                            <th className="text-right p-2">{t("adminUniversalDetail.labels.quantity")}</th>
+                            <th className="text-right p-2">{t("adminUniversalDetail.labels.tvSize")}</th>
+                            <th className="text-right p-2">{t("adminUniversalDetail.labels.salesPrice")}</th>
+                            <th className="text-right p-2">{t("adminUniversalDetail.labels.discount")}</th>
                           </tr>
                         </thead>
                         <tbody>
@@ -978,27 +951,25 @@ export default function UniversalDetailPage({
 
                     {isPercentPromo && (
                       <div className="mt-3 rounded-lg border bg-blue-50 p-3 text-xs text-gray-700">
-                        <p className="font-semibold mb-1">Berechnungslogik</p>
-                        <p>TV ab 55 Zoll + Soundbar = 30% Rabatt auf den Verkaufspreis der Soundbar.</p>
-                        <p>Mit zusätzlichem Subwoofer = zusätzlich 50% Rabatt auf den Verkaufspreis des Subwoofers.</p>
+                        <p className="font-semibold mb-1">{t("adminUniversalDetail.labels.calculationLogic")}</p>
+                        <p>{t("adminUniversalDetail.calculation.line1")}</p>
+                        <p>{t("adminUniversalDetail.calculation.line2")}</p>
                       </div>
                     )}
                   </>
                 )}
               </div>
 
-              {/* KOMMENTAR */}
               {record.kommentar && (
                 <div className="rounded-xl border p-4 bg-gray-50">
-                  <h4 className="font-semibold mb-2">Kommentar</h4>
+                  <h4 className="font-semibold mb-2">{t("adminUniversalDetail.labels.comment")}</h4>
                   <p className="whitespace-pre-wrap">{record.kommentar}</p>
                 </div>
               )}
 
-              {/* RECHNUNGEN (mehrere) */}
               <div className="space-y-2">
                 {invoicePaths.length === 0 ? (
-                  <p className="text-xs text-gray-500">Keine Rechnung hinterlegt.</p>
+                  <p className="text-xs text-gray-500">{t("adminUniversalDetail.empty.noInvoice")}</p>
                 ) : (
                   <div className="flex flex-col gap-2">
                     {invoicePaths.map((path, idx) => {
@@ -1010,7 +981,7 @@ export default function UniversalDetailPage({
                           className="flex items-center justify-between gap-2 rounded-lg border bg-white px-3 py-2"
                         >
                           <span className="text-xs truncate">
-                            📎 Rechnung {idx + 1}: {path.split("/").pop() || path}
+                            📎 {t("adminUniversalDetail.labels.invoice")} {idx + 1}: {path.split("/").pop() || path}
                           </span>
 
                           {url ? (
@@ -1019,7 +990,7 @@ export default function UniversalDetailPage({
                               variant="outline"
                               onClick={() => window.open(url, "_blank")}
                             >
-                              Anzeigen
+                              {t("adminUniversalDetail.actions.show")}
                             </Button>
                           ) : (
                             <Button
@@ -1033,7 +1004,7 @@ export default function UniversalDetailPage({
                                 }
                               }}
                             >
-                              Laden
+                              {t("adminUniversalDetail.actions.load")}
                             </Button>
                           )}
                         </div>
@@ -1045,13 +1016,16 @@ export default function UniversalDetailPage({
             </div>
           )}
 
-          {/* ✅ Projekt-Dateien */}
           {record?.typ === "projekt" && (
             <div className="mt-6 space-y-3">
-              <h4 className="text-sm font-semibold text-gray-700">Projektdateien</h4>
+              <h4 className="text-sm font-semibold text-gray-700">
+                {t("adminUniversalDetail.labels.projectFiles")}
+              </h4>
 
               {projectFiles.length === 0 ? (
-                <p className="text-xs text-gray-500">Keine Dateien hochgeladen.</p>
+                <p className="text-xs text-gray-500">
+                  {t("adminUniversalDetail.empty.noProjectFiles")}
+                </p>
               ) : (
                 <div className="flex flex-col gap-2">
                   {projectFiles.map((file) => (
@@ -1074,7 +1048,6 @@ export default function UniversalDetailPage({
         </CardContent>
       </Card>
 
-      {/* Mail Vorschau Dialog */}
       <Dialog
         open={!!dealerPreview || !!distiPreview}
         onOpenChange={(o) => {
@@ -1086,10 +1059,11 @@ export default function UniversalDetailPage({
       >
         <DialogContent className="w-[95vw] max-w-[1600px] p-0">
           <DialogHeader className="px-6 pt-6">
-            <DialogTitle className="text-xl font-semibold">E-Mail Vorschau</DialogTitle>
+            <DialogTitle className="text-xl font-semibold">
+              {t("adminUniversalDetail.labels.titleMailPreview")}
+            </DialogTitle>
           </DialogHeader>
 
-          {/* Tabs */}
           <div className="px-6 mt-4 border-b flex gap-6 text-sm font-medium">
             <button
               onClick={() => setActiveTab("dealer")}
@@ -1099,7 +1073,7 @@ export default function UniversalDetailPage({
                   : "text-gray-500"
               }`}
             >
-              Händler-Mail
+              {t("adminUniversalDetail.labels.dealerMail")}
             </button>
 
             <button
@@ -1110,17 +1084,16 @@ export default function UniversalDetailPage({
                   : "text-gray-500"
               }`}
             >
-              Disti-Mail
+              {t("adminUniversalDetail.labels.distiMail")}
             </button>
           </div>
 
-          {/* Content */}
           <div className="p-8 max-h-[85vh] overflow-auto w-full">
             {activeTab === "dealer" && (
               <div
                 className="prose prose-sm max-w-none w-full"
                 dangerouslySetInnerHTML={{
-                  __html: dealerPreview || "<p>Keine Händler-Mail verfügbar.</p>",
+                  __html: dealerPreview || `<p>${t("adminUniversalDetail.empty.noPreviewDealer")}</p>`,
                 }}
               />
             )}
@@ -1129,7 +1102,7 @@ export default function UniversalDetailPage({
               <div
                 className="prose prose-sm max-w-none w-full"
                 dangerouslySetInnerHTML={{
-                  __html: distiPreview || "<p>Keine Disti-Mail verfügbar.</p>",
+                  __html: distiPreview || `<p>${t("adminUniversalDetail.empty.noPreviewDisti")}</p>`,
                 }}
               />
             )}

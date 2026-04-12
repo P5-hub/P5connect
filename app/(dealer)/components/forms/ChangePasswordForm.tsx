@@ -3,10 +3,12 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/utils/supabase/client";
+import { useI18n } from "@/lib/i18n/I18nProvider";
 
 export default function ChangePasswordForm() {
   const supabase = createClient();
   const router = useRouter();
+  const { t } = useI18n();
 
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -21,12 +23,12 @@ export default function ChangePasswordForm() {
     setSuccess(null);
 
     if (newPassword !== confirmPassword) {
-      setError("Die Passwörter stimmen nicht überein.");
+      setError(t("auth.password.errorMismatch"));
       return;
     }
 
     if (newPassword.length < 8) {
-      setError("Das Passwort muss mindestens 8 Zeichen lang sein.");
+      setError(t("auth.password.errorMinLength"));
       return;
     }
 
@@ -39,7 +41,7 @@ export default function ChangePasswordForm() {
       } = await supabase.auth.getUser();
 
       if (userError || !user) {
-        setError("Du bist nicht eingeloggt.");
+        setError(t("auth.password.notLoggedIn"));
         setLoading(false);
         return;
       }
@@ -54,7 +56,7 @@ export default function ChangePasswordForm() {
         return;
       }
 
-      setSuccess("Passwort erfolgreich geändert. Du wirst neu angemeldet...");
+      setSuccess(t("auth.password.successChanged"));
 
       setNewPassword("");
       setConfirmPassword("");
@@ -65,8 +67,7 @@ export default function ChangePasswordForm() {
         router.refresh();
       }, 1500);
     } catch (err: unknown) {
-      const message =
-        err instanceof Error ? err.message : "Unbekannter Fehler";
+      const message = err instanceof Error ? err.message : "Unbekannter Fehler";
       setError(message);
     } finally {
       setLoading(false);
@@ -78,7 +79,7 @@ export default function ChangePasswordForm() {
       <div className="space-y-5">
         <div>
           <label className="mb-2 block text-sm font-medium text-gray-800 dark:text-gray-200">
-            Neues Passwort
+            {t("auth.password.newPassword")}
           </label>
           <input
             type="password"
@@ -98,7 +99,7 @@ export default function ChangePasswordForm() {
 
         <div>
           <label className="mb-2 block text-sm font-medium text-gray-800 dark:text-gray-200">
-            Passwort bestätigen
+            {t("auth.password.confirmPassword")}
           </label>
           <input
             type="password"
@@ -139,7 +140,9 @@ export default function ChangePasswordForm() {
               disabled:cursor-not-allowed disabled:opacity-50
             "
           >
-            {loading ? "⏳ Passwort wird geändert..." : "Passwort ändern"}
+            {loading
+              ? t("auth.password.submitting")
+              : t("auth.password.submit")}
           </button>
         </div>
       </div>

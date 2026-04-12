@@ -1,0 +1,28 @@
+export const adminCommon = {
+  promotions: "Promozioni",
+  instantDiscount: "Sconto immediato",
+  projects: "Progetti",
+  orders: "Ordini",
+  support: "Supporto",
+  monthlyOffers: "Offerte mensili",
+  reports: "Report",
+  info: "Informazioni",
+  actAsDealer: "Agisci come rivenditore",
+
+  common: {
+    logout: "Logout",
+    language: "Lingua",
+    navigation: "Navigazione",
+    adminMenu: "Menu admin",
+    open: "Apri",
+    close: "Chiudi",
+    save: "Salva",
+    cancel: "Annulla",
+    loading: "Salvataggio...",
+    myLogin: "Il mio login",
+    show: "Mostra",
+    hide: "Nascondi",
+    searchDealer: "Cerca rivenditore...",
+    pendingItems: "Punti aperti",
+  },
+} as const;

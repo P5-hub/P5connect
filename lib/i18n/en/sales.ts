@@ -1,0 +1,101 @@
+export const sales = {
+        page: {
+            title: "Report sales data",
+            heading: "Report sales data",
+            manualTitle: "Report manually",
+            uploadTitle: "CSV / Excel upload",
+            manual: "Report manually",
+            upload: "CSV / Excel upload",
+            uploadTemplate: "CSV template",
+            template: "CSV template",
+            next: "Next",
+            back: "Back",
+            clearCsv: "Clear CSV",
+            modalTitle: "Report sales data",
+            quantity: "Quantity",
+            priceOptional: "Price (optional)",
+            date: "Date",
+            inhouseShare: "Inhouse share (%)",
+            calendarWeek: "Calendar week",
+            noteForAllProducts: "Automatically applies to all products in this report.",
+            noteForUpload: "Automatically applies to all rows in the upload.",
+            totalQuantity: "Total quantity",
+            totalRevenue: "Total revenue",
+            reportSale: "Report sale",
+            submit: "Submit sales data",
+            submitSingle: "Report sale",
+            saving: "Saving…",
+            saved: "Sales data saved",
+            success: "Sales data reported successfully",
+            saveError: "Error while saving",
+            submitError: "Error while submitting",
+            serverError: "Server error",
+            fileReadError: "Error reading file",
+        },
+
+        loading: {
+            dealer: "⏳ Loading dealer…",
+            dealerData: "⏳ Loading dealer data…",
+        },
+
+        errors: {
+            dealerNotFound: "Dealer not found",
+            dealerLoadFailed: "Dealer could not be loaded.",
+            noDealer: "No dealer found.",
+            emptyCart: "No products in cart.",
+            confirmSonyShare:
+            "Please confirm the SONY share for units and revenue.",
+        },
+
+        card: {
+            unknownModel: "Unknown model",
+            ean: "EAN",
+            quantity: "Quantity",
+            price: "Price (CHF)",
+            serialNumber: "Serial no.",
+            serialPlaceholder: "SN...",
+            added: "✅ Added",
+            report: "📊 Report",
+        },
+
+        choose: {
+            manual: "Report manually",
+            upload: "CSV / Excel upload",
+        },
+
+        upload: {
+            fileTable: {
+            ean: "EAN",
+            product: "Product",
+            quantity: "Quantity",
+            price: "Price",
+            date: "Date",
+            },
+            calendarWeek: "Calendar week",
+            sonyShareQty: "SONY share units (%)",
+            sonyShareRevenue: "SONY share revenue (%)",
+            sonyQty: "Sony units",
+            totalQty: "Dealer total units",
+            sonyRevenue: "Sony revenue",
+            totalRevenue: "Dealer total revenue",
+            confirmSonyShare:
+            "I confirm that the reported SONY shares (units & revenue) reflect the actual sales ratio for this calendar week.",
+        },
+
+        cart: {
+            title: "Report sales data",
+            close: "Close",
+            submit: "Report sale",
+            saving: "Saving…",
+            sonyShareQty: "SONY share units (%)",
+            sonyShareRevenue: "SONY share revenue (%)",
+            dealer: {
+            customerNo: "Customer no.",
+            contact: "Contact",
+            phone: "Phone",
+            email: "Email",
+            city: "City",
+            kam: "KAM",
+            },
+        },
+} as const;    

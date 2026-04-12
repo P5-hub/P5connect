@@ -7,6 +7,7 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Search, Clock, Check, X, RotateCcw, Tag } from "lucide-react";
+import { useI18n } from "@/lib/i18n/I18nProvider";
 
 type DashboardRow = {
   submission_id: number;
@@ -51,6 +52,7 @@ type Row = {
 type TypeFilter = "alle" | "messe" | "display" | "standard";
 
 export default function AdminBestellungenListPage() {
+  const { t } = useI18n();
   const supabase = createClient();
   const router = useRouter();
 
@@ -226,7 +228,7 @@ export default function AdminBestellungenListPage() {
         <div className="relative">
           <Search className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
           <Input
-            placeholder="Suche Bestellung (Händler, E-Mail, #ID, Kampagne)…"
+            placeholder={t("adminBestellungen.searchPlaceholder")}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="pl-9 w-80"
@@ -240,39 +242,47 @@ export default function AdminBestellungenListPage() {
             onClick={() => setStatusFilter("pending")}
             className="rounded-full text-xs"
           >
-            <Clock className="w-3.5 h-3.5 mr-1" /> Offen
+            <Clock className="w-3.5 h-3.5 mr-1" />{" "}
+            {t("adminBestellungen.open")}
           </Button>
+
           <Button
             size="sm"
             variant={statusFilter === "approved" ? "default" : "outline"}
             onClick={() => setStatusFilter("approved")}
             className="rounded-full text-xs"
           >
-            <Check className="w-3.5 h-3.5 mr-1" /> Bestätigt
+            <Check className="w-3.5 h-3.5 mr-1" />{" "}
+            {t("adminBestellungen.approved")}
           </Button>
+
           <Button
             size="sm"
             variant={statusFilter === "rejected" ? "default" : "outline"}
             onClick={() => setStatusFilter("rejected")}
             className="rounded-full text-xs"
           >
-            <X className="w-3.5 h-3.5 mr-1" /> Abgelehnt
+            <X className="w-3.5 h-3.5 mr-1" />{" "}
+            {t("adminBestellungen.rejected")}
           </Button>
+
           <Button
             size="sm"
             variant={statusFilter === "alle" ? "default" : "outline"}
             onClick={() => setStatusFilter("alle")}
             className="rounded-full text-xs"
           >
-            Alle
+            {t("adminBestellungen.all")}
           </Button>
+
           <Button
             size="sm"
             variant="outline"
             onClick={fetchData}
             className="rounded-full text-xs"
           >
-            <RotateCcw className="w-4 h-4 mr-1" /> Neu laden
+            <RotateCcw className="w-4 h-4 mr-1" />{" "}
+            {t("adminBestellungen.reload")}
           </Button>
         </div>
       </div>
@@ -280,7 +290,7 @@ export default function AdminBestellungenListPage() {
       <div className="flex flex-wrap items-center gap-2">
         <div className="mr-1 inline-flex items-center text-xs font-medium text-gray-500">
           <Tag className="w-3.5 h-3.5 mr-1" />
-          Typ
+          {t("adminBestellungen.type")}
         </div>
 
         <Button
@@ -289,7 +299,7 @@ export default function AdminBestellungenListPage() {
           onClick={() => setTypeFilter("alle")}
           className="rounded-full text-xs"
         >
-          Alle Typen
+          {t("adminBestellungen.allTypes")}
         </Button>
 
         <Button
@@ -298,7 +308,7 @@ export default function AdminBestellungenListPage() {
           onClick={() => setTypeFilter("messe")}
           className="rounded-full text-xs"
         >
-          Nur Messe
+          {t("adminBestellungen.onlyMesse")}
         </Button>
 
         <Button
@@ -307,7 +317,7 @@ export default function AdminBestellungenListPage() {
           onClick={() => setTypeFilter("display")}
           className="rounded-full text-xs"
         >
-          Nur Display
+          {t("adminBestellungen.onlyDisplay")}
         </Button>
 
         <Button
@@ -316,35 +326,46 @@ export default function AdminBestellungenListPage() {
           onClick={() => setTypeFilter("standard")}
           className="rounded-full text-xs"
         >
-          Nur Standard
+          {t("adminBestellungen.onlyStandard")}
         </Button>
       </div>
 
       {loading ? (
-        <p className="text-sm text-gray-500">Lade Bestellungen…</p>
+        <p className="text-sm text-gray-500">
+          {t("adminBestellungen.loading")}
+        </p>
       ) : filtered.length === 0 ? (
-        <p className="text-sm text-gray-500">Keine Bestellungen gefunden.</p>
+        <p className="text-sm text-gray-500">
+          {t("adminBestellungen.empty")}
+        </p>
       ) : (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
           {filtered.map((r) => (
             <Card
               key={r.submission_id}
-              onClick={() => router.push(`/admin/bestellungen/${r.submission_id}`)}
+              onClick={() =>
+                router.push(`/admin/bestellungen/${r.submission_id}`)
+              }
               className="p-5 rounded-2xl border border-gray-200 hover:shadow-md cursor-pointer bg-white transition"
             >
               <div className="flex items-start justify-between gap-4">
                 <div className="min-w-0 flex-1">
                   <h3 className="font-semibold text-sm text-gray-900">
-                    #{r.submission_id} – {r.dealers?.name ?? "Unbekannter Händler"}
+                    #{r.submission_id} –{" "}
+                    {r.dealers?.name ?? t("adminBestellungen.unknownDealer")}
 
                     {r.origin_project_submission_id && (
                       <span className="ml-2 text-xs font-mono text-purple-600">
-                        aus Projekt P-{r.origin_project_submission_id}
+                        {t("adminBestellungen.fromProject")} P-
+                        {r.origin_project_submission_id}
                       </span>
                     )}
                   </h3>
 
-                  <p className="text-xs text-gray-500">{r.dealers?.email ?? "-"}</p>
+                  <p className="text-xs text-gray-500">
+                    {r.dealers?.email ?? "-"}
+                  </p>
+
                   <p className="text-xs text-gray-400">
                     {new Date(r.created_at).toLocaleDateString("de-CH")}
                   </p>
@@ -358,19 +379,21 @@ export default function AdminBestellungenListPage() {
 
                     {r.has_display_items && (
                       <span className="rounded-full bg-sky-50 px-2 py-0.5 text-[10px] font-medium text-sky-700 ring-1 ring-sky-100">
-                        Display {r.display_count > 0 ? `(${r.display_count})` : ""}
+                        Display{" "}
+                        {r.display_count > 0 ? `(${r.display_count})` : ""}
                       </span>
                     )}
 
                     {r.has_standard_items && (
                       <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-medium text-slate-700">
-                        Standard {r.standard_count > 0 ? `(${r.standard_count})` : ""}
+                        Standard{" "}
+                        {r.standard_count > 0 ? `(${r.standard_count})` : ""}
                       </span>
                     )}
 
                     {r.order_mode === "messe" && (
                       <span className="rounded-full bg-violet-50 px-2 py-0.5 text-[10px] font-medium text-violet-700 ring-1 ring-violet-100">
-                        Messebestellung
+                        {t("adminBestellungen.messeOrder")}
                       </span>
                     )}
 
@@ -382,7 +405,7 @@ export default function AdminBestellungenListPage() {
                   </div>
 
                   <p className="text-xs text-gray-500 mt-2">
-                    {r.items_count} Pos.
+                    {r.items_count} {t("adminBestellungen.pos")}
                   </p>
                 </div>
 
@@ -390,12 +413,13 @@ export default function AdminBestellungenListPage() {
                   <div className="text-base font-semibold text-blue-600">
                     {r.total_sum.toFixed(2)} CHF
                   </div>
+
                   <div className="text-[11px] text-gray-500 mt-0.5">
                     {r.status === "approved"
-                      ? "✅ Bestätigt"
+                      ? `✅ ${t("adminBestellungen.statusApproved")}`
                       : r.status === "rejected"
-                      ? "❌ Abgelehnt"
-                      : "⏳ Offen"}
+                      ? `❌ ${t("adminBestellungen.statusRejected")}`
+                      : `⏳ ${t("adminBestellungen.statusPending")}`}
                   </div>
                 </div>
               </div>

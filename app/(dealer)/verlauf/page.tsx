@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { getSupabaseBrowser } from "@/lib/supabaseClient";
 import { useActiveDealer } from "@/app/(dealer)/hooks/useActiveDealer";
 import { cn } from "@/lib/utils";
+import { useI18n } from "@/lib/i18n/I18nProvider";
 import {
   ShoppingCart,
   FileSpreadsheet,
@@ -40,36 +41,22 @@ type SubmissionLogRow = {
   created_at: string;
 };
 
-const typeConfig: Record<
-  string,
-  { label: string; icon: any; color: string }
-> = {
-  bestellung: {
-    label: "Bestellung",
-    icon: ShoppingCart,
-    color: "border-blue-200 bg-blue-50 text-blue-800",
-  },
-  verkauf: {
-    label: "Verkauf",
-    icon: FileSpreadsheet,
-    color: "border-green-200 bg-green-50 text-green-800",
-  },
-  projekt: {
-    label: "Projekt",
-    icon: Briefcase,
-    color: "border-purple-200 bg-purple-50 text-purple-800",
-  },
-  support: {
-    label: "Support",
-    icon: LifeBuoy,
-    color: "border-teal-200 bg-teal-50 text-teal-800",
-  },
-  sofortrabatt: {
-    label: "Sofortrabatt",
-    icon: Percent,
-    color: "border-orange-200 bg-orange-50 text-orange-800",
-  },
-};
+function getLocale(lang: string) {
+  switch (lang) {
+    case "de":
+      return "de-CH";
+    case "en":
+      return "en-CH";
+    case "fr":
+      return "fr-CH";
+    case "it":
+      return "it-CH";
+    case "rm":
+      return "rm-CH";
+    default:
+      return "de-CH";
+  }
+}
 
 function getTargetRoute(
   r: HistoryRow,
@@ -96,31 +83,11 @@ function getTargetRoute(
   return null;
 }
 
-function getGroupLabel(dateStr: string) {
-  const d = new Date(dateStr);
-  const now = new Date();
-
-  if (d.toDateString() === now.toDateString()) {
-    return "Heute";
-  }
-
-  const diffDays =
-    (now.getTime() - d.getTime()) / (1000 * 60 * 60 * 24);
-
-  if (diffDays < 7) {
-    return "Diese Woche";
-  }
-
-  return d.toLocaleDateString("de-CH", {
-    month: "long",
-    year: "numeric",
-  });
-}
-
 export default function VerlaufPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const supabase = getSupabaseBrowser();
+  const { t, lang } = useI18n();
 
   const { dealer, loading: dealerLoading, isImpersonated } =
     useActiveDealer();
@@ -137,6 +104,60 @@ export default function VerlaufPage() {
   const [latestSubmissionActions, setLatestSubmissionActions] = useState<
     Record<string, string>
   >({});
+
+  const locale = useMemo(() => getLocale(lang), [lang]);
+
+  const typeConfig = useMemo(
+    () => ({
+      bestellung: {
+        label: t("verlauf.page.types.bestellung"),
+        icon: ShoppingCart,
+        color: "border-blue-200 bg-blue-50 text-blue-800",
+      },
+      verkauf: {
+        label: t("verlauf.page.types.verkauf"),
+        icon: FileSpreadsheet,
+        color: "border-green-200 bg-green-50 text-green-800",
+      },
+      projekt: {
+        label: t("verlauf.page.types.projekt"),
+        icon: Briefcase,
+        color: "border-purple-200 bg-purple-50 text-purple-800",
+      },
+      support: {
+        label: t("verlauf.page.types.support"),
+        icon: LifeBuoy,
+        color: "border-teal-200 bg-teal-50 text-teal-800",
+      },
+      sofortrabatt: {
+        label: t("verlauf.page.types.sofortrabatt"),
+        icon: Percent,
+        color: "border-orange-200 bg-orange-50 text-orange-800",
+      },
+    }),
+    [t]
+  );
+
+  function getGroupLabel(dateStr: string) {
+    const d = new Date(dateStr);
+    const now = new Date();
+
+    if (d.toDateString() === now.toDateString()) {
+      return t("verlauf.page.groups.today");
+    }
+
+    const diffDays =
+      (now.getTime() - d.getTime()) / (1000 * 60 * 60 * 24);
+
+    if (diffDays < 7) {
+      return t("verlauf.page.groups.thisWeek");
+    }
+
+    return d.toLocaleDateString(locale, {
+      month: "long",
+      year: "numeric",
+    });
+  }
 
   async function loadLatestProjectActions(inputRows: HistoryRow[]) {
     const projectIds = inputRows
@@ -265,19 +286,19 @@ export default function VerlaufPage() {
       const latestAction = latestProjectActions[r.project_id];
 
       if (r.status === "approved" && latestAction === "geändert und genehmigt") {
-        return "Geändert und genehmigt";
+        return t("verlauf.page.status.changedApproved");
       }
 
       if (r.status === "approved" && latestAction === "genehmigt") {
-        return "Genehmigt";
+        return t("verlauf.page.status.approved");
       }
 
       if (r.status === "rejected" && latestAction === "abgelehnt") {
-        return "Abgelehnt";
+        return t("verlauf.page.status.rejected");
       }
 
       if (r.status === "pending") {
-        return "Offen";
+        return t("verlauf.page.status.pending");
       }
 
       return r.status ?? "—";
@@ -287,27 +308,27 @@ export default function VerlaufPage() {
       const latestAction = latestSubmissionActions[String(r.submission_id)];
 
       if (r.status === "approved" && latestAction === "approved_with_counter_offer") {
-        return "Geändert und genehmigt";
+        return t("verlauf.page.status.changedApproved");
       }
 
       if (r.status === "approved" && latestAction === "approved") {
-        return "Genehmigt";
+        return t("verlauf.page.status.approved");
       }
 
       if (r.status === "rejected" && latestAction === "rejected") {
-        return "Abgelehnt";
+        return t("verlauf.page.status.rejected");
       }
 
       if (r.status === "pending" || latestAction === "reset_to_pending") {
-        return "Offen";
+        return t("verlauf.page.status.pending");
       }
 
       return r.status ?? "—";
     }
 
-    if (r.status === "approved") return "Genehmigt";
-    if (r.status === "rejected") return "Abgelehnt";
-    if (r.status === "pending") return "Offen";
+    if (r.status === "approved") return t("verlauf.page.status.approved");
+    if (r.status === "rejected") return t("verlauf.page.status.rejected");
+    if (r.status === "pending") return t("verlauf.page.status.pending");
 
     return r.status ?? "—";
   };
@@ -342,11 +363,11 @@ export default function VerlaufPage() {
   }, [rows, search, latestProjectActions, latestSubmissionActions]);
 
   if (dealerLoading || loading) {
-    return <p className="text-gray-500">⏳ Verlauf wird geladen…</p>;
+    return <p className="text-gray-500">⏳ {t("verlauf.page.loading")}</p>;
   }
 
   if (!rows.length) {
-    return <p className="text-gray-500">Keine Einträge gefunden.</p>;
+    return <p className="text-gray-500">{t("verlauf.page.empty")}</p>;
   }
 
   const grouped = filteredRows.reduce(
@@ -359,25 +380,27 @@ export default function VerlaufPage() {
     {}
   );
 
+  const filterButtons = [
+    { key: null, label: t("verlauf.page.filters.all") },
+    { key: "bestellung", label: t("verlauf.page.filters.bestellung") },
+    { key: "verkauf", label: t("verlauf.page.filters.verkauf") },
+    { key: "projekt", label: t("verlauf.page.filters.projekt") },
+    { key: "support", label: t("verlauf.page.filters.support") },
+    { key: "sofortrabatt", label: t("verlauf.page.filters.sofortrabatt") },
+  ];
+
   return (
     <div className="space-y-4">
       <input
         type="text"
         value={search}
         onChange={(e) => setSearch(e.target.value)}
-        placeholder="Suche (ID, Status, Betrag)…"
+        placeholder={t("verlauf.page.searchPlaceholder")}
         className="w-full md:w-80 px-3 py-1.5 border rounded-md text-sm"
       />
 
       <div className="flex flex-wrap gap-2">
-        {[
-          { key: null, label: "Alle" },
-          { key: "bestellung", label: "Bestellung" },
-          { key: "verkauf", label: "Verkauf" },
-          { key: "projekt", label: "Projekt" },
-          { key: "support", label: "Support" },
-          { key: "sofortrabatt", label: "Sofortrabatt" },
-        ].map((f) => {
+        {filterButtons.map((f) => {
           const active =
             typFilter === f.key || (!typFilter && f.key === null);
 
@@ -392,7 +415,7 @@ export default function VerlaufPage() {
 
           return (
             <button
-              key={f.label}
+              key={String(f.key ?? "all")}
               onClick={() => router.push(href)}
               className={cn(
                 "px-3 py-1 rounded-full text-sm border transition",
@@ -414,7 +437,7 @@ export default function VerlaufPage() {
           </h3>
 
           {items.map((r) => {
-            const cfg = typeConfig[r.typ];
+            const cfg = typeConfig[r.typ as keyof typeof typeConfig];
             if (!cfg) return null;
 
             const Icon = cfg.icon;
@@ -440,15 +463,18 @@ export default function VerlaufPage() {
                       {cfg.label} {r.display_id}
                     </span>
                     <span className="text-xs text-gray-500">
-                      {new Date(r.created_at).toLocaleString("de-CH")}
+                      {new Date(r.created_at).toLocaleString(locale)}
                     </span>
                   </div>
 
                   <div className="text-sm mt-1">
-                    {r.position_count} Position
-                    {r.position_count !== 1 ? "en" : ""} ·{" "}
+                    {r.position_count}{" "}
+                    {r.position_count === 1
+                      ? t("verlauf.page.card.positionSingle")
+                      : t("verlauf.page.card.positionPlural")}{" "}
+                    ·{" "}
                     <strong>
-                      {r.total_amount.toLocaleString("de-CH", {
+                      {r.total_amount.toLocaleString(locale, {
                         style: "currency",
                         currency: "CHF",
                       })}

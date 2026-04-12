@@ -9,6 +9,7 @@ import { ArrowLeft, FileDown, Upload } from "lucide-react";
 import { toast } from "sonner";
 import { useTheme } from "@/lib/theme/ThemeContext";
 import ThemedActionButtons from "@/lib/theme/ThemedActionButtons";
+import { useI18n } from "@/lib/i18n/I18nProvider";
 
 type Produkt = {
   item_id: number;
@@ -47,6 +48,7 @@ export default function ProjektDetailPage() {
   const router = useRouter();
   const supabase = createClient();
   const theme = useTheme();
+  const { t } = useI18n();
 
   const id = params.id as string;
 
@@ -95,12 +97,12 @@ export default function ProjektDetailPage() {
 
         if (submissionError) {
           console.error("submissionError:", submissionError);
-          toast.error("Projektanfrage konnte nicht geladen werden.");
+          toast.error(t("adminProject.detail.errors.requestLoadFailed"));
           return;
         }
 
         if (!submission) {
-          toast.error("Projektanfrage nicht gefunden.");
+          toast.error(t("adminProject.detail.errors.requestNotFound"));
           return;
         }
 
@@ -123,12 +125,12 @@ export default function ProjektDetailPage() {
 
         if (projektError) {
           console.error("projektError:", projektError);
-          toast.error("Projekt konnte nicht geladen werden.");
+          toast.error(t("adminProject.detail.errors.projectLoadFailed"));
           return;
         }
 
         if (!projekt) {
-          toast.error("Projekt nicht gefunden.");
+          toast.error(t("adminProject.detail.errors.projectNotFound"));
           return;
         }
 
@@ -160,7 +162,7 @@ export default function ProjektDetailPage() {
 
         if (produkteError) {
           console.error("produkteError:", produkteError);
-          toast.error("Produkte konnten nicht geladen werden.");
+          toast.error(t("adminProject.detail.errors.productsLoadFailed"));
           return;
         }
 
@@ -212,12 +214,12 @@ export default function ProjektDetailPage() {
           }
         }
 
-        toast.error("Fehler beim Laden der Projektdaten.");
+        toast.error(t("adminProject.detail.errors.loadGeneric"));
       } finally {
         setLoading(false);
       }
     })();
-  }, [id, supabase]);
+  }, [id, supabase, t]);
 
   const getSignedUrl = useCallback(
     async (bucket: string, path: string) => {
@@ -230,14 +232,14 @@ export default function ProjektDetailPage() {
 
       if (error || !data?.signedUrl) {
         console.error("createSignedUrl error:", error);
-        toast.error("Datei konnte nicht geöffnet werden.");
+        toast.error(t("adminProject.detail.errors.fileOpenFailed"));
         return null;
       }
 
       setSignedUrls((prev) => ({ ...prev, [key]: data.signedUrl }));
       return data.signedUrl;
     },
-    [signedUrls, supabase]
+    [signedUrls, supabase, t]
   );
 
   const setProduktPreis = (itemId: number, value: string) => {
@@ -278,7 +280,8 @@ export default function ProjektDetailPage() {
     try {
       setUploading(true);
 
-      const dealerId = data.submission?.dealer_id ?? data.projekt?.dealer_id ?? "unknown";
+      const dealerId =
+        data.submission?.dealer_id ?? data.projekt?.dealer_id ?? "unknown";
       const safeName = file.name.replaceAll("/", "_");
       const filePath = `projects/${data.projekt.id}/dealer_${dealerId}/${Date.now()}_${safeName}`;
 
@@ -288,7 +291,7 @@ export default function ProjektDetailPage() {
 
       if (upErr) {
         console.error("uploadError:", upErr);
-        toast.error("Upload fehlgeschlagen.");
+        toast.error(t("adminProject.detail.errors.uploadFailed"));
         return;
       }
 
@@ -304,7 +307,7 @@ export default function ProjektDetailPage() {
 
       if (insertError) {
         console.error("projectFilesInsertError:", insertError);
-        toast.error("Datei wurde hochgeladen, aber nicht in der Datenbank gespeichert.");
+        toast.error(t("adminProject.detail.errors.fileDbSaveFailed"));
         return;
       }
 
@@ -324,10 +327,10 @@ export default function ProjektDetailPage() {
         prev ? { ...prev, projectFiles: (refreshedFiles ?? []) as ProjectFileRow[] } : prev
       );
 
-      toast.success("Datei erfolgreich hochgeladen.");
+      toast.success(t("adminProject.detail.success.fileUploaded"));
     } catch (e) {
       console.error("handleUpload catch:", e);
-      toast.error("Upload fehlgeschlagen.");
+      toast.error(t("adminProject.detail.errors.uploadFailed"));
     } finally {
       setUploading(false);
       event.target.value = "";
@@ -375,7 +378,9 @@ export default function ProjektDetailPage() {
             if (updateItemError) {
               console.error("updateItemError:", updateItemError);
               toast.error(
-                `Preis für ${item.product_name || "Produkt"} konnte nicht gespeichert werden.`
+                t("adminProject.detail.errors.priceSaveFailed", {
+                  product: item.product_name || t("adminProject.detail.labels.unknownProduct"),
+                })
               );
               return;
             }
@@ -402,7 +407,7 @@ export default function ProjektDetailPage() {
 
       if (submissionUpdateError) {
         console.error("submissionUpdateError:", submissionUpdateError);
-        toast.error("Status konnte nicht aktualisiert werden.");
+        toast.error(t("adminProject.detail.errors.statusUpdateFailed"));
         return;
       }
 
@@ -429,28 +434,36 @@ export default function ProjektDetailPage() {
       if (newStatus === "approved") {
         toast.success(
           logAction === "geändert und genehmigt"
-            ? "Gegenofferte gespeichert und Projekt genehmigt."
-            : "Projekt genehmigt."
+            ? t("adminProject.detail.success.counterOfferSavedApproved")
+            : t("adminProject.detail.success.projectApproved")
         );
       } else if (newStatus === "rejected") {
-        toast.success("Projekt abgelehnt.");
+        toast.success(t("adminProject.detail.success.projectRejected"));
       } else {
-        toast.success("Projekt zurückgesetzt.");
+        toast.success(t("adminProject.detail.success.projectReset"));
       }
     } catch (e) {
       console.error("handleDecision catch:", e);
-      toast.error("Aktion konnte nicht ausgeführt werden.");
+      toast.error(t("adminProject.detail.errors.actionFailed"));
     } finally {
       setSavingDecision(false);
     }
   };
 
   if (loading) {
-    return <p className="p-6 text-sm text-gray-500">Lade Daten…</p>;
+    return (
+      <p className="p-6 text-sm text-gray-500">
+        {t("adminProject.detail.loading.data")}
+      </p>
+    );
   }
 
   if (!data) {
-    return <p className="p-6 text-sm text-gray-500">Kein Datensatz gefunden.</p>;
+    return (
+      <p className="p-6 text-sm text-gray-500">
+        {t("adminProject.detail.errors.noRecord")}
+      </p>
+    );
   }
 
   const { projekt, submission, dealer, projectFiles, projectLogs } = data;
@@ -462,47 +475,63 @@ export default function ProjektDetailPage() {
         onClick={() => router.back()}
         className={`flex items-center gap-1 ${theme.border} ${theme.color}`}
       >
-        <ArrowLeft className="w-4 h-4" /> Zurück
+        <ArrowLeft className="w-4 h-4" /> {t("adminProject.detail.actions.back")}
       </Button>
 
       <Card className={`rounded-2xl border ${theme.border}`}>
         <CardHeader className="space-y-4">
           <h2 className="text-xl font-semibold">
-            Projektanfrage – {projekt.project_name || "(ohne Titel)"}
+            {t("adminProject.detail.title")} –{" "}
+            {projekt.project_name || t("adminProject.detail.labels.untitled")}
           </h2>
 
           <div className="text-sm space-y-1">
-            <p className="font-semibold">Händler</p>
+            <p className="font-semibold">{t("adminProject.detail.sections.dealer")}</p>
             <p>{dealer?.store_name || "-"}</p>
             <p>
               {[dealer?.street, dealer?.zip, dealer?.city, dealer?.country]
                 .filter(Boolean)
                 .join(" ")}
             </p>
-            <p>Kd.-Nr.: {dealer?.login_nr || "-"}</p>
+            <p>
+              {t("adminProject.detail.labels.customerNumber")}: {dealer?.login_nr || "-"}
+            </p>
           </div>
 
           <div className="text-sm space-y-1 border rounded p-3">
-            <p className="font-semibold">Projektinformationen</p>
-            <p>Projekt-Nr.: #{submission.submission_id}</p>
-            <p>Typ: {projekt.project_type || "-"}</p>
-            <p>Kunde: {projekt.customer || "-"}</p>
-            <p>Ort: {projekt.location || "-"}</p>
+            <p className="font-semibold">
+              {t("adminProject.detail.sections.projectInfo")}
+            </p>
             <p>
-              Zeitraum: {projekt.start_date || "-"} – {projekt.end_date || "-"}
+              {t("adminProject.detail.labels.projectNumber")}: #{submission.submission_id}
+            </p>
+            <p>
+              {t("adminProject.detail.labels.type")}: {projekt.project_type || "-"}
+            </p>
+            <p>
+              {t("adminProject.detail.labels.customer")}: {projekt.customer || "-"}
+            </p>
+            <p>
+              {t("adminProject.detail.labels.location")}: {projekt.location || "-"}
+            </p>
+            <p>
+              {t("adminProject.detail.labels.period")}: {projekt.start_date || "-"} –{" "}
+              {projekt.end_date || "-"}
             </p>
             <p className="text-sm">
-              Status:{" "}
+              {t("adminProject.detail.labels.status")}{" "}
               {submission.status === "approved"
-                ? "✅ Bestätigt"
+                ? t("adminProject.detail.status.approved")
                 : submission.status === "rejected"
-                ? "❌ Abgelehnt"
-                : "⏳ Offen"}
+                ? t("adminProject.detail.status.rejected")
+                : t("adminProject.detail.status.pending")}
             </p>
 
             {(projekt.comment || submission.kommentar) && (
               <>
-                <p className="font-semibold mt-2">Kommentar</p>
+                <p className="font-semibold mt-2">
+                  {t("adminProject.detail.sections.comment")}
+                </p>
                 <p>{projekt.comment || submission.kommentar}</p>
               </>
             )}
@@ -522,12 +551,16 @@ export default function ProjektDetailPage() {
             <div className="flex items-center justify-between">
               <h3 className="font-semibold flex items-center gap-2">
                 <FileDown className="w-4 h-4" />
-                Projektbelege
+                {t("adminProject.detail.sections.projectFiles")}
               </h3>
 
               <label className="inline-flex items-center gap-2 text-sm cursor-pointer">
                 <Upload className="w-4 h-4" />
-                <span>{uploading ? "Lädt…" : "Upload"}</span>
+                <span>
+                  {uploading
+                    ? t("adminProject.detail.actions.uploading")
+                    : t("adminProject.detail.actions.upload")}
+                </span>
                 <input
                   type="file"
                   className="hidden"
@@ -551,13 +584,15 @@ export default function ProjektDetailPage() {
                         if (url) window.open(url, "_blank", "noopener,noreferrer");
                       }}
                     >
-                      Anzeigen
+                      {t("adminProject.detail.actions.view")}
                     </button>
                   </li>
                 ))}
               </ul>
             ) : (
-              <p className="text-sm text-gray-500">Keine Dateien vorhanden.</p>
+              <p className="text-sm text-gray-500">
+                {t("adminProject.detail.empty.noFiles")}
+              </p>
             )}
           </div>
 
@@ -565,9 +600,15 @@ export default function ProjektDetailPage() {
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b bg-gray-50">
-                  <th className="p-2 text-left">Produkt</th>
-                  <th className="p-2 text-right">Menge</th>
-                  <th className="p-2 text-right">Betrag / Gegenofferte</th>
+                  <th className="p-2 text-left">
+                    {t("adminProject.detail.table.product")}
+                  </th>
+                  <th className="p-2 text-right">
+                    {t("adminProject.detail.table.quantity")}
+                  </th>
+                  <th className="p-2 text-right">
+                    {t("adminProject.detail.table.counterOffer")}
+                  </th>
                 </tr>
               </thead>
               <tbody>
@@ -600,7 +641,7 @@ export default function ProjektDetailPage() {
                 })}
 
                 <tr className="border-t font-semibold bg-gray-50">
-                  <td className="p-2">Total</td>
+                  <td className="p-2">{t("adminProject.detail.table.total")}</td>
                   <td className="p-2" />
                   <td className="p-2 text-right">{currentTotal.toFixed(2)} CHF</td>
                 </tr>
@@ -610,11 +651,13 @@ export default function ProjektDetailPage() {
 
           {projectLogs?.length > 0 && (
             <div className="text-sm space-y-2 border rounded p-3">
-              <p className="font-semibold">Projektverlauf</p>
+              <p className="font-semibold">
+                {t("adminProject.detail.sections.projectHistory")}
+              </p>
               {projectLogs.map((l, i) => (
                 <p key={i}>
                   {new Date(l.created_at || "").toLocaleString("de-CH")} –{" "}
-                  {l.action || "created"}
+                  {l.action || t("adminProject.detail.labels.created")}
                 </p>
               ))}
             </div>

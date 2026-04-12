@@ -1,0 +1,72 @@
+export const adminOrderDetailView = {
+  empty: {
+    noProducts: "No products found.",
+  },
+  header: {
+    title: "Order #{id} – {dealer}",
+  },
+  footer: {
+    totalAmount: "Total amount:",
+  },
+  dialog: {
+    mailPreview: "Email preview",
+  },
+  actions: {
+    edit: "Edit",
+    done: "Done",
+    cancel: "Cancel",
+  },
+  sections: {
+    campaignLogic: "Campaign pricing / logic",
+    rrpSalesPrices: "RRP / sales prices",
+    oldDealerPrices: "Dealer prices (old)",
+    streetPriceNewDealerPrice: "Street price / dealer price (new)",
+    lowestMarketProvider: "Lowest provider (market)",
+  },
+  fields: {
+    ean: "EAN",
+    mode: "Mode",
+    quantity: "Quantity",
+    pricingMode: "Pricing mode",
+    orderMode: "Order mode",
+    messePriceNet: "Trade fair price net",
+    displayPriceNet: "Display price net",
+    rrpGross: "RRP gross",
+    rrpNet: "RRP net",
+    vatShort: "−{amount} VAT",
+    vrgShort: "−{amount} recycling fee",
+    oldEk: "Old purchase price",
+    oldDistiEkPoi: "Old distributor price (old POI)",
+    streetPriceGross: "Street price gross",
+    streetPriceNet: "Street price net",
+    investChf: "Invest (CHF)",
+    marginOnStreet: "Margin on street (%)",
+    newDealerPrice: "Dealer price / new purchase price (CHF)",
+    marginToRrpNet: "Margin to net RRP",
+    providerSource: "Provider / source",
+    customProviderPlaceholder: "Retailer name (required)",
+    distributor: "Distributor",
+    distributorPlaceholder: "– select –",
+  },
+  badges: {
+    tradeFairOrder: "Trade fair order",
+    standardOrder: "Standard order",
+    messePrice: "Trade fair price",
+    display: "Display",
+    messeDisplay: "Trade fair + display",
+    standard: "Standard",
+    notBonusRelevant: "Not bonus relevant",
+  },
+  values: {
+    tradeFair: "Trade fair",
+    standard: "Standard",
+    campaignNumber: "Campaign #{id}",
+  },
+  marketSources: {
+    placeholder: "Please select",
+    other: "Other",
+  },
+  fallbacks: {
+    product: "Product",
+  },
+} as const;

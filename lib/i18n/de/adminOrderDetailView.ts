@@ -1,0 +1,72 @@
+export const adminOrderDetailView = {
+  empty: {
+    noProducts: "Keine Produkte gefunden.",
+  },
+  header: {
+    title: "Bestellung #{id} – {dealer}",
+  },
+  footer: {
+    totalAmount: "Gesamtbetrag:",
+  },
+  dialog: {
+    mailPreview: "E-Mail-Vorschau",
+  },
+  actions: {
+    edit: "Edit",
+    done: "Done",
+    cancel: "Cancel",
+  },
+  sections: {
+    campaignLogic: "Kampagnenpreise / Logik",
+    rrpSalesPrices: "UPE / Verkaufspreise",
+    oldDealerPrices: "Händlerpreise (alt)",
+    streetPriceNewDealerPrice: "Streetprice / Händlerpreis (neu)",
+    lowestMarketProvider: "Günstigster Anbieter (Markt)",
+  },
+  fields: {
+    ean: "EAN",
+    mode: "Mode",
+    quantity: "Menge",
+    pricingMode: "Pricing Mode",
+    orderMode: "Order Mode",
+    messePriceNet: "Messepreis netto",
+    displayPriceNet: "Displaypreis netto",
+    rrpGross: "UPE brutto",
+    rrpNet: "UPE netto",
+    vatShort: "−{amount} MwSt",
+    vrgShort: "−{amount} VRG",
+    oldEk: "EK alt",
+    oldDistiEkPoi: "EK Disti alt (POI alt)",
+    streetPriceGross: "Streetprice brutto",
+    streetPriceNet: "Streetprice netto",
+    investChf: "Invest (CHF)",
+    marginOnStreet: "Marge auf Street (%)",
+    newDealerPrice: "Händlerpreis / EK neu (CHF)",
+    marginToRrpNet: "Marge zum UPE netto",
+    providerSource: "Anbieter / Quelle",
+    customProviderPlaceholder: "Name des Händlers (Pflichtfeld)",
+    distributor: "Distributor",
+    distributorPlaceholder: "– auswählen –",
+  },
+  badges: {
+    tradeFairOrder: "Messebestellung",
+    standardOrder: "Standardbestellung",
+    messePrice: "Messepreis",
+    display: "Display",
+    messeDisplay: "Messe + Display",
+    standard: "Standard",
+    notBonusRelevant: "Nicht bonusrelevant",
+  },
+  values: {
+    tradeFair: "Messe",
+    standard: "Standard",
+    campaignNumber: "Kampagne #{id}",
+  },
+  marketSources: {
+    placeholder: "Bitte auswählen",
+    other: "Andere",
+  },
+  fallbacks: {
+    product: "Produkt",
+  },
+} as const;

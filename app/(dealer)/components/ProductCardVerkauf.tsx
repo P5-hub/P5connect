@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { useState } from "react";
 import { Product } from "@/types/Product";
 import { motion, AnimatePresence } from "framer-motion";
+import { useI18n } from "@/lib/i18n/I18nProvider";
 
 export default function ProductCardVerkauf({
   product,
@@ -14,6 +15,8 @@ export default function ProductCardVerkauf({
   product: Product;
   onReportSale: (item: any) => void;
 }) {
+  const { t } = useI18n();
+
   const [quantity, setQuantity] = useState(1);
   const [price, setPrice] = useState<number | undefined>(undefined);
   const [seriennummer, setSeriennummer] = useState("");
@@ -22,18 +25,14 @@ export default function ProductCardVerkauf({
   const handleReport = () => {
     onReportSale({
       ...product,
-
-      // ✅ EINDEUTIGE FELDNAMEN (Cart-kompatibel)
       quantity,
       price,
       seriennummer,
     });
 
-    // Kurzzeit-Feedback
     setAdded(true);
     setTimeout(() => setAdded(false), 2000);
 
-    // Reset
     setQuantity(1);
     setPrice(undefined);
     setSeriennummer("");
@@ -50,60 +49,51 @@ export default function ProductCardVerkauf({
             <h3 className="text-sm font-semibold text-gray-900">
               {product.product_name ||
                 product.sony_article ||
-                "Unbekanntes Modell"}
+                t("sales.card.unknownModel")}
             </h3>
             <p className="text-xs text-gray-500">{product.brand}</p>
             <p className="text-xs text-gray-400">
-              EAN: {product.ean || "-"}
+              {t("sales.card.ean")}: {product.ean || "-"}
             </p>
           </div>
 
           <div className="grid grid-cols-3 gap-3">
-            {/* MENGE */}
             <div>
               <label className="block text-xs text-gray-500 mb-1">
-                Anzahl
+                {t("sales.card.quantity")}
               </label>
               <Input
                 type="number"
                 min={1}
                 value={quantity}
-                onChange={(e) =>
-                  setQuantity(parseInt(e.target.value) || 1)
-                }
+                onChange={(e) => setQuantity(parseInt(e.target.value) || 1)}
                 className="text-center text-sm font-medium"
               />
             </div>
 
-            {/* PREIS */}
             <div>
               <label className="block text-xs text-gray-500 mb-1">
-                Preis (CHF)
+                {t("sales.card.price")}
               </label>
               <Input
                 type="number"
                 value={price ?? ""}
                 onChange={(e) =>
-                  setPrice(
-                    e.target.value
-                      ? parseFloat(e.target.value)
-                      : undefined
-                  )
+                  setPrice(e.target.value ? parseFloat(e.target.value) : undefined)
                 }
                 className="text-center text-sm font-medium"
               />
             </div>
 
-            {/* SERIENNUMMER */}
             <div>
               <label className="block text-xs text-gray-500 mb-1">
-                Seriennr.
+                {t("sales.card.serialNumber")}
               </label>
               <Input
                 type="text"
                 value={seriennummer}
                 onChange={(e) => setSeriennummer(e.target.value)}
-                placeholder="SN..."
+                placeholder={t("sales.card.serialPlaceholder")}
                 className="text-sm font-medium"
               />
             </div>
@@ -118,10 +108,9 @@ export default function ProductCardVerkauf({
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -10 }}
                   transition={{ duration: 0.3 }}
-                  className="absolute inset-0 flex items-center justify-center 
-                             text-green-600 font-semibold text-sm bg-green-50 rounded-lg"
+                  className="absolute inset-0 flex items-center justify-center text-green-600 font-semibold text-sm bg-green-50 rounded-lg"
                 >
-                  ✅ Hinzugefügt
+                  {t("sales.card.added")}
                 </motion.div>
               ) : (
                 <motion.div
@@ -133,11 +122,10 @@ export default function ProductCardVerkauf({
                   className="absolute inset-0"
                 >
                   <Button
-                    className="w-full h-9 rounded-lg bg-green-600 text-white 
-                               text-sm font-medium hover:bg-green-700 transition-all"
+                    className="w-full h-9 rounded-lg bg-green-600 text-white text-sm font-medium hover:bg-green-700 transition-all"
                     onClick={handleReport}
                   >
-                    📊 Melden
+                    {t("sales.card.report")}
                   </Button>
                 </motion.div>
               )}

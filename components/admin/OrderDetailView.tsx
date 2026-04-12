@@ -4,7 +4,12 @@ import { useEffect, useMemo, useState, useCallback } from "react";
 import { createClient } from "@/utils/supabase/client";
 import { Card, CardHeader, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { PencilLine, Save, XCircle } from "lucide-react";
 
 import {
@@ -14,6 +19,7 @@ import {
   calcInvestByRule,
 } from "@/lib/helpers/calcHelpers";
 import { useOptimisticSave } from "@/lib/hooks/useOptimisticSave";
+import { useI18n } from "@/lib/i18n/I18nProvider";
 
 /* Typen */
 type Distributor = {
@@ -85,6 +91,25 @@ type SubmissionBundle = {
   items: ViewRow[];
 };
 
+const MARKET_SOURCE_OTHER = "Andere";
+
+function getLocale(lang: string) {
+  switch (lang) {
+    case "de":
+      return "de-CH";
+    case "en":
+      return "en-CH";
+    case "fr":
+      return "fr-CH";
+    case "it":
+      return "it-CH";
+    case "rm":
+      return "rm-CH";
+    default:
+      return "de-CH";
+  }
+}
+
 function ItemRow({
   row,
   supabase,
@@ -98,6 +123,9 @@ function ItemRow({
   refresh: () => Promise<void>;
   submissionStatus: "pending" | "approved" | "rejected" | null;
 }) {
+  const { t, lang } = useI18n();
+  const locale = useMemo(() => getLocale(lang), [lang]);
+
   const isLocked = submissionStatus !== "pending";
   const { optimisticUpdate } = useOptimisticSave(supabase, refresh);
 
@@ -109,18 +137,72 @@ function ItemRow({
 
   const [isEditing, setIsEditing] = useState(false);
   const [qty, setQty] = useState<number>(parseNum(row.menge) || 1);
-  const [streetBrutto, setStreetBrutto] = useState<number>(parseNum(row.lowest_price_brutto));
-  const [streetNetto, setStreetNetto] = useState<number>(parseNum(row.lowest_price_netto));
+  const [streetBrutto, setStreetBrutto] = useState<number>(
+    parseNum(row.lowest_price_brutto)
+  );
+  const [streetNetto, setStreetNetto] = useState<number>(
+    parseNum(row.lowest_price_netto)
+  );
   const [priceNew, setPriceNew] = useState<number>(parseNum(row.preis));
   const [investVal, setInvestVal] = useState<number>(parseNum(row.invest));
   const [marginStreet, setMarginStreet] = useState<number | null>(
     row.margin_street == null ? null : Number(row.margin_street)
   );
   const [source, setSource] = useState<string>(row.lowest_price_source || "");
-  const [sourceCustom, setSourceCustom] = useState<string>(row.lowest_price_source_custom || "");
+  const [sourceCustom, setSourceCustom] = useState<string>(
+    row.lowest_price_source_custom || ""
+  );
   const [distId, setDistId] = useState<string | null>(row.distributor_id ?? null);
   const [priceNewInput, setPriceNewInput] = useState(
     row.preis != null ? row.preis.toString() : ""
+  );
+
+  const marketSourceOptions = useMemo(
+    () => [
+      {
+        value: "",
+        label: t("adminOrderDetailView.marketSources.placeholder"),
+      },
+      { value: "Digitec", label: "Digitec" },
+      { value: "Mediamarkt", label: "Mediamarkt" },
+      { value: "Interdiscount", label: "Interdiscount" },
+      { value: "Fnac", label: "Fnac" },
+      { value: "Brack", label: "Brack" },
+      { value: "Fust", label: "Fust" },
+      {
+        value: MARKET_SOURCE_OTHER,
+        label: t("adminOrderDetailView.marketSources.other"),
+      },
+    ],
+    [t]
+  );
+
+  const getPricingModeLabel = useCallback(
+    (mode?: string | null) => {
+      if (mode === "messe") return t("adminOrderDetailView.badges.messePrice");
+      if (mode === "display") return t("adminOrderDetailView.badges.display");
+      if (mode === "mixed") return t("adminOrderDetailView.badges.messeDisplay");
+      return t("adminOrderDetailView.badges.standard");
+    },
+    [t]
+  );
+
+  const getOrderModeLabel = useCallback(
+    (mode?: string | null) => {
+      return mode === "messe"
+        ? t("adminOrderDetailView.badges.tradeFairOrder")
+        : t("adminOrderDetailView.badges.standardOrder");
+    },
+    [t]
+  );
+
+  const getOrderModeShortLabel = useCallback(
+    (mode?: string | null) => {
+      return mode === "messe"
+        ? t("adminOrderDetailView.values.tradeFair")
+        : t("adminOrderDetailView.values.standard");
+    },
+    [t]
   );
 
   useEffect(() => {
@@ -205,7 +287,8 @@ function ItemRow({
     const nettoRounded = Number(netto.toFixed(2));
     setStreetNetto(nettoRounded);
 
-    const m = nettoRounded && priceNew ? ((nettoRounded - priceNew) / nettoRounded) * 100 : null;
+    const m =
+      nettoRounded && priceNew ? ((nettoRounded - priceNew) / nettoRounded) * 100 : null;
     setMarginStreet(m == null ? null : Number(m.toFixed(1)));
   };
 
@@ -294,7 +377,7 @@ function ItemRow({
     await savePatch({
       lowest_price_source: source || null,
       lowest_price_source_custom:
-        source === "Andere" && sourceCustom.trim() !== "" ? sourceCustom : null,
+        source === MARKET_SOURCE_OTHER && sourceCustom.trim() !== "" ? sourceCustom : null,
     });
   };
 
@@ -325,53 +408,51 @@ function ItemRow({
     return nettoUpe ? ((nettoUpe - (priceNew || 0)) / nettoUpe) * 100 : null;
   }, [nettoUpe, priceNew]);
 
-  const displayModeLabel =
-    row.pricing_mode === "messe"
-      ? "Messepreis"
-      : row.pricing_mode === "display"
-      ? "Display"
-      : row.pricing_mode === "mixed"
-      ? "Messe + Display"
-      : "Standard";
-
+  const displayModeLabel = getPricingModeLabel(row.pricing_mode);
   const campaignLabel =
     row.campaign_name_snapshot ||
-    (row.item_campaign_id ? `Kampagne #${row.item_campaign_id}` : null);
+    (row.item_campaign_id
+      ? t("adminOrderDetailView.values.campaignNumber", {
+          id: String(row.item_campaign_id),
+        })
+      : null);
 
   return (
     <div className="rounded-xl border border-gray-100 bg-gray-50/40 p-3">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="font-medium text-xs text-gray-900">
-            {row.item_product_name || row.product_name || "Produkt"}
+            {row.item_product_name ||
+              row.product_name ||
+              t("adminOrderDetailView.fallbacks.product")}
           </p>
 
           <div className="mt-1 flex flex-wrap gap-1">
             <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-medium text-slate-700">
-              {row.order_mode === "messe" ? "Messebestellung" : "Standardbestellung"}
+              {getOrderModeLabel(row.order_mode)}
             </span>
 
             {row.pricing_mode === "messe" && (
               <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-medium text-emerald-700 ring-1 ring-emerald-100">
-                Messepreis
+                {t("adminOrderDetailView.badges.messePrice")}
               </span>
             )}
 
             {row.pricing_mode === "display" && (
               <span className="rounded-full bg-sky-50 px-2 py-0.5 text-[10px] font-medium text-sky-700 ring-1 ring-sky-100">
-                Display
+                {t("adminOrderDetailView.badges.display")}
               </span>
             )}
 
             {row.pricing_mode === "mixed" && (
               <span className="rounded-full bg-violet-50 px-2 py-0.5 text-[10px] font-medium text-violet-700 ring-1 ring-violet-100">
-                Messe + Display
+                {t("adminOrderDetailView.badges.messeDisplay")}
               </span>
             )}
 
             {(!row.pricing_mode || row.pricing_mode === "standard") && (
               <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-medium text-gray-700">
-                Standard
+                {t("adminOrderDetailView.badges.standard")}
               </span>
             )}
 
@@ -383,17 +464,21 @@ function ItemRow({
 
             {row.bonus_relevant === false && (
               <span className="rounded-full bg-rose-50 px-2 py-0.5 text-[10px] font-medium text-rose-700 ring-1 ring-rose-100">
-                Nicht bonusrelevant
+                {t("adminOrderDetailView.badges.notBonusRelevant")}
               </span>
             )}
           </div>
 
           <div className="mt-1 text-[11px] text-gray-500 flex items-center gap-2 flex-wrap">
-            <span>EAN: {row.item_ean || row.ean || "–"}</span>
+            <span>
+              {t("adminOrderDetailView.fields.ean")}: {row.item_ean || row.ean || "–"}
+            </span>
             <span>·</span>
-            <span>Mode: {displayModeLabel}</span>
+            <span>
+              {t("adminOrderDetailView.fields.mode")}: {displayModeLabel}
+            </span>
             <span>·</span>
-            <span>Menge:</span>
+            <span>{t("adminOrderDetailView.fields.quantity")}:</span>
 
             {isEditing ? (
               <input
@@ -418,7 +503,8 @@ function ItemRow({
             className="h-7 px-2 text-[11px] rounded-full"
             onClick={() => !isLocked && setIsEditing(true)}
           >
-            <PencilLine className="w-3.5 h-3.5 mr-1" /> Edit
+            <PencilLine className="w-3.5 h-3.5 mr-1" />
+            {t("adminOrderDetailView.actions.edit")}
           </Button>
         ) : (
           <div className="flex gap-1">
@@ -427,7 +513,8 @@ function ItemRow({
               className="h-7 px-2 text-[11px]"
               onClick={() => setIsEditing(false)}
             >
-              <Save className="w-3.5 h-3.5 mr-1" /> Done
+              <Save className="w-3.5 h-3.5 mr-1" />
+              {t("adminOrderDetailView.actions.done")}
             </Button>
             <Button
               size="sm"
@@ -449,48 +536,70 @@ function ItemRow({
                 setDistId(row.distributor_id ?? null);
               }}
             >
-              <XCircle className="w-3.5 h-3.5 mr-1" /> Cancel
+              <XCircle className="w-3.5 h-3.5 mr-1" />
+              {t("adminOrderDetailView.actions.cancel")}
             </Button>
           </div>
         )}
       </div>
 
       <div className="mt-3 grid grid-cols-2 gap-x-4 gap-y-1 text-[11px] border-t pt-2 border-gray-200">
-        <div className="col-span-2 font-medium text-gray-700 mb-1">Kampagnenpreise / Logik</div>
+        <div className="col-span-2 font-medium text-gray-700 mb-1">
+          {t("adminOrderDetailView.sections.campaignLogic")}
+        </div>
         <div>
-          <span className="text-gray-500">Pricing Mode:</span>{" "}
+          <span className="text-gray-500">{t("adminOrderDetailView.fields.pricingMode")}:</span>{" "}
           <span className="font-medium text-gray-700">{displayModeLabel}</span>
         </div>
         <div className="text-right">
-          <span className="text-gray-500">Order Mode:</span>{" "}
+          <span className="text-gray-500">{t("adminOrderDetailView.fields.orderMode")}:</span>{" "}
           <span className="font-medium text-gray-700">
-            {row.order_mode === "messe" ? "Messe" : "Standard"}
+            {getOrderModeShortLabel(row.order_mode)}
           </span>
         </div>
 
         <div>
-          <span className="text-gray-500">Messepreis netto:</span>{" "}
+          <span className="text-gray-500">{t("adminOrderDetailView.fields.messePriceNet")}:</span>{" "}
           {row.messe_price_netto != null
-            ? `${Number(row.messe_price_netto).toFixed(2)} CHF`
+            ? Number(row.messe_price_netto).toLocaleString(locale, {
+                style: "currency",
+                currency: "CHF",
+              })
             : "–"}
         </div>
         <div className="text-right">
-          <span className="text-gray-500">Displaypreis netto:</span>{" "}
+          <span className="text-gray-500">{t("adminOrderDetailView.fields.displayPriceNet")}:</span>{" "}
           {row.display_price_netto != null
-            ? `${Number(row.display_price_netto).toFixed(2)} CHF`
+            ? Number(row.display_price_netto).toLocaleString(locale, {
+                style: "currency",
+                currency: "CHF",
+              })
             : "–"}
         </div>
 
         <div className="col-span-2 border-b border-gray-200 my-1" />
 
-        <div className="col-span-2 font-medium text-gray-700 mb-1">UPE / Verkaufspreise</div>
+        <div className="col-span-2 font-medium text-gray-700 mb-1">
+          {t("adminOrderDetailView.sections.rrpSalesPrices")}
+        </div>
         <div>
-          <span className="text-gray-500">UPE brutto:</span>{" "}
+          <span className="text-gray-500">{t("adminOrderDetailView.fields.rrpGross")}:</span>{" "}
           {retail ? (
             <>
-              {retail.toFixed(2)} CHF{" "}
+              {retail.toLocaleString(locale, {
+                style: "currency",
+                currency: "CHF",
+              })}{" "}
               <span className="text-gray-400 text-[10px]">
-                (−{(retail - retail / 1.081).toFixed(2)} MwSt, −{vrg.toFixed(2)} VRG)
+                (
+                {t("adminOrderDetailView.fields.vatShort", {
+                  amount: (retail - retail / 1.081).toFixed(2),
+                })}
+                ,{" "}
+                {t("adminOrderDetailView.fields.vrgShort", {
+                  amount: vrg.toFixed(2),
+                })}
+                )
               </span>
             </>
           ) : (
@@ -498,34 +607,51 @@ function ItemRow({
           )}
         </div>
         <div className="text-right">
-          <span className="text-gray-500">UPE netto:</span>{" "}
+          <span className="text-gray-500">{t("adminOrderDetailView.fields.rrpNet")}:</span>{" "}
           {nettoUpe ? (
-            <span className="text-gray-700 font-medium">{nettoUpe.toFixed(2)} CHF</span>
+            <span className="text-gray-700 font-medium">
+              {nettoUpe.toLocaleString(locale, {
+                style: "currency",
+                currency: "CHF",
+              })}
+            </span>
           ) : (
             "–"
           )}
         </div>
 
         <div className="col-span-2 font-medium text-gray-700 mt-3 mb-1">
-          Händlerpreise (alt)
+          {t("adminOrderDetailView.sections.oldDealerPrices")}
         </div>
         <div>
-          <span className="text-gray-500">EK alt:</span>{" "}
-          {ekAlt ? `${ekAlt.toFixed(2)} CHF` : "–"}
+          <span className="text-gray-500">{t("adminOrderDetailView.fields.oldEk")}:</span>{" "}
+          {ekAlt
+            ? ekAlt.toLocaleString(locale, {
+                style: "currency",
+                currency: "CHF",
+              })
+            : "–"}
         </div>
         <div className="text-right">
-          <span className="text-gray-500">EK Disti alt (POI alt):</span>{" "}
-          {poiAlt ? `${poiAlt.toFixed(2)} CHF` : "–"}
+          <span className="text-gray-500">{t("adminOrderDetailView.fields.oldDistiEkPoi")}:</span>{" "}
+          {poiAlt
+            ? poiAlt.toLocaleString(locale, {
+                style: "currency",
+                currency: "CHF",
+              })
+            : "–"}
         </div>
 
         <div className="col-span-2 border-b border-gray-200 my-1" />
 
         <div className="col-span-2 font-medium text-gray-700 mt-3 mb-1">
-          Streetprice / Händlerpreis (neu)
+          {t("adminOrderDetailView.sections.streetPriceNewDealerPrice")}
         </div>
 
         <div>
-          <label className="block text-[11px] text-gray-500 mb-1">Streetprice brutto</label>
+          <label className="block text-[11px] text-gray-500 mb-1">
+            {t("adminOrderDetailView.fields.streetPriceGross")}
+          </label>
           <input
             disabled={!isEditing}
             type="number"
@@ -536,20 +662,31 @@ function ItemRow({
             className="w-28 h-7 border rounded text-xs text-right px-2"
           />
           <div className="text-[10px] text-gray-400 mt-1">
-            (−{(streetBrutto - streetBrutto / 1.081).toFixed(2)} MwSt, −
-            {vrg.toFixed(2)} VRG)
+            ({t("adminOrderDetailView.fields.vatShort", {
+              amount: (streetBrutto - streetBrutto / 1.081).toFixed(2),
+            })}
+            , {t("adminOrderDetailView.fields.vrgShort", { amount: vrg.toFixed(2) })})
           </div>
         </div>
 
         <div className="text-right">
-          <label className="block text-[11px] text-gray-500 mb-1">Streetprice netto</label>
+          <label className="block text-[11px] text-gray-500 mb-1">
+            {t("adminOrderDetailView.fields.streetPriceNet")}
+          </label>
           <div className="text-gray-700 font-medium">
-            {streetNetto ? `${streetNetto.toFixed(2)} CHF` : "–"}
+            {streetNetto
+              ? streetNetto.toLocaleString(locale, {
+                  style: "currency",
+                  currency: "CHF",
+                })
+              : "–"}
           </div>
         </div>
 
         <div>
-          <label className="block text-[11px] text-gray-500 mb-1">Invest (CHF)</label>
+          <label className="block text-[11px] text-gray-500 mb-1">
+            {t("adminOrderDetailView.fields.investChf")}
+          </label>
           <input
             disabled={!isEditing}
             type="number"
@@ -562,7 +699,9 @@ function ItemRow({
         </div>
 
         <div className="text-right">
-          <label className="block text-[11px] text-gray-500 mb-1">Marge auf Street (%)</label>
+          <label className="block text-[11px] text-gray-500 mb-1">
+            {t("adminOrderDetailView.fields.marginOnStreet")}
+          </label>
           <input
             disabled={!isEditing}
             type="number"
@@ -576,7 +715,7 @@ function ItemRow({
 
         <div>
           <label className="block text-[11px] text-gray-500 mb-1">
-            Händlerpreis / EK neu (CHF)
+            {t("adminOrderDetailView.fields.newDealerPrice")}
           </label>
           <input
             disabled={!isEditing}
@@ -600,17 +739,21 @@ function ItemRow({
         </div>
 
         <div className="text-right">
-          <label className="block text-[11px] text-gray-500 mb-1">Marge zum UPE netto</label>
+          <label className="block text-[11px] text-gray-500 mb-1">
+            {t("adminOrderDetailView.fields.marginToRrpNet")}
+          </label>
           <div className="text-gray-700 font-medium">
             {margeZumUpe == null ? "–" : `${margeZumUpe.toFixed(1)} %`}
           </div>
         </div>
 
         <div className="col-span-2 mt-3 font-medium text-gray-700 mb-1">
-          Günstigster Anbieter (Markt)
+          {t("adminOrderDetailView.sections.lowestMarketProvider")}
         </div>
         <div>
-          <label className="block text-[11px] text-gray-500 mb-1">Anbieter / Quelle</label>
+          <label className="block text-[11px] text-gray-500 mb-1">
+            {t("adminOrderDetailView.fields.providerSource")}
+          </label>
           <select
             disabled={!isEditing}
             value={source}
@@ -618,22 +761,19 @@ function ItemRow({
             onBlur={blurSaveSource}
             className="w-full h-7 border rounded text-xs px-2 bg-white"
           >
-            <option value="">Bitte auswählen</option>
-            <option value="Digitec">Digitec</option>
-            <option value="Mediamarkt">Mediamarkt</option>
-            <option value="Interdiscount">Interdiscount</option>
-            <option value="Fnac">Fnac</option>
-            <option value="Brack">Brack</option>
-            <option value="Fust">Fust</option>
-            <option value="Andere">Andere</option>
+            {marketSourceOptions.map((option) => (
+              <option key={option.value || "placeholder"} value={option.value}>
+                {option.label}
+              </option>
+            ))}
           </select>
 
-          {source === "Andere" && (
+          {source === MARKET_SOURCE_OTHER && (
             <div className="mt-1">
               <input
                 disabled={!isEditing}
                 type="text"
-                placeholder="Name des Händlers (Pflichtfeld)"
+                placeholder={t("adminOrderDetailView.fields.customProviderPlaceholder")}
                 value={sourceCustom}
                 onChange={(e) => setSourceCustom(e.target.value)}
                 onBlur={blurSaveSource}
@@ -644,7 +784,9 @@ function ItemRow({
         </div>
 
         <div className="col-span-2 mt-2">
-          <label className="block text-[11px] text-gray-500 mb-1">Distributor</label>
+          <label className="block text-[11px] text-gray-500 mb-1">
+            {t("adminOrderDetailView.fields.distributor")}
+          </label>
           <select
             disabled={!isEditing}
             value={distId || ""}
@@ -652,7 +794,7 @@ function ItemRow({
             onBlur={(e) => onDistributorChange(e.target.value || null)}
             className="h-8 text-xs border border-gray-300 rounded-md px-2 w-full bg-white"
           >
-            <option value="">– auswählen –</option>
+            <option value="">{t("adminOrderDetailView.fields.distributorPlaceholder")}</option>
             {distributors.map((d) => (
               <option key={d.id} value={d.id}>
                 {d.name} {d.code ? `(${d.code})` : ""}
@@ -669,10 +811,16 @@ export default function OrderDetailView({
   submission,
   onStatusChange,
 }: {
-  submission: { submission_id: number; status: "pending" | "approved" | "rejected" | null };
+  submission: {
+    submission_id: number;
+    status: "pending" | "approved" | "rejected" | null;
+  };
   onStatusChange?: () => void;
 }) {
   const supabase = createClient();
+  const { t, lang } = useI18n();
+  const locale = useMemo(() => getLocale(lang), [lang]);
+
   const [rows, setRows] = useState<ViewRow[]>([]);
   const [distributors, setDistributors] = useState<Distributor[]>([]);
   const [previewHtml, setPreviewHtml] = useState<string | null>(null);
@@ -721,7 +869,11 @@ export default function OrderDetailView({
   );
 
   if (!bundle) {
-    return <div className="text-sm text-gray-500">Keine Produkte gefunden.</div>;
+    return (
+      <div className="text-sm text-gray-500">
+        {t("adminOrderDetailView.empty.noProducts")}
+      </div>
+    );
   }
 
   const { head, items } = bundle;
@@ -733,11 +885,14 @@ export default function OrderDetailView({
           <div className="flex items-start justify-between">
             <div>
               <h3 className="text-lg font-semibold">
-                Bestellung #{head.submission_id} – {head.dealer_name ?? "–"}
+                {t("adminOrderDetailView.header.title", {
+                  id: String(head.submission_id),
+                  dealer: head.dealer_name ?? "–",
+                })}
               </h3>
               <p className="text-xs text-gray-500">{head.dealer_email ?? "-"}</p>
               <p className="text-[11px] text-gray-400">
-                {new Date(head.created_at).toLocaleDateString("de-CH")}
+                {new Date(head.created_at).toLocaleDateString(locale)}
               </p>
             </div>
           </div>
@@ -759,8 +914,15 @@ export default function OrderDetailView({
 
           <div className="mt-4 flex justify-end text-sm">
             <div className="rounded-lg border px-3 py-2 bg-gray-50">
-              <span className="text-gray-600 mr-3">Gesamtbetrag:</span>
-              <span className="font-semibold">{total.toFixed(2)} CHF</span>
+              <span className="text-gray-600 mr-3">
+                {t("adminOrderDetailView.footer.totalAmount")}
+              </span>
+              <span className="font-semibold">
+                {total.toLocaleString(locale, {
+                  style: "currency",
+                  currency: "CHF",
+                })}
+              </span>
             </div>
           </div>
         </CardContent>
@@ -769,7 +931,7 @@ export default function OrderDetailView({
       <Dialog open={!!previewHtml} onOpenChange={(o) => !o && setPreviewHtml(null)}>
         <DialogContent className="max-w-3xl">
           <DialogHeader>
-            <DialogTitle>E-Mail-Vorschau</DialogTitle>
+            <DialogTitle>{t("adminOrderDetailView.dialog.mailPreview")}</DialogTitle>
           </DialogHeader>
           <div
             className="prose max-w-none border rounded-md p-4 bg-white"

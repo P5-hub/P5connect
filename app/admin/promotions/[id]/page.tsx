@@ -21,6 +21,7 @@ import CampaignProductEditor, {
   type PricingMode,
   type ProductOption,
 } from "@/components/admin/CampaignProductEditor";
+import { useI18n } from "@/lib/i18n/I18nProvider";
 
 type CampaignType = "messe" | "monatsaktion" | "promotion";
 type TargetUnit = "qty" | "revenue" | "points";
@@ -126,6 +127,7 @@ function numberToInput(value: number | null | undefined): string {
 export default function PromotionDetailPage() {
   const params = useParams();
   const supabase = useMemo(() => createClient(), []);
+  const { t } = useI18n();
 
   const campaignId = Number(params?.id);
 
@@ -162,9 +164,9 @@ export default function PromotionDetailPage() {
     allow_display_orders: false,
   });
 
-  const [campaignProducts, setCampaignProducts] = useState<CampaignProductRow[]>([
-    emptyCampaignProduct(),
-  ]);
+  const [campaignProducts, setCampaignProducts] = useState<CampaignProductRow[]>(
+    [emptyCampaignProduct()]
+  );
   const [dealerTargets, setDealerTargets] = useState<DealerTargetRow[]>([]);
   const [bonusTiers, setBonusTiers] = useState<BonusTierRow[]>([]);
 
@@ -172,7 +174,7 @@ export default function PromotionDetailPage() {
     if (!campaignId || Number.isNaN(campaignId)) {
       setMessage({
         type: "error",
-        text: "Ungültige Kampagnen-ID.",
+        text: t("adminPromotionDetail.page.invalidId"),
       });
       setLoading(false);
       return;
@@ -264,7 +266,9 @@ export default function PromotionDetailPage() {
           bonus_relevant: row.bonus_relevant ?? true,
           max_qty_per_dealer: numberToInput(row.max_qty_per_dealer),
           max_total_qty_per_dealer: numberToInput(row.max_total_qty_per_dealer),
-          max_display_qty_per_dealer: numberToInput(row.max_display_qty_per_dealer),
+          max_display_qty_per_dealer: numberToInput(
+            row.max_display_qty_per_dealer
+          ),
           max_messe_qty_per_dealer: numberToInput(row.max_messe_qty_per_dealer),
           notes: row.notes || "",
         })) || [];
@@ -302,12 +306,12 @@ export default function PromotionDetailPage() {
       console.error("❌ Fehler beim Laden:", error);
       setMessage({
         type: "error",
-        text: "Kampagne konnte nicht geladen werden.",
+        text: t("adminPromotionDetail.messages.loadError"),
       });
     } finally {
       setLoading(false);
     }
-  }, [campaignId, supabase]);
+  }, [campaignId, supabase, t]);
 
   useEffect(() => {
     loadAll();
@@ -334,7 +338,9 @@ export default function PromotionDetailPage() {
 
   const removeCampaignProduct = (index: number) => {
     setCampaignProducts((prev) =>
-      prev.length === 1 ? [emptyCampaignProduct()] : prev.filter((_, i) => i !== index)
+      prev.length === 1
+        ? [emptyCampaignProduct()]
+        : prev.filter((_, i) => i !== index)
     );
   };
 
@@ -373,34 +379,40 @@ export default function PromotionDetailPage() {
   };
 
   const validateBeforeSave = () => {
-    if (!form.name.trim()) return "Bitte einen Kampagnennamen eingeben.";
-    if (!form.start_date) return "Bitte ein Startdatum wählen.";
-    if (!form.end_date) return "Bitte ein Enddatum wählen.";
+    if (!form.name.trim()) return t("adminPromotionDetail.validation.nameRequired");
+    if (!form.start_date) {
+      return t("adminPromotionDetail.validation.startDateRequired");
+    }
+    if (!form.end_date) return t("adminPromotionDetail.validation.endDateRequired");
     if (form.end_date < form.start_date) {
-      return "Enddatum darf nicht vor dem Startdatum liegen.";
+      return t("adminPromotionDetail.validation.endBeforeStart");
     }
 
     const selectedProducts = campaignProducts.filter((p) => p.product_id);
     if (selectedProducts.length === 0) {
-      return "Bitte mindestens ein Produkt hinzufügen.";
+      return t("adminPromotionDetail.validation.productRequired");
     }
 
     const productIds = selectedProducts.map((p) => p.product_id);
     if (new Set(productIds).size !== productIds.length) {
-      return "Ein Produkt wurde mehrfach ausgewählt.";
+      return t("adminPromotionDetail.validation.duplicateProduct");
     }
 
-    const filledTargets = dealerTargets.filter((row) => row.dealer_id || row.target_value);
+    const filledTargets = dealerTargets.filter(
+      (row) => row.dealer_id || row.target_value
+    );
     for (const row of filledTargets) {
-      if (!row.dealer_id) return "Bei Händler-Zielen fehlt ein Händler.";
+      if (!row.dealer_id) {
+        return t("adminPromotionDetail.validation.targetDealerMissing");
+      }
       if (toRequiredNumber(row.target_value) == null) {
-        return "Bei Händler-Zielen fehlt ein gültiger Zielwert.";
+        return t("adminPromotionDetail.validation.targetValueInvalid");
       }
     }
 
     const targetDealerIds = filledTargets.map((row) => row.dealer_id);
     if (new Set(targetDealerIds).size !== targetDealerIds.length) {
-      return "Ein Händler wurde bei den Zielvorgaben mehrfach verwendet.";
+      return t("adminPromotionDetail.validation.targetDealerDuplicate");
     }
 
     const filledTiers = bonusTiers.filter(
@@ -413,12 +425,14 @@ export default function PromotionDetailPage() {
     );
 
     for (const row of filledTiers) {
-      if (!row.tier_level) return "Bei Bonus-Tiers fehlt das Tier-Level.";
+      if (!row.tier_level) {
+        return t("adminPromotionDetail.validation.tierLevelMissing");
+      }
       if (toRequiredNumber(row.threshold_value) == null) {
-        return "Bei Bonus-Tiers fehlt ein gültiger Threshold-Wert.";
+        return t("adminPromotionDetail.validation.thresholdInvalid");
       }
       if (toRequiredNumber(row.bonus_value) == null) {
-        return "Bei Bonus-Tiers fehlt ein gültiger Bonus-Wert.";
+        return t("adminPromotionDetail.validation.bonusValueInvalid");
       }
     }
 
@@ -426,7 +440,7 @@ export default function PromotionDetailPage() {
       (row) => `${row.dealer_id || "global"}__${row.tier_level}`
     );
     if (new Set(tierKeys).size !== tierKeys.length) {
-      return "Tier-Level ist doppelt vorhanden.";
+      return t("adminPromotionDetail.validation.duplicateTier");
     }
 
     return null;
@@ -486,18 +500,28 @@ export default function PromotionDetailPage() {
           active: row.active,
           pricing_mode: row.pricing_mode,
           messe_price_netto: toNullableNumber(row.messe_price_netto),
-          display_discount_percent: toNullableNumber(row.display_discount_percent),
+          display_discount_percent: toNullableNumber(
+            row.display_discount_percent
+          ),
           display_price_netto: toNullableNumber(row.display_price_netto),
           bonus_relevant: row.bonus_relevant,
           max_qty_per_dealer: toNullableNumber(row.max_qty_per_dealer),
-          max_total_qty_per_dealer: toNullableNumber(row.max_total_qty_per_dealer),
-          max_display_qty_per_dealer: toNullableNumber(row.max_display_qty_per_dealer),
-          max_messe_qty_per_dealer: toNullableNumber(row.max_messe_qty_per_dealer),
+          max_total_qty_per_dealer: toNullableNumber(
+            row.max_total_qty_per_dealer
+          ),
+          max_display_qty_per_dealer: toNullableNumber(
+            row.max_display_qty_per_dealer
+          ),
+          max_messe_qty_per_dealer: toNullableNumber(
+            row.max_messe_qty_per_dealer
+          ),
           notes: row.notes.trim() || null,
         }));
 
       if (productPayload.length > 0) {
-        const { error } = await supabase.from("campaign_products").insert(productPayload);
+        const { error } = await supabase
+          .from("campaign_products")
+          .insert(productPayload);
         if (error) throw error;
       }
 
@@ -531,13 +555,15 @@ export default function PromotionDetailPage() {
         }));
 
       if (tierPayload.length > 0) {
-        const { error } = await supabase.from("campaign_bonus_tiers").insert(tierPayload);
+        const { error } = await supabase
+          .from("campaign_bonus_tiers")
+          .insert(tierPayload);
         if (error) throw error;
       }
 
       setMessage({
         type: "success",
-        text: "Promotion / Kampagne erfolgreich aktualisiert.",
+        text: t("adminPromotionDetail.messages.saveSuccess"),
       });
 
       await loadAll();
@@ -545,7 +571,7 @@ export default function PromotionDetailPage() {
       console.error("❌ Fehler beim Speichern:", error);
       setMessage({
         type: "error",
-        text: error?.message || "Die Kampagne konnte nicht gespeichert werden.",
+        text: error?.message || t("adminPromotionDetail.messages.saveError"),
       });
     } finally {
       setSaving(false);
@@ -555,7 +581,9 @@ export default function PromotionDetailPage() {
   if (!campaignId || Number.isNaN(campaignId)) {
     return (
       <div className="p-6">
-        <p className="text-sm text-red-600">Ungültige Kampagnen-ID.</p>
+        <p className="text-sm text-red-600">
+          {t("adminPromotionDetail.page.invalidId")}
+        </p>
       </div>
     );
   }
@@ -567,28 +595,34 @@ export default function PromotionDetailPage() {
           <Link href="/admin/promotions">
             <Button variant="outline">
               <ArrowLeft className="w-4 h-4 mr-2" />
-              Zurück
+              {t("adminPromotionDetail.actions.back")}
             </Button>
           </Link>
 
           <div>
             <h2 className="text-lg font-semibold text-gray-800">
-              Promotion bearbeiten
+              {t("adminPromotionDetail.page.title")}
             </h2>
             <p className="text-sm text-gray-500">
-              Kampagne #{campaignId} bearbeiten und speichern.
+              {t("adminPromotionDetail.page.subtitle", { id: String(campaignId) })}
             </p>
           </div>
         </div>
 
         <div className="flex gap-2">
-          <Button variant="outline" onClick={resetForm} disabled={loading || saving}>
+          <Button
+            variant="outline"
+            onClick={resetForm}
+            disabled={loading || saving}
+          >
             <RotateCcw className="w-4 h-4 mr-2" />
-            Neu laden
+            {t("adminPromotionDetail.actions.reload")}
           </Button>
           <Button onClick={handleSave} disabled={loading || saving}>
             <Save className="w-4 h-4 mr-2" />
-            {saving ? "Speichere..." : "Änderungen speichern"}
+            {saving
+              ? t("adminPromotionDetail.actions.saving")
+              : t("adminPromotionDetail.actions.save")}
           </Button>
         </div>
       </div>
@@ -612,38 +646,48 @@ export default function PromotionDetailPage() {
 
       {loading ? (
         <Card className="p-5 rounded-2xl border border-gray-200 bg-white">
-          <p className="text-sm text-gray-500">Lade Kampagne…</p>
+          <p className="text-sm text-gray-500">
+            {t("adminPromotionDetail.loading.campaign")}
+          </p>
         </Card>
       ) : (
         <>
           <Card className="p-5 rounded-2xl border border-gray-200 bg-white">
-            <h3 className="text-base font-semibold mb-4">1. Stammdaten</h3>
+            <h3 className="text-base font-semibold mb-4">
+              {t("adminPromotionDetail.sections.masterData")}
+            </h3>
 
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
               <div>
-                <label className="block text-sm text-gray-700 mb-1">Code</label>
+                <label className="block text-sm text-gray-700 mb-1">
+                  {t("adminPromotionDetail.fields.code")}
+                </label>
                 <Input
                   value={form.code}
                   onChange={(e) =>
                     setForm((prev) => ({ ...prev, code: e.target.value }))
                   }
-                  placeholder="z. B. PROMO-TV-2026"
+                  placeholder={t("adminPromotionDetail.placeholders.code")}
                 />
               </div>
 
               <div>
-                <label className="block text-sm text-gray-700 mb-1">Name *</label>
+                <label className="block text-sm text-gray-700 mb-1">
+                  {t("adminPromotionDetail.fields.name")} *
+                </label>
                 <Input
                   value={form.name}
                   onChange={(e) =>
                     setForm((prev) => ({ ...prev, name: e.target.value }))
                   }
-                  placeholder="z. B. Frühlingspromotion"
+                  placeholder={t("adminPromotionDetail.placeholders.name")}
                 />
               </div>
 
               <div>
-                <label className="block text-sm text-gray-700 mb-1">Typ *</label>
+                <label className="block text-sm text-gray-700 mb-1">
+                  {t("adminPromotionDetail.fields.type")} *
+                </label>
                 <select
                   value={form.campaign_type}
                   onChange={(e) =>
@@ -654,9 +698,13 @@ export default function PromotionDetailPage() {
                   }
                   className="w-full border rounded-md px-3 py-2 text-sm bg-white"
                 >
-                  <option value="promotion">promotion</option>
-                  <option value="messe">messe</option>
-                  <option value="monatsaktion">monatsaktion</option>
+                  <option value="promotion">
+                    {t("adminPromotions.types.promotion")}
+                  </option>
+                  <option value="messe">{t("adminPromotions.types.messe")}</option>
+                  <option value="monatsaktion">
+                    {t("adminPromotions.types.monatsaktion")}
+                  </option>
                 </select>
               </div>
 
@@ -669,7 +717,7 @@ export default function PromotionDetailPage() {
                       setForm((prev) => ({ ...prev, active: e.target.checked }))
                     }
                   />
-                  Aktiv
+                  {t("adminPromotionDetail.fields.active")}
                 </label>
 
                 <label className="flex items-center gap-2 text-sm text-gray-700">
@@ -683,12 +731,14 @@ export default function PromotionDetailPage() {
                       }))
                     }
                   />
-                  Display erlaubt
+                  {t("adminPromotionDetail.fields.allowDisplay")}
                 </label>
               </div>
 
               <div>
-                <label className="block text-sm text-gray-700 mb-1">Startdatum *</label>
+                <label className="block text-sm text-gray-700 mb-1">
+                  {t("adminPromotionDetail.fields.startDate")} *
+                </label>
                 <Input
                   type="date"
                   value={form.start_date}
@@ -699,7 +749,9 @@ export default function PromotionDetailPage() {
               </div>
 
               <div>
-                <label className="block text-sm text-gray-700 mb-1">Enddatum *</label>
+                <label className="block text-sm text-gray-700 mb-1">
+                  {t("adminPromotionDetail.fields.endDate")} *
+                </label>
                 <Input
                   type="date"
                   value={form.end_date}
@@ -711,7 +763,7 @@ export default function PromotionDetailPage() {
 
               <div className="md:col-span-2 xl:col-span-2">
                 <label className="block text-sm text-gray-700 mb-1">
-                  Beschreibung
+                  {t("adminPromotionDetail.fields.description")}
                 </label>
                 <textarea
                   value={form.description}
@@ -721,7 +773,7 @@ export default function PromotionDetailPage() {
                       description: e.target.value,
                     }))
                   }
-                  placeholder="Beschreibung / Bedingungen"
+                  placeholder={t("adminPromotionDetail.placeholders.description")}
                   className="w-full min-h-[42px] border rounded-md px-3 py-2 text-sm bg-white"
                 />
               </div>
@@ -734,20 +786,24 @@ export default function PromotionDetailPage() {
             onAdd={addCampaignProduct}
             onRemove={removeCampaignProduct}
             onUpdate={updateCampaignProduct}
-            title="2. Produkte"
+            title={t("adminPromotionDetail.sections.products")}
           />
 
           <Card className="p-5 rounded-2xl border border-gray-200 bg-white">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-base font-semibold">3. Händler-Ziele (optional)</h3>
+              <h3 className="text-base font-semibold">
+                {t("adminPromotionDetail.sections.dealerTargets")}
+              </h3>
               <Button variant="outline" onClick={addDealerTarget}>
                 <Plus className="w-4 h-4 mr-2" />
-                Ziel hinzufügen
+                {t("adminPromotionDetail.actions.addTarget")}
               </Button>
             </div>
 
             {dealerTargets.length === 0 ? (
-              <p className="text-sm text-gray-500">Keine Händler-Ziele definiert.</p>
+              <p className="text-sm text-gray-500">
+                {t("adminPromotionDetail.empty.noDealerTargets")}
+              </p>
             ) : (
               <div className="space-y-3">
                 {dealerTargets.map((row, index) => (
@@ -757,7 +813,7 @@ export default function PromotionDetailPage() {
                   >
                     <div className="xl:col-span-2">
                       <label className="block text-sm text-gray-700 mb-1">
-                        Händler
+                        {t("adminPromotionDetail.fields.dealer")}
                       </label>
                       <select
                         value={row.dealer_id}
@@ -766,7 +822,9 @@ export default function PromotionDetailPage() {
                         }
                         className="w-full border rounded-md px-3 py-2 text-sm bg-white"
                       >
-                        <option value="">Bitte wählen...</option>
+                        <option value="">
+                          {t("adminPromotionDetail.select.pleaseChoose")}
+                        </option>
                         {dealers.map((d) => (
                           <option key={d.dealer_id} value={d.dealer_id}>
                             {d.name} {d.email ? `(${d.email})` : ""}
@@ -777,7 +835,7 @@ export default function PromotionDetailPage() {
 
                     <div>
                       <label className="block text-sm text-gray-700 mb-1">
-                        Zielwert
+                        {t("adminPromotionDetail.fields.targetValue")}
                       </label>
                       <Input
                         value={row.target_value}
@@ -790,7 +848,7 @@ export default function PromotionDetailPage() {
 
                     <div>
                       <label className="block text-sm text-gray-700 mb-1">
-                        Einheit
+                        {t("adminPromotionDetail.fields.unit")}
                       </label>
                       <select
                         value={row.target_unit}
@@ -803,21 +861,29 @@ export default function PromotionDetailPage() {
                         }
                         className="w-full border rounded-md px-3 py-2 text-sm bg-white"
                       >
-                        <option value="qty">qty</option>
-                        <option value="revenue">revenue</option>
-                        <option value="points">points</option>
+                        <option value="qty">{t("adminPromotions.units.qty")}</option>
+                        <option value="revenue">
+                          {t("adminPromotions.units.revenue")}
+                        </option>
+                        <option value="points">
+                          {t("adminPromotions.units.points")}
+                        </option>
                       </select>
                     </div>
 
                     <div>
                       <label className="block text-sm text-gray-700 mb-1">
-                        Current Value
+                        {t("adminPromotionDetail.fields.currentValue")}
                       </label>
                       <div className="flex gap-2">
                         <Input
                           value={row.current_value}
                           onChange={(e) =>
-                            updateDealerTarget(index, "current_value", e.target.value)
+                            updateDealerTarget(
+                              index,
+                              "current_value",
+                              e.target.value
+                            )
                           }
                           placeholder="0"
                         />
@@ -838,15 +904,19 @@ export default function PromotionDetailPage() {
 
           <Card className="p-5 rounded-2xl border border-gray-200 bg-white">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-base font-semibold">4. Bonus-Tiers (optional)</h3>
+              <h3 className="text-base font-semibold">
+                {t("adminPromotionDetail.sections.bonusTiers")}
+              </h3>
               <Button variant="outline" onClick={addBonusTier}>
                 <Plus className="w-4 h-4 mr-2" />
-                Bonus-Tier hinzufügen
+                {t("adminPromotionDetail.actions.addBonusTier")}
               </Button>
             </div>
 
             {bonusTiers.length === 0 ? (
-              <p className="text-sm text-gray-500">Keine Bonus-Tiers definiert.</p>
+              <p className="text-sm text-gray-500">
+                {t("adminPromotionDetail.empty.noBonusTiers")}
+              </p>
             ) : (
               <div className="space-y-3">
                 {bonusTiers.map((row, index) => (
@@ -856,7 +926,7 @@ export default function PromotionDetailPage() {
                   >
                     <div>
                       <label className="block text-sm text-gray-700 mb-1">
-                        Händler optional
+                        {t("adminPromotionDetail.fields.dealerOptional")}
                       </label>
                       <select
                         value={row.dealer_id}
@@ -865,7 +935,9 @@ export default function PromotionDetailPage() {
                         }
                         className="w-full border rounded-md px-3 py-2 text-sm bg-white"
                       >
-                        <option value="">Global</option>
+                        <option value="">
+                          {t("adminPromotionDetail.select.global")}
+                        </option>
                         {dealers.map((d) => (
                           <option key={d.dealer_id} value={d.dealer_id}>
                             {d.name}
@@ -876,7 +948,7 @@ export default function PromotionDetailPage() {
 
                     <div>
                       <label className="block text-sm text-gray-700 mb-1">
-                        Tier-Level
+                        {t("adminPromotionDetail.fields.tierLevel")}
                       </label>
                       <Input
                         value={row.tier_level}
@@ -889,12 +961,16 @@ export default function PromotionDetailPage() {
 
                     <div>
                       <label className="block text-sm text-gray-700 mb-1">
-                        Threshold
+                        {t("adminPromotionDetail.fields.threshold")}
                       </label>
                       <Input
                         value={row.threshold_value}
                         onChange={(e) =>
-                          updateBonusTier(index, "threshold_value", e.target.value)
+                          updateBonusTier(
+                            index,
+                            "threshold_value",
+                            e.target.value
+                          )
                         }
                         placeholder="10"
                       />
@@ -902,7 +978,7 @@ export default function PromotionDetailPage() {
 
                     <div>
                       <label className="block text-sm text-gray-700 mb-1">
-                        Bonus-Typ
+                        {t("adminPromotionDetail.fields.bonusType")}
                       </label>
                       <select
                         value={row.bonus_type}
@@ -915,16 +991,24 @@ export default function PromotionDetailPage() {
                         }
                         className="w-full border rounded-md px-3 py-2 text-sm bg-white"
                       >
-                        <option value="amount">amount</option>
-                        <option value="percent">percent</option>
-                        <option value="credit">credit</option>
-                        <option value="gift">gift</option>
+                        <option value="amount">
+                          {t("adminPromotions.bonusTypes.amount")}
+                        </option>
+                        <option value="percent">
+                          {t("adminPromotions.bonusTypes.percent")}
+                        </option>
+                        <option value="credit">
+                          {t("adminPromotions.bonusTypes.credit")}
+                        </option>
+                        <option value="gift">
+                          {t("adminPromotions.bonusTypes.gift")}
+                        </option>
                       </select>
                     </div>
 
                     <div>
                       <label className="block text-sm text-gray-700 mb-1">
-                        Bonus-Wert
+                        {t("adminPromotionDetail.fields.bonusValue")}
                       </label>
                       <Input
                         value={row.bonus_value}
@@ -936,7 +1020,9 @@ export default function PromotionDetailPage() {
                     </div>
 
                     <div>
-                      <label className="block text-sm text-gray-700 mb-1">Label</label>
+                      <label className="block text-sm text-gray-700 mb-1">
+                        {t("adminPromotionDetail.fields.label")}
+                      </label>
                       <div className="flex gap-2">
                         <Input
                           value={row.label}

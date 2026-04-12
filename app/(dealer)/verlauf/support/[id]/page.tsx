@@ -5,6 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import { getSupabaseBrowser } from "@/lib/supabaseClient";
 import { useActiveDealer } from "@/app/(dealer)/hooks/useActiveDealer";
 import { ArrowLeft, LifeBuoy, Paperclip } from "lucide-react";
+import { useI18n } from "@/lib/i18n/I18nProvider";
 
 /* ================= TYPES ================= */
 
@@ -46,27 +47,45 @@ const SUPPORT_BUCKET = "support-invoices";
 
 /* ================= HELPERS ================= */
 
+function getLocale(lang: string) {
+  switch (lang) {
+    case "de":
+      return "de-CH";
+    case "en":
+      return "en-CH";
+    case "fr":
+      return "fr-CH";
+    case "it":
+      return "it-CH";
+    case "rm":
+      return "rm-CH";
+    default:
+      return "de-CH";
+  }
+}
+
 function getDisplayStatus(
   status: string | null,
-  latestAction: string | null | undefined
+  latestAction: string | null | undefined,
+  t: (key: string) => string
 ) {
   if (status === "approved" && latestAction === "approved_with_counter_offer") {
-    return "Geändert und genehmigt";
+    return t("verlauf.support.status.changedApproved");
   }
 
   if (status === "approved") {
-    return "Genehmigt";
+    return t("verlauf.support.status.approved");
   }
 
   if (status === "rejected") {
-    return "Abgelehnt";
+    return t("verlauf.support.status.rejected");
   }
 
   if (status === "pending" || latestAction === "reset_to_pending") {
-    return "Offen";
+    return t("verlauf.support.status.pending");
   }
 
-  return status ?? "—";
+  return status ?? t("verlauf.support.emptyValue");
 }
 
 function getStatusClass(status: string | null) {
@@ -87,8 +106,9 @@ export default function SupportDetailPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
   const supabase = getSupabaseBrowser();
+  const { t, lang } = useI18n();
 
-  const { dealer, loading: dealerLoading } = useActiveDealer();
+  const { dealer, loading: dealerLoading, isImpersonated } = useActiveDealer();
 
   const [header, setHeader] = useState<SupportHeader | null>(null);
   const [items, setItems] = useState<SupportItem[]>([]);
@@ -98,6 +118,8 @@ export default function SupportDetailPage() {
 
   const [fileUrl, setFileUrl] = useState<string | null>(null);
   const [fileUrlLoading, setFileUrlLoading] = useState(false);
+
+  const locale = useMemo(() => getLocale(lang), [lang]);
 
   useEffect(() => {
     if (!id || dealerLoading || !dealer?.dealer_id) return;
@@ -197,28 +219,36 @@ export default function SupportDetailPage() {
   }, [items]);
 
   const latestAction = logs.length > 0 ? logs[logs.length - 1]?.action : null;
-  const displayStatus = getDisplayStatus(header?.status ?? null, latestAction);
+  const displayStatus = getDisplayStatus(header?.status ?? null, latestAction, t);
   const statusClass = getStatusClass(header?.status ?? null);
 
   if (dealerLoading || loading) {
-    return <p className="text-gray-500">⏳ Support-Details werden geladen…</p>;
-  }
-
-  if (!header) {
     return (
-      <p className="text-red-600">
-        Support-Fall nicht gefunden oder kein Zugriff.
-      </p>
+      <p className="text-gray-500">⏳ {t("verlauf.support.loading")}</p>
     );
   }
 
+  if (!header) {
+    return <p className="text-red-600">{t("verlauf.support.notFound")}</p>;
+  }
+
+  const backUrl = isImpersonated
+    ? `/verlauf?dealer_id=${dealer?.dealer_id}`
+    : "/verlauf";
+
+  const positionsLabel =
+    items.length === 1
+      ? t("verlauf.support.positionSingle")
+      : t("verlauf.support.positionPlural");
+
   return (
     <div className="space-y-6">
-      {/* ===== HEADER ===== */}
       <div className="flex items-center gap-3">
         <button
-          onClick={() => router.push(`/verlauf?dealer_id=${dealer?.dealer_id}`)}
+          onClick={() => router.push(backUrl)}
           className="p-2 rounded hover:bg-gray-100"
+          aria-label={t("verlauf.support.back")}
+          title={t("verlauf.support.back")}
         >
           <ArrowLeft className="w-4 h-4" />
         </button>
@@ -227,16 +257,17 @@ export default function SupportDetailPage() {
 
         <div className="flex-1">
           <h1 className="text-lg font-semibold">
-            Support S-{header.submission_id}
+            {t("verlauf.support.title", {
+              id: String(header.submission_id),
+            })}
           </h1>
           <p className="text-sm text-gray-500">
-            {items.length} Position
-            {items.length !== 1 ? "en" : ""} ·{" "}
-            {totalAmount.toLocaleString("de-CH", {
+            {items.length} {positionsLabel} ·{" "}
+            {totalAmount.toLocaleString(locale, {
               style: "currency",
               currency: "CHF",
             })}{" "}
-            · {new Date(header.created_at).toLocaleString("de-CH")}
+            · {new Date(header.created_at).toLocaleString(locale)}
           </p>
 
           <div className="mt-2">
@@ -251,7 +282,9 @@ export default function SupportDetailPage() {
         {header.project_file_path && (
           <div>
             {fileUrlLoading ? (
-              <span className="text-sm text-gray-500">Beleg wird geladen…</span>
+              <span className="text-sm text-gray-500">
+                {t("verlauf.support.receiptLoading")}
+              </span>
             ) : fileUrl ? (
               <a
                 href={fileUrl}
@@ -260,31 +293,31 @@ export default function SupportDetailPage() {
                 className="flex items-center gap-1 text-sm text-blue-600 hover:underline"
               >
                 <Paperclip className="w-4 h-4" />
-                Beleg
+                {t("verlauf.support.receipt")}
               </a>
             ) : (
-              <span className="text-sm text-gray-400">Kein Link</span>
+              <span className="text-sm text-gray-400">
+                {t("verlauf.support.noLink")}
+              </span>
             )}
           </div>
         )}
       </div>
 
-      {/* ===== KOMMENTAR ===== */}
       {header.kommentar && (
         <div className="rounded-md border bg-gray-50 p-3 text-sm">
           💬 {header.kommentar}
         </div>
       )}
 
-      {/* ===== NON-SELLOUT META ===== */}
       {meta && (
         <div className="rounded-md border bg-teal-50 p-3 text-sm">
-          <strong>Support-Typ:</strong> {meta.support_typ}
+          <strong>{t("verlauf.support.meta.type")}:</strong> {meta.support_typ}
           {meta.betrag != null && (
             <>
               <br />
-              <strong>Betrag:</strong>{" "}
-              {meta.betrag.toLocaleString("de-CH", {
+              <strong>{t("verlauf.support.meta.amount")}:</strong>{" "}
+              {meta.betrag.toLocaleString(locale, {
                 style: "currency",
                 currency: "CHF",
               })}
@@ -293,27 +326,38 @@ export default function SupportDetailPage() {
         </div>
       )}
 
-      {/* ===== ITEMS ===== */}
       {items.length > 0 && (
         <div className="overflow-x-auto border rounded-lg">
           <table className="w-full text-sm">
             <thead className="bg-gray-50 border-b">
               <tr>
-                <th className="px-3 py-2 text-left">Produkt</th>
-                <th className="px-3 py-2 text-left">EAN</th>
-                <th className="px-3 py-2 text-right">Menge</th>
-                <th className="px-3 py-2 text-right">Betrag</th>
+                <th className="px-3 py-2 text-left">
+                  {t("verlauf.support.table.product")}
+                </th>
+                <th className="px-3 py-2 text-left">
+                  {t("verlauf.support.table.ean")}
+                </th>
+                <th className="px-3 py-2 text-right">
+                  {t("verlauf.support.table.quantity")}
+                </th>
+                <th className="px-3 py-2 text-right">
+                  {t("verlauf.support.table.amount")}
+                </th>
               </tr>
             </thead>
             <tbody>
               {items.map((i) => (
                 <tr key={i.item_id} className="border-b last:border-b-0">
-                  <td className="px-3 py-2">{i.product_name ?? "—"}</td>
-                  <td className="px-3 py-2 font-mono">{i.ean ?? "—"}</td>
+                  <td className="px-3 py-2">
+                    {i.product_name ?? t("verlauf.support.emptyValue")}
+                  </td>
+                  <td className="px-3 py-2 font-mono">
+                    {i.ean ?? t("verlauf.support.emptyValue")}
+                  </td>
                   <td className="px-3 py-2 text-right">{i.menge ?? 0}</td>
                   <td className="px-3 py-2 text-right">
                     {(Number(i.preis ?? 0) * Number(i.menge ?? 0)).toLocaleString(
-                      "de-CH",
+                      locale,
                       { style: "currency", currency: "CHF" }
                     )}
                   </td>
@@ -324,34 +368,33 @@ export default function SupportDetailPage() {
         </div>
       )}
 
-      {/* ===== LOGS ===== */}
       {logs.length > 0 && (
         <div className="rounded-md border bg-white p-3 text-sm space-y-2">
-          <p className="font-semibold">Verlauf</p>
+          <p className="font-semibold">{t("verlauf.support.history")}</p>
 
-      {logs.map((log, index) => {
-        let label = log.action ?? "-";
+          {logs.map((log, index) => {
+            let label = log.action ?? t("verlauf.support.emptyValue");
 
-        if (log.action === "approved_with_counter_offer") {
-          label = "Geändert und genehmigt";
-        } else if (log.action === "approved") {
-          label = "Genehmigt";
-        } else if (log.action === "rejected") {
-          label = "Abgelehnt";
-        } else if (log.action === "reset_to_pending") {
-          label = "Offen";
-        }
+            if (log.action === "approved_with_counter_offer") {
+              label = t("verlauf.support.status.changedApproved");
+            } else if (log.action === "approved") {
+              label = t("verlauf.support.status.approved");
+            } else if (log.action === "rejected") {
+              label = t("verlauf.support.status.rejected");
+            } else if (log.action === "reset_to_pending") {
+              label = t("verlauf.support.status.pending");
+            }
 
-        const safeKey =
-          log.id ??
-          `${log.action ?? "log"}-${log.created_at ?? "no-date"}-${index}`;
+            const safeKey =
+              log.id ??
+              `${log.action ?? "log"}-${log.created_at ?? "no-date"}-${index}`;
 
-        return (
-          <p key={safeKey} className="text-gray-700">
-            {new Date(log.created_at).toLocaleString("de-CH")} – {label}
-          </p>
-        );
-      })}
+            return (
+              <p key={safeKey} className="text-gray-700">
+                {new Date(log.created_at).toLocaleString(locale)} – {label}
+              </p>
+            );
+          })}
         </div>
       )}
     </div>

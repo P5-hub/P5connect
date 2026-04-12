@@ -1,0 +1,72 @@
+export const adminOrderDetailView = {
+  empty: {
+    noProducts: "Nessun prodotto trovato.",
+  },
+  header: {
+    title: "Ordine #{id} – {dealer}",
+  },
+  footer: {
+    totalAmount: "Importo totale:",
+  },
+  dialog: {
+    mailPreview: "Anteprima e-mail",
+  },
+  actions: {
+    edit: "Modifica",
+    done: "Fine",
+    cancel: "Annulla",
+  },
+  sections: {
+    campaignLogic: "Prezzi campagna / logica",
+    rrpSalesPrices: "Prezzo consigliato / prezzi di vendita",
+    oldDealerPrices: "Prezzi rivenditore (vecchi)",
+    streetPriceNewDealerPrice: "Prezzo strada / prezzo rivenditore (nuovo)",
+    lowestMarketProvider: "Fornitore più conveniente (mercato)",
+  },
+  fields: {
+    ean: "EAN",
+    mode: "Modalità",
+    quantity: "Quantità",
+    pricingMode: "Modalità di prezzo",
+    orderMode: "Modalità ordine",
+    messePriceNet: "Prezzo fiera netto",
+    displayPriceNet: "Prezzo display netto",
+    rrpGross: "Prezzo consigliato lordo",
+    rrpNet: "Prezzo consigliato netto",
+    vatShort: "−{amount} IVA",
+    vrgShort: "−{amount} TRA",
+    oldEk: "Vecchio prezzo acquisto",
+    oldDistiEkPoi: "Vecchio prezzo distributore (POI vecchio)",
+    streetPriceGross: "Prezzo strada lordo",
+    streetPriceNet: "Prezzo strada netto",
+    investChf: "Investimento (CHF)",
+    marginOnStreet: "Margine sul mercato (%)",
+    newDealerPrice: "Prezzo rivenditore / nuovo PA (CHF)",
+    marginToRrpNet: "Margine sul prezzo consigliato netto",
+    providerSource: "Fornitore / fonte",
+    customProviderPlaceholder: "Nome del rivenditore (obbligatorio)",
+    distributor: "Distributore",
+    distributorPlaceholder: "– selezionare –",
+  },
+  badges: {
+    tradeFairOrder: "Ordine fiera",
+    standardOrder: "Ordine standard",
+    messePrice: "Prezzo fiera",
+    display: "Display",
+    messeDisplay: "Fiera + display",
+    standard: "Standard",
+    notBonusRelevant: "Non rilevante per bonus",
+  },
+  values: {
+    tradeFair: "Fiera",
+    standard: "Standard",
+    campaignNumber: "Campagna #{id}",
+  },
+  marketSources: {
+    placeholder: "Seleziona",
+    other: "Altro",
+  },
+  fallbacks: {
+    product: "Prodotto",
+  },
+} as const;

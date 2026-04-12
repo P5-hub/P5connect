@@ -7,6 +7,7 @@ import { Loader2, CheckCircle, XCircle, Clock, Search } from "lucide-react";
 import Link from "next/link";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { useI18n } from "@/lib/i18n/I18nProvider";
 
 interface UnifiedDashboardListProps {
   type: string;
@@ -16,7 +17,9 @@ function hasDocument(projectFilePath?: string | null): boolean {
   return !!projectFilePath;
 }
 
-function parseSupportKind(support_typ?: string | null): "sellout" | "marketing" | "event" | "other" | "unknown" {
+function parseSupportKind(
+  support_typ?: string | null
+): "sellout" | "marketing" | "event" | "other" | "unknown" {
   const s = String(support_typ ?? "").toLowerCase();
   if (!s) return "unknown";
   if (s.includes("sellout") || s.includes("sell-out")) return "sellout";
@@ -26,35 +29,248 @@ function parseSupportKind(support_typ?: string | null): "sellout" | "marketing" 
   return "unknown";
 }
 
-function supportKindLabel(kind: ReturnType<typeof parseSupportKind>) {
-  switch (kind) {
-    case "sellout": return "Sell-Out";
-    case "marketing": return "Marketing";
-    case "event": return "Event";
-    case "other": return "Sonstiges";
-    default: return "Unbekannt";
-  }
-}
-
-export default function UnifiedDashboardList({ type }: UnifiedDashboardListProps) {
+export default function UnifiedDashboardList({
+  type,
+}: UnifiedDashboardListProps) {
   const supabase = createClient();
+  const { lang } = useI18n();
+
   const [data, setData] = useState<any[]>([]);
   const [filtered, setFiltered] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
-  const [statusFilter, setStatusFilter] = useState<"pending" | "approved" | "rejected" | "all">(
-    "pending"
-  );
+  const [statusFilter, setStatusFilter] = useState<
+    "pending" | "approved" | "rejected" | "all"
+  >("pending");
 
-  // ✅ nur für Support
-  const [supportTypeFilter, setSupportTypeFilter] = useState<"all" | "sellout" | "marketing" | "event" | "other" | "unknown">("all");
+  const [supportTypeFilter, setSupportTypeFilter] = useState<
+    "all" | "sellout" | "marketing" | "event" | "other" | "unknown"
+  >("all");
 
   const pathMap: Record<string, string> = {
     projekt: "projekte",
-    bestellung: "orders",
+    bestellung: "bestellungen",
     support: "support",
     aktion: "aktionen",
     sofortrabatt: "sofortrabatt",
+  };
+
+  const text = useMemo(() => {
+    const isDe = lang === "de";
+    const isEn = lang === "en";
+    const isFr = lang === "fr";
+    const isIt = lang === "it";
+    const isRm = lang === "rm";
+
+    return {
+      searchPlaceholder: isDe
+        ? "Suche nach Händler, E-Mail oder ID…"
+        : isEn
+        ? "Search by dealer, email or ID…"
+        : isFr
+        ? "Rechercher par revendeur, e-mail ou ID…"
+        : isIt
+        ? "Cerca per rivenditore, e-mail o ID…"
+        : isRm
+        ? "Tschertgar tenor commerziant, e-mail u ID…"
+        : "Search by dealer, email or ID…",
+
+      pending: isDe
+        ? "Offen"
+        : isEn
+        ? "Open"
+        : isFr
+        ? "Ouvert"
+        : isIt
+        ? "Aperto"
+        : isRm
+        ? "Avert"
+        : "Open",
+
+      approved: isDe
+        ? "Bestätigt"
+        : isEn
+        ? "Approved"
+        : isFr
+        ? "Approuvé"
+        : isIt
+        ? "Approvato"
+        : isRm
+        ? "Approvà"
+        : "Approved",
+
+      rejected: isDe
+        ? "Abgelehnt"
+        : isEn
+        ? "Rejected"
+        : isFr
+        ? "Refusé"
+        : isIt
+        ? "Rifiutato"
+        : isRm
+        ? "Refusà"
+        : "Rejected",
+
+      all: isDe
+        ? "Alle"
+        : isEn
+        ? "All"
+        : isFr
+        ? "Toutes"
+        : isIt
+        ? "Tutti"
+        : isRm
+        ? "Tut"
+        : "All",
+
+      reload: isDe
+        ? "Neu laden"
+        : isEn
+        ? "Reload"
+        : isFr
+        ? "Recharger"
+        : isIt
+        ? "Ricarica"
+        : isRm
+        ? "Chargiar da nov"
+        : "Reload",
+
+      loadingEntries: isDe
+        ? `Lade ${type}-Einträge…`
+        : isEn
+        ? `Loading ${type} entries…`
+        : isFr
+        ? `Chargement des entrées ${type}…`
+        : isIt
+        ? `Caricamento voci ${type}…`
+        : isRm
+        ? `Chargiar entradas ${type}…`
+        : `Loading ${type} entries…`,
+
+      noResults: isDe
+        ? "Keine passenden Einträge gefunden."
+        : isEn
+        ? "No matching entries found."
+        : isFr
+        ? "Aucune entrée correspondante trouvée."
+        : isIt
+        ? "Nessuna voce corrispondente trovata."
+        : isRm
+        ? "Naginas entradas adattadas chattadas."
+        : "No matching entries found.",
+
+      unknown: isDe
+        ? "Unbekannt"
+        : isEn
+        ? "Unknown"
+        : isFr
+        ? "Inconnu"
+        : isIt
+        ? "Sconosciuto"
+        : isRm
+        ? "Nunenconuschent"
+        : "Unknown",
+
+      statusPrefix: isDe
+        ? "Status"
+        : isEn
+        ? "Status"
+        : isFr
+        ? "Statut"
+        : isIt
+        ? "Stato"
+        : isRm
+        ? "Status"
+        : "Status",
+
+      receiptAvailable: isDe
+        ? "📎 Beleg"
+        : isEn
+        ? "📎 Receipt"
+        : isFr
+        ? "📎 Justificatif"
+        : isIt
+        ? "📎 Documento"
+        : isRm
+        ? "📎 Mussament"
+        : "📎 Receipt",
+
+      supportTypesAll: isDe
+        ? "Alle Support-Arten"
+        : isEn
+        ? "All support types"
+        : isFr
+        ? "Tous les types de support"
+        : isIt
+        ? "Tutti i tipi di supporto"
+        : isRm
+        ? "Tut ils tips da support"
+        : "All support types",
+
+      supportSellout: "Sell-Out",
+      supportMarketing: isDe
+        ? "Marketing"
+        : isEn
+        ? "Marketing"
+        : isFr
+        ? "Marketing"
+        : isIt
+        ? "Marketing"
+        : isRm
+        ? "Marketing"
+        : "Marketing",
+
+      supportEvent: isDe
+        ? "Event"
+        : isEn
+        ? "Event"
+        : isFr
+        ? "Événement"
+        : isIt
+        ? "Evento"
+        : isRm
+        ? "Event"
+        : "Event",
+
+      supportOther: isDe
+        ? "Sonstiges"
+        : isEn
+        ? "Other"
+        : isFr
+        ? "Autre"
+        : isIt
+        ? "Altro"
+        : isRm
+        ? "Auter"
+        : "Other",
+
+      supportUnknown: isDe
+        ? "Unbekannt"
+        : isEn
+        ? "Unknown"
+        : isFr
+        ? "Inconnu"
+        : isIt
+        ? "Sconosciuto"
+        : isRm
+        ? "Nunenconuschent"
+        : "Unknown",
+    };
+  }, [lang, type]);
+
+  const supportKindLabel = (kind: ReturnType<typeof parseSupportKind>) => {
+    switch (kind) {
+      case "sellout":
+        return text.supportSellout;
+      case "marketing":
+        return text.supportMarketing;
+      case "event":
+        return text.supportEvent;
+      case "other":
+        return text.supportOther;
+      default:
+        return text.supportUnknown;
+    }
   };
 
   useEffect(() => {
@@ -72,7 +288,7 @@ export default function UnifiedDashboardList({ type }: UnifiedDashboardListProps
 
           if (error) throw error;
 
-          result = data.map((r) => ({
+          result = (data ?? []).map((r) => ({
             submission_id: r.id,
             title: r.title,
             status: r.active ? "approved" : "rejected",
@@ -93,7 +309,7 @@ export default function UnifiedDashboardList({ type }: UnifiedDashboardListProps
 
           if (error) throw error;
 
-          result = data.map((r) => ({
+          result = (data ?? []).map((r) => ({
             submission_id: r.claim_id,
             status: r.status,
             datum: r.created_at,
@@ -121,7 +337,6 @@ export default function UnifiedDashboardList({ type }: UnifiedDashboardListProps
 
           result = data || [];
 
-          // ✅ Support: support_details nachladen und mergen
           if (type === "support" && result.length > 0) {
             const ids = result.map((r) => r.submission_id).filter(Boolean);
 
@@ -149,7 +364,6 @@ export default function UnifiedDashboardList({ type }: UnifiedDashboardListProps
               });
             }
 
-            // falls nichts gefunden -> fallback kind
             result = result.map((r) => ({
               ...r,
               support_kind: r.support_kind ?? "unknown",
@@ -173,9 +387,10 @@ export default function UnifiedDashboardList({ type }: UnifiedDashboardListProps
       result = result.filter((r) => (r.status || "pending") === statusFilter);
     }
 
-    // ✅ Support-Art Filter
     if (type === "support" && supportTypeFilter !== "all") {
-      result = result.filter((r) => (r.support_kind ?? "unknown") === supportTypeFilter);
+      result = result.filter(
+        (r) => (r.support_kind ?? "unknown") === supportTypeFilter
+      );
     }
 
     if (search.trim()) {
@@ -196,11 +411,23 @@ export default function UnifiedDashboardList({ type }: UnifiedDashboardListProps
   function getStatusInfo(status: string) {
     switch (status) {
       case "approved":
-        return { color: "text-green-600", icon: <CheckCircle className="w-4 h-4" />, label: "Bestätigt" };
+        return {
+          color: "text-green-600",
+          icon: <CheckCircle className="w-4 h-4" />,
+          label: text.approved,
+        };
       case "rejected":
-        return { color: "text-red-600", icon: <XCircle className="w-4 h-4" />, label: "Abgelehnt" };
+        return {
+          color: "text-red-600",
+          icon: <XCircle className="w-4 h-4" />,
+          label: text.rejected,
+        };
       default:
-        return { color: "text-yellow-600", icon: <Clock className="w-4 h-4" />, label: "Offen" };
+        return {
+          color: "text-yellow-600",
+          icon: <Clock className="w-4 h-4" />,
+          label: text.pending,
+        };
     }
   }
 
@@ -220,15 +447,15 @@ export default function UnifiedDashboardList({ type }: UnifiedDashboardListProps
 
     return (
       <div className="flex gap-2 flex-wrap">
-        {btn("all", "Alle Support-Arten")}
-        {btn("sellout", "Sell-Out")}
-        {btn("marketing", "Marketing")}
-        {btn("event", "Event")}
-        {btn("other", "Sonstiges")}
-        {btn("unknown", "Unbekannt")}
+        {btn("all", text.supportTypesAll)}
+        {btn("sellout", text.supportSellout)}
+        {btn("marketing", text.supportMarketing)}
+        {btn("event", text.supportEvent)}
+        {btn("other", text.supportOther)}
+        {btn("unknown", text.supportUnknown)}
       </div>
     );
-  }, [type, supportTypeFilter]);
+  }, [type, supportTypeFilter, text]);
 
   return (
     <div className="space-y-4">
@@ -236,7 +463,7 @@ export default function UnifiedDashboardList({ type }: UnifiedDashboardListProps
         <div className="relative">
           <Search className="w-4 h-4 absolute left-2 top-2.5 text-gray-400" />
           <Input
-            placeholder="Suche nach Händler, E-Mail oder ID…"
+            placeholder={text.searchPlaceholder}
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="pl-8 w-64 text-sm"
@@ -244,17 +471,33 @@ export default function UnifiedDashboardList({ type }: UnifiedDashboardListProps
         </div>
 
         <div className="flex gap-2 flex-wrap">
-          <Button size="sm" variant={statusFilter === "pending" ? "default" : "outline"} onClick={() => setStatusFilter("pending")}>
-            Offen
+          <Button
+            size="sm"
+            variant={statusFilter === "pending" ? "default" : "outline"}
+            onClick={() => setStatusFilter("pending")}
+          >
+            {text.pending}
           </Button>
-          <Button size="sm" variant={statusFilter === "approved" ? "default" : "outline"} onClick={() => setStatusFilter("approved")}>
-            Bestätigt
+          <Button
+            size="sm"
+            variant={statusFilter === "approved" ? "default" : "outline"}
+            onClick={() => setStatusFilter("approved")}
+          >
+            {text.approved}
           </Button>
-          <Button size="sm" variant={statusFilter === "rejected" ? "default" : "outline"} onClick={() => setStatusFilter("rejected")}>
-            Abgelehnt
+          <Button
+            size="sm"
+            variant={statusFilter === "rejected" ? "default" : "outline"}
+            onClick={() => setStatusFilter("rejected")}
+          >
+            {text.rejected}
           </Button>
-          <Button size="sm" variant={statusFilter === "all" ? "default" : "outline"} onClick={() => setStatusFilter("all")}>
-            Alle
+          <Button
+            size="sm"
+            variant={statusFilter === "all" ? "default" : "outline"}
+            onClick={() => setStatusFilter("all")}
+          >
+            {text.all}
           </Button>
         </div>
 
@@ -269,34 +512,38 @@ export default function UnifiedDashboardList({ type }: UnifiedDashboardListProps
             setSupportTypeFilter("all");
           }}
         >
-          Neu laden
+          {text.reload}
         </Button>
       </div>
 
       {loading ? (
         <p className="flex items-center gap-2 text-sm text-gray-500">
-          <Loader2 className="w-4 h-4 animate-spin" /> Lade {type}-Einträge…
+          <Loader2 className="w-4 h-4 animate-spin" /> {text.loadingEntries}
         </p>
       ) : filtered.length === 0 ? (
-        <p className="text-sm text-gray-500">Keine passenden Einträge gefunden.</p>
+        <p className="text-sm text-gray-500">{text.noResults}</p>
       ) : (
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
           {filtered.map((r) => {
             const { color, icon, label } = getStatusInfo(r.status);
 
-            const kind = type === "support" ? (r.support_kind ?? "unknown") : null;
+            const kind =
+              type === "support" ? (r.support_kind ?? "unknown") : null;
             const kindLabel = kind ? supportKindLabel(kind) : null;
 
             return (
-              <Link key={r.submission_id} href={`/admin/${pathMap[type]}/${r.submission_id}`}>
+              <Link
+                key={r.submission_id}
+                href={`/admin/${pathMap[type]}/${r.submission_id}`}
+              >
                 <Card className="p-4 border hover:shadow-md transition cursor-pointer">
                   <div className="flex justify-between items-center gap-2">
                     <div className="min-w-0">
                       <h3 className="font-semibold text-gray-800 truncate">
-                        #{r.submission_id} – {r.dealers?.name ?? r.title ?? "Unbekannt"}
+                        #{r.submission_id} –{" "}
+                        {r.dealers?.name ?? r.title ?? text.unknown}
                       </h3>
 
-                      {/* ✅ Support Typ Badge */}
                       {type === "support" && (
                         <div className="mt-1 flex items-center gap-2 flex-wrap">
                           <span className="text-[11px] px-2 py-1 rounded-full border bg-gray-50 text-gray-700">
@@ -304,24 +551,28 @@ export default function UnifiedDashboardList({ type }: UnifiedDashboardListProps
                           </span>
 
                           {hasDocument(r.project_file_path) && (
-                            <span title="Beleg vorhanden" className="text-[11px] px-2 py-1 rounded-full border bg-white">
-                              📎 Beleg
+                            <span
+                              title={text.receiptAvailable}
+                              className="text-[11px] px-2 py-1 rounded-full border bg-white"
+                            >
+                              {text.receiptAvailable}
                             </span>
                           )}
                         </div>
                       )}
                     </div>
 
-                    <div className="flex items-center gap-2">
-                      {type !== "support" && icon}
-                      {type === "support" && icon}
-                    </div>
+                    <div className="flex items-center gap-2">{icon}</div>
                   </div>
 
                   <p className="text-sm text-gray-500">
-                    {r.datum ? new Date(r.datum).toLocaleDateString("de-CH") : "-"}
+                    {r.datum
+                      ? new Date(r.datum).toLocaleDateString("de-CH")
+                      : "-"}
                   </p>
-                  <p className={`text-xs mt-1 ${color}`}>Status: {label}</p>
+                  <p className={`text-xs mt-1 ${color}`}>
+                    {text.statusPrefix}: {label}
+                  </p>
                 </Card>
               </Link>
             );

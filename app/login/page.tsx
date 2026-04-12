@@ -67,7 +67,6 @@ export default function LoginPage() {
     setErrorMsg(null);
 
     try {
-      // 1) Händler über login_nr nachschlagen
       const lookupRes = await fetch("/api/auth/lookup-dealer", {
         method: "POST",
         headers: { "content-type": "application/json" },
@@ -84,32 +83,26 @@ export default function LoginPage() {
       if (!lookupRes.ok) {
         throw new Error(
           lookupJson?.error === "Invalid credentials"
-            ? t("login.error.unknownLogin")
-            : lookupJson?.error || t("login.error.failed")
+            ? t("auth.login.error.unknownLogin")
+            : lookupJson?.error || t("auth.login.error.failed")
         );
       }
 
       const dealer = lookupJson?.dealer;
 
       if (!dealer?.email) {
-        throw new Error(
-          t("login.error.noEmail") || "Für diesen Benutzer ist keine E-Mail hinterlegt."
-        );
+        throw new Error(t("auth.login.error.noEmail"));
       }
 
-      // 2) Echter Supabase-Login
       const { data, error } = await supabase.auth.signInWithPassword({
         email: dealer.email,
         password,
       });
 
       if (error || !data.user) {
-        throw new Error(
-          t("login.error.invalidCredentials") || "Ungültige Login-Daten."
-        );
+        throw new Error(t("auth.login.error.invalidCredentials"));
       }
 
-      // 3) Optional nur für UI-Komfort; Login darf daran nie scheitern
       const { error: updateUserError } = await supabase.auth.updateUser({
         data: {
           dealer_id: dealer.dealer_id,
@@ -126,7 +119,6 @@ export default function LoginPage() {
         );
       }
 
-      // 4) Redirect direkt anhand dealer.role
       if (dealer.role === "admin") {
         router.replace("/admin");
       } else {
@@ -136,9 +128,7 @@ export default function LoginPage() {
       router.refresh();
     } catch (err: unknown) {
       const msg =
-        err instanceof Error
-          ? err.message
-          : t("login.error.failed") || "Login fehlgeschlagen.";
+        err instanceof Error ? err.message : t("auth.login.error.failed");
       console.error("❌ Login-Fehler:", msg);
       setErrorMsg(msg);
     } finally {
@@ -215,14 +205,18 @@ export default function LoginPage() {
         <div className="flex flex-col items-center justify-center gap-2 mb-6 text-gray-600 dark:text-gray-300 text-center">
           <div className="flex items-center gap-2">
             <Handshake className="w-5 h-5" />
-            <span className="text-sm font-semibold">{t("login.portalTitle")}</span>
+            <span className="text-sm font-semibold">
+              {t("auth.login.portalTitle")}
+            </span>
           </div>
 
-          <p className="text-xs max-w-xs leading-relaxed">{t("login.portalDesc")}</p>
+          <p className="text-xs max-w-xs leading-relaxed">
+            {t("auth.login.portalDesc")}
+          </p>
         </div>
 
         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-          {t("login.loginNr")}
+          {t("auth.login.loginNr")}
         </label>
         <input
           type="text"
@@ -235,12 +229,12 @@ export default function LoginPage() {
             text-gray-900 dark:text-gray-100
             focus:border-indigo-600 focus:ring-indigo-600
           "
-          placeholder={t("login.loginNrPlaceholder")}
+          placeholder={t("auth.login.loginNrPlaceholder")}
           required
         />
 
         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-          {t("login.password")}
+          {t("auth.login.password")}
         </label>
         <input
           type="password"
@@ -253,7 +247,7 @@ export default function LoginPage() {
             text-gray-900 dark:text-gray-100
             focus:border-indigo-600 focus:ring-indigo-600
           "
-          placeholder={t("login.passwordPlaceholder")}
+          placeholder={t("auth.login.passwordPlaceholder")}
           required
         />
 
@@ -283,23 +277,23 @@ export default function LoginPage() {
             {loading && (
               <span className="inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
             )}
-            {t("login.login")}
+            {t("auth.login.submit")}
           </span>
         </button>
 
         <p className="mt-3 text-[11px] text-center text-gray-500 dark:text-gray-400">
-          🔒 {t("login.securityNote")}
+          🔒 {t("auth.login.securityNote")}
         </p>
 
         <div className="mt-6 border-t border-gray-200 dark:border-gray-700 pt-4 text-center text-[11px] text-gray-500 dark:text-gray-400 space-y-1">
-          <p>{t("login.footerLine1", { year: new Date().getFullYear() })}</p>
-          <p>{t("login.footerLine2")}</p>
+          <p>{t("auth.login.footerLine1", { year: new Date().getFullYear() })}</p>
+          <p>{t("auth.login.footerLine2")}</p>
 
           <Link
             href="/impressum"
             className="hover:underline text-indigo-600 dark:text-indigo-400"
           >
-            {t("login.legalImprint")}
+            {t("auth.login.legalImprint")}
           </Link>
 
           <span>•</span>
@@ -308,7 +302,7 @@ export default function LoginPage() {
             href="/datenschutz"
             className="hover:underline text-indigo-600 dark:text-indigo-400"
           >
-            {t("login.legalPrivacy")}
+            {t("auth.login.legalPrivacy")}
           </Link>
         </div>
       </form>
@@ -319,7 +313,7 @@ export default function LoginPage() {
           onClick={() => router.push("/reset-password")}
           className="block mx-auto text-[11px] text-indigo-500 hover:text-indigo-700 hover:underline cursor-pointer text-center"
         >
-          {t("passwordForgot")}
+          {t("auth.login.forgotPassword")}
         </button>
       </div>
     </div>

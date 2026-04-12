@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/utils/supabase/client";
+import { useI18n } from "@/lib/i18n/I18nProvider";
 
 type UpdateUserResponse = {
   success?: boolean;
@@ -27,6 +28,7 @@ type CreateUserResponse = {
 export default function UserManagementPage() {
   const router = useRouter();
   const supabase = createClient();
+  const { t } = useI18n();
 
   const [oldLogin, setOldLogin] = useState("");
   const [newLogin, setNewLogin] = useState("");
@@ -40,12 +42,14 @@ export default function UserManagementPage() {
 
   const [loadingUpdate, setLoadingUpdate] = useState(false);
   const [loadingCreate, setLoadingCreate] = useState(false);
-  const [redirectingAfterOwnChange, setRedirectingAfterOwnChange] = useState(false);
+  const [redirectingAfterOwnChange, setRedirectingAfterOwnChange] =
+    useState(false);
 
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
 
-  const uiLocked = loadingUpdate || loadingCreate || redirectingAfterOwnChange;
+  const uiLocked =
+    loadingUpdate || loadingCreate || redirectingAfterOwnChange;
 
   const handleUpdate = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -72,7 +76,7 @@ export default function UserManagementPage() {
       }
 
       if (!res.ok) {
-        throw new Error(data?.error || "Fehler beim Aktualisieren.");
+        throw new Error(data?.error || t("admin.users.updateError"));
       }
 
       const changedOwnAccount = Boolean(data?.changedOwnAccount);
@@ -83,9 +87,7 @@ export default function UserManagementPage() {
 
       if (changedOwnAccount) {
         setRedirectingAfterOwnChange(true);
-        setMessage(
-          "Dein eigener Zugang wurde geändert. Du wirst jetzt abgemeldet..."
-        );
+        setMessage(t("admin.users.ownAccessChanged"));
 
         const { error: signOutError } = await supabase.auth.signOut();
 
@@ -101,18 +103,25 @@ export default function UserManagementPage() {
         return;
       }
 
-      if (data?.passwordChanged && data?.updatedLoginNr && data.oldLogin !== data.updatedLoginNr) {
-        setMessage("Login und Passwort wurden erfolgreich aktualisiert.");
+      if (
+        data?.passwordChanged &&
+        data?.updatedLoginNr &&
+        data.oldLogin !== data.updatedLoginNr
+      ) {
+        setMessage(t("admin.users.loginAndPasswordChangedSuccess"));
       } else if (data?.passwordChanged) {
-        setMessage("Passwort wurde erfolgreich aktualisiert.");
-      } else if (data?.updatedLoginNr && data.oldLogin !== data.updatedLoginNr) {
-        setMessage("Login wurde erfolgreich aktualisiert.");
+        setMessage(t("admin.users.passwordChangedSuccess"));
+      } else if (
+        data?.updatedLoginNr &&
+        data.oldLogin !== data.updatedLoginNr
+      ) {
+        setMessage(t("admin.users.loginChangedSuccess"));
       } else {
-        setMessage("Benutzer erfolgreich aktualisiert.");
+        setMessage(t("admin.users.userUpdatedSuccess"));
       }
     } catch (err: unknown) {
       const msg =
-        err instanceof Error ? err.message : "Fehler beim Aktualisieren.";
+        err instanceof Error ? err.message : t("admin.users.updateError");
       console.error("❌ Fehler beim Aktualisieren:", msg);
       setError(msg);
     } finally {
@@ -147,10 +156,10 @@ export default function UserManagementPage() {
       }
 
       if (!res.ok) {
-        throw new Error(data?.error || "Fehler beim Erstellen.");
+        throw new Error(data?.error || t("admin.users.createError"));
       }
 
-      setMessage("Benutzer erfolgreich erstellt.");
+      setMessage(t("admin.users.userCreatedSuccess"));
 
       setCLoginNr("");
       setCEmail("");
@@ -159,7 +168,7 @@ export default function UserManagementPage() {
       setCRole("dealer");
     } catch (err: unknown) {
       const msg =
-        err instanceof Error ? err.message : "Fehler beim Erstellen.";
+        err instanceof Error ? err.message : t("admin.users.createError");
       console.error("❌ Fehler beim Erstellen:", msg);
       setError(msg);
     } finally {
@@ -174,13 +183,13 @@ export default function UserManagementPage() {
           <div className="bg-white border shadow-lg rounded-xl px-6 py-4 text-center">
             <div className="mx-auto mb-3 h-6 w-6 rounded-full border-2 border-indigo-600 border-t-transparent animate-spin" />
             <p className="text-sm font-medium text-gray-800">
-              Abmeldung läuft...
+              {t("admin.account.logoutRunning")}
             </p>
           </div>
         </div>
       )}
 
-      <h1 className="text-2xl font-bold mb-4">Benutzerverwaltung</h1>
+      <h1 className="text-2xl font-bold mb-4">{t("admin.users.title")}</h1>
 
       {error && (
         <p className="text-red-600 bg-red-50 border border-red-200 rounded-md p-3">
@@ -195,11 +204,15 @@ export default function UserManagementPage() {
       )}
 
       <section className="border rounded-lg p-4 space-y-4 bg-white">
-        <h2 className="text-lg font-semibold">Bestehenden Benutzer aktualisieren</h2>
+        <h2 className="text-lg font-semibold">
+          {t("admin.users.updateExisting")}
+        </h2>
 
         <form onSubmit={handleUpdate} className="space-y-4">
           <div>
-            <label className="block mb-1 font-medium">Alter Login (login_nr)</label>
+            <label className="block mb-1 font-medium">
+              {t("admin.users.oldLogin")}
+            </label>
             <input
               className="border p-2 w-full rounded"
               value={oldLogin}
@@ -210,7 +223,9 @@ export default function UserManagementPage() {
           </div>
 
           <div>
-            <label className="block mb-1 font-medium">Neuer Login (login_nr)</label>
+            <label className="block mb-1 font-medium">
+              {t("admin.users.newLogin")}
+            </label>
             <input
               className="border p-2 w-full rounded"
               value={newLogin}
@@ -221,7 +236,9 @@ export default function UserManagementPage() {
           </div>
 
           <div>
-            <label className="block mb-1 font-medium">Neues Passwort (optional)</label>
+            <label className="block mb-1 font-medium">
+              {t("admin.users.newPasswordOptional")}
+            </label>
             <input
               type="password"
               className="border p-2 w-full rounded"
@@ -237,20 +254,22 @@ export default function UserManagementPage() {
             disabled={uiLocked}
           >
             {loadingUpdate
-              ? "Aktualisiere..."
+              ? t("admin.users.updating")
               : redirectingAfterOwnChange
-              ? "Melde ab..."
-              : "Benutzer aktualisieren"}
+              ? t("admin.users.signingOut")
+              : t("admin.users.updateButton")}
           </button>
         </form>
       </section>
 
       <section className="border rounded-lg p-4 space-y-4 bg-white">
-        <h2 className="text-lg font-semibold">Neuen Benutzer anlegen</h2>
+        <h2 className="text-lg font-semibold">{t("admin.users.createNew")}</h2>
 
         <form onSubmit={handleCreate} className="space-y-4">
           <div>
-            <label className="block mb-1 font-medium">Login-Nr (login_nr)</label>
+            <label className="block mb-1 font-medium">
+              {t("admin.users.loginNr")}
+            </label>
             <input
               className="border p-2 w-full rounded"
               value={cLoginNr}
@@ -261,7 +280,9 @@ export default function UserManagementPage() {
           </div>
 
           <div>
-            <label className="block mb-1 font-medium">E-Mail</label>
+            <label className="block mb-1 font-medium">
+              {t("admin.users.email")}
+            </label>
             <input
               type="email"
               className="border p-2 w-full rounded"
@@ -273,7 +294,9 @@ export default function UserManagementPage() {
           </div>
 
           <div>
-            <label className="block mb-1 font-medium">Passwort</label>
+            <label className="block mb-1 font-medium">
+              {t("admin.users.password")}
+            </label>
             <input
               type="password"
               className="border p-2 w-full rounded"
@@ -285,26 +308,30 @@ export default function UserManagementPage() {
           </div>
 
           <div>
-            <label className="block mb-1 font-medium">Name</label>
+            <label className="block mb-1 font-medium">
+              {t("admin.users.name")}
+            </label>
             <input
               className="border p-2 w-full rounded"
               value={cName}
               onChange={(e) => setCName(e.target.value)}
-              placeholder="optional"
+              placeholder={t("admin.users.optional")}
               disabled={uiLocked}
             />
           </div>
 
           <div>
-            <label className="block mb-1 font-medium">Rolle</label>
+            <label className="block mb-1 font-medium">
+              {t("admin.users.role")}
+            </label>
             <select
               className="border p-2 w-full rounded"
               value={cRole}
               onChange={(e) => setCRole(e.target.value as "admin" | "dealer")}
               disabled={uiLocked}
             >
-              <option value="dealer">Händler</option>
-              <option value="admin">Admin</option>
+              <option value="dealer">{t("admin.users.dealer")}</option>
+              <option value="admin">{t("admin.users.admin")}</option>
             </select>
           </div>
 
@@ -313,7 +340,9 @@ export default function UserManagementPage() {
             className="bg-green-600 text-white px-4 py-2 rounded disabled:opacity-50"
             disabled={uiLocked}
           >
-            {loadingCreate ? "Erstelle..." : "Benutzer erstellen"}
+            {loadingCreate
+              ? t("admin.users.creating")
+              : t("admin.users.createButton")}
           </button>
         </form>
       </section>

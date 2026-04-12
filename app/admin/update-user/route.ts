@@ -1,4 +1,6 @@
 import { NextResponse } from "next/server";
+import { cookies } from "next/headers";
+import { createServerClient } from "@supabase/ssr";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 
 type UpdateBody = {
@@ -20,6 +22,37 @@ type DuplicateDealerRow = {
   login_nr: string;
 };
 
+type ErrorCode =
+  | "NOT_AUTHENTICATED"
+  | "FORBIDDEN"
+  | "OLD_LOGIN_REQUIRED"
+  | "NO_CHANGES_PROVIDED"
+  | "PASSWORD_TOO_SHORT"
+  | "DEALER_LOAD_FAILED"
+  | "DEALER_NOT_FOUND"
+  | "AUTH_USER_ID_MISSING"
+  | "NEW_LOGIN_CHECK_FAILED"
+  | "NEW_LOGIN_ALREADY_EXISTS"
+  | "DEALER_UPDATE_FAILED"
+  | "AUTH_USER_LOAD_FAILED"
+  | "AUTH_USER_UPDATE_FAILED"
+  | "UNEXPECTED_ERROR";
+
+function errorResponse(
+  status: number,
+  errorCode: ErrorCode,
+  error?: string
+) {
+  return NextResponse.json(
+    {
+      success: false,
+      errorCode,
+      error,
+    },
+    { status }
+  );
+}
+
 export async function POST(req: Request) {
   try {
     const body = (await req.json()) as UpdateBody;
@@ -29,23 +62,68 @@ export async function POST(req: Request) {
     const newPassword = String(body?.newPassword ?? "");
 
     if (!oldLogin) {
-      return NextResponse.json(
-        { error: "oldLogin ist erforderlich." },
-        { status: 400 }
+      return errorResponse(
+        400,
+        "OLD_LOGIN_REQUIRED",
+        "oldLogin ist erforderlich."
       );
     }
 
     if (!newLogin && !newPassword) {
-      return NextResponse.json(
-        { error: "Es wurde keine Änderung übergeben." },
-        { status: 400 }
+      return errorResponse(
+        400,
+        "NO_CHANGES_PROVIDED",
+        "Es wurde keine Änderung übergeben."
       );
     }
 
     if (newPassword && newPassword.length < 8) {
-      return NextResponse.json(
-        { error: "Neues Passwort muss mindestens 8 Zeichen lang sein." },
-        { status: 400 }
+      return errorResponse(
+        400,
+        "PASSWORD_TOO_SHORT",
+        "Neues Passwort muss mindestens 8 Zeichen lang sein."
+      );
+    }
+
+    // 0) Aktuellen User aus Session ermitteln
+    const cookieStore = await cookies();
+
+    const supabase = createServerClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      {
+        cookies: {
+          get(name: string) {
+            return cookieStore.get(name)?.value;
+          },
+          set() {},
+          remove() {},
+        },
+      }
+    );
+
+    const {
+      data: { user: currentUser },
+      error: currentUserError,
+    } = await supabase.auth.getUser();
+
+    if (currentUserError || !currentUser) {
+      return errorResponse(
+        401,
+        "NOT_AUTHENTICATED",
+        "Nicht eingeloggt oder Session ungültig."
+      );
+    }
+
+    const currentRole =
+      (currentUser.app_metadata as Record<string, unknown> | undefined)?.role ??
+      null;
+
+    if (currentRole !== "admin") {
+      return errorResponse(
+        403,
+        "FORBIDDEN",
+        "Nur Admins dürfen Benutzer aktualisieren."
       );
     }
 
@@ -57,45 +135,51 @@ export async function POST(req: Request) {
       .maybeSingle<DealerRow>();
 
     if (dealerError) {
-      return NextResponse.json(
-        { error: "Dealer konnte nicht geladen werden: " + dealerError.message },
-        { status: 500 }
+      return errorResponse(
+        500,
+        "DEALER_LOAD_FAILED",
+        "Dealer konnte nicht geladen werden: " + dealerError.message
       );
     }
 
     if (!dealer) {
-      return NextResponse.json(
-        { error: "Benutzer mit dieser Login-Nr wurde nicht gefunden." },
-        { status: 404 }
+      return errorResponse(
+        404,
+        "DEALER_NOT_FOUND",
+        "Benutzer mit dieser Login-Nr wurde nicht gefunden."
       );
     }
 
     if (!dealer.auth_user_id) {
-      return NextResponse.json(
-        { error: "Für diesen Benutzer fehlt auth_user_id." },
-        { status: 500 }
+      return errorResponse(
+        500,
+        "AUTH_USER_ID_MISSING",
+        "Für diesen Benutzer fehlt auth_user_id."
       );
     }
 
     // 2) Prüfen, ob neue login_nr schon existiert
     if (newLogin && newLogin !== oldLogin) {
-      const { data: duplicateDealer, error: duplicateError } = await supabaseAdmin
-        .from("dealers")
-        .select("dealer_id, login_nr")
-        .eq("login_nr", newLogin)
-        .maybeSingle<DuplicateDealerRow>();
+      const { data: duplicateDealer, error: duplicateError } =
+        await supabaseAdmin
+          .from("dealers")
+          .select("dealer_id, login_nr")
+          .eq("login_nr", newLogin)
+          .maybeSingle<DuplicateDealerRow>();
 
       if (duplicateError) {
-        return NextResponse.json(
-          { error: "Prüfung der neuen Login-Nr fehlgeschlagen: " + duplicateError.message },
-          { status: 500 }
+        return errorResponse(
+          500,
+          "NEW_LOGIN_CHECK_FAILED",
+          "Prüfung der neuen Login-Nr fehlgeschlagen: " + duplicateError.message
         );
       }
 
       if (duplicateDealer) {
-        return NextResponse.json(
-          { error: "Die neue Login-Nr ist bereits vergeben." },
-          { status: 409 }
+        return errorResponse(
+          409,
+          "NEW_LOGIN_ALREADY_EXISTS",
+          "Die neue Login-Nr ist bereits vergeben."
         );
       }
     }
@@ -112,9 +196,10 @@ export async function POST(req: Request) {
         .eq("dealer_id", dealer.dealer_id);
 
       if (dealerUpdateError) {
-        return NextResponse.json(
-          { error: "Dealer konnte nicht aktualisiert werden: " + dealerUpdateError.message },
-          { status: 500 }
+        return errorResponse(
+          500,
+          "DEALER_UPDATE_FAILED",
+          "Dealer konnte nicht aktualisiert werden: " + dealerUpdateError.message
         );
       }
     }
@@ -124,13 +209,11 @@ export async function POST(req: Request) {
       await supabaseAdmin.auth.admin.getUserById(dealer.auth_user_id);
 
     if (authUserError || !authUserData?.user) {
-      return NextResponse.json(
-        {
-          error:
-            "Auth-Benutzer konnte nicht geladen werden: " +
-            (authUserError?.message ?? "unbekannt"),
-        },
-        { status: 500 }
+      return errorResponse(
+        500,
+        "AUTH_USER_LOAD_FAILED",
+        "Auth-Benutzer konnte nicht geladen werden: " +
+          (authUserError?.message ?? "unbekannt")
       );
     }
 
@@ -163,17 +246,23 @@ export async function POST(req: Request) {
       authUpdatePayload.password = newPassword;
     }
 
-    const { error: authUpdateError } = await supabaseAdmin.auth.admin.updateUserById(
-      dealer.auth_user_id,
-      authUpdatePayload
-    );
+    const { error: authUpdateError } =
+      await supabaseAdmin.auth.admin.updateUserById(
+        dealer.auth_user_id,
+        authUpdatePayload
+      );
 
     if (authUpdateError) {
-      return NextResponse.json(
-        { error: "Auth-Benutzer konnte nicht aktualisiert werden: " + authUpdateError.message },
-        { status: 500 }
+      return errorResponse(
+        500,
+        "AUTH_USER_UPDATE_FAILED",
+        "Auth-Benutzer konnte nicht aktualisiert werden: " +
+          authUpdateError.message
       );
     }
+
+    // 6) Eigenen Account korrekt erkennen
+    const changedOwnAccount = currentUser.id === dealer.auth_user_id;
 
     return NextResponse.json({
       success: true,
@@ -183,13 +272,14 @@ export async function POST(req: Request) {
       updatedDealerId: dealer.dealer_id,
       role: dealer.role ?? "dealer",
       passwordChanged: Boolean(newPassword),
-      changedOwnAccount: false,
+      changedOwnAccount,
     });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : "Unbekannter Fehler";
-    return NextResponse.json(
-      { error: "Unerwarteter Fehler: " + message },
-      { status: 500 }
+    return errorResponse(
+      500,
+      "UNEXPECTED_ERROR",
+      "Unerwarteter Fehler: " + message
     );
   }
 }

@@ -22,12 +22,106 @@ import { bestellung as bestellungFr } from "./fr/bestellung";
 import { bestellung as bestellungIt } from "./it/bestellung";
 import { bestellung as bestellungRm } from "./rm/bestellung";
 
+import { sales as salesDe } from "./de/sales";
+import { sales as salesEn } from "./en/sales";
+import { sales as salesFr } from "./fr/sales";
+import { sales as salesIt } from "./it/sales";
+import { sales as salesRm } from "./rm/sales";
 
+import { auth as authDe } from "./de/auth";
+import { auth as authEn } from "./en/auth";
+import { auth as authFr } from "./fr/auth";
+import { auth as authIt } from "./it/auth";
+import { auth as authRm } from "./rm/auth";
 
-  export type Lang = "de" | "en" | "fr" | "it" | "rm";
+/* Admin-Split-Dateien */
+import { adminCommon as adminCommonDe } from "./de/adminCommon";
+import { adminCommon as adminCommonEn } from "./en/adminCommon";
+import { adminCommon as adminCommonFr } from "./fr/adminCommon";
+import { adminCommon as adminCommonIt } from "./it/adminCommon";
+import { adminCommon as adminCommonRm } from "./rm/adminCommon";
 
-  export const translationsByLang = {
-    /* 🇩🇪 Deutsch */
+import { adminAccount as adminAccountDe } from "./de/adminAccount";
+import { adminAccount as adminAccountEn } from "./en/adminAccount";
+import { adminAccount as adminAccountFr } from "./fr/adminAccount";
+import { adminAccount as adminAccountIt } from "./it/adminAccount";
+import { adminAccount as adminAccountRm } from "./rm/adminAccount";
+
+import { adminUsers as adminUsersDe } from "./de/adminUsers";
+import { adminUsers as adminUsersEn } from "./en/adminUsers";
+import { adminUsers as adminUsersFr } from "./fr/adminUsers";
+import { adminUsers as adminUsersIt } from "./it/adminUsers";
+import { adminUsers as adminUsersRm } from "./rm/adminUsers";
+
+import { adminAktionen as adminAktionenDe } from "./de/adminAktionen";
+import { adminAktionen as adminAktionenEn } from "./en/adminAktionen";
+import { adminAktionen as adminAktionenFr } from "./fr/adminAktionen";
+import { adminAktionen as adminAktionenIt } from "./it/adminAktionen";
+import { adminAktionen as adminAktionenRm } from "./rm/adminAktionen";
+
+import { adminBestellungen as adminBestellungenDe } from "./de/adminBestellungen";
+import { adminBestellungen as adminBestellungenEn } from "./en/adminBestellungen";
+import { adminBestellungen as adminBestellungenFr } from "./fr/adminBestellungen";
+import { adminBestellungen as adminBestellungenIt } from "./it/adminBestellungen";
+import { adminBestellungen as adminBestellungenRm } from "./rm/adminBestellungen";
+
+import { adminProject as adminProjectDe } from "./de/adminProject";
+import { adminProject as adminProjectEn } from "./en/adminProject";
+import { adminProject as adminProjectFr } from "./fr/adminProject";
+import { adminProject as adminProjectIt } from "./it/adminProject";
+import { adminProject as adminProjectRm } from "./rm/adminProject";
+
+import { adminPromotions as adminPromotionsDe } from "./de/adminPromotions";
+import { adminPromotions as adminPromotionsEn } from "./en/adminPromotions";
+import { adminPromotions as adminPromotionsFr } from "./fr/adminPromotions";
+import { adminPromotions as adminPromotionsIt } from "./it/adminPromotions";
+import { adminPromotions as adminPromotionsRm } from "./rm/adminPromotions";
+
+import { adminPromotionDetail as adminPromotionDetailDe } from "./de/adminPromotionDetail";
+import { adminPromotionDetail as adminPromotionDetailEn } from "./en/adminPromotionDetail";
+import { adminPromotionDetail as adminPromotionDetailFr } from "./fr/adminPromotionDetail";
+import { adminPromotionDetail as adminPromotionDetailIt } from "./it/adminPromotionDetail";
+import { adminPromotionDetail as adminPromotionDetailRm } from "./rm/adminPromotionDetail";
+
+import { adminReports as adminReportsDe } from "./de/adminReports";
+import { adminReports as adminReportsEn } from "./en/adminReports";
+import { adminReports as adminReportsFr } from "./fr/adminReports";
+import { adminReports as adminReportsIt } from "./it/adminReports";
+import { adminReports as adminReportsRm } from "./rm/adminReports";
+
+import { adminSofortrabatt as adminSofortrabattDe } from "./de/adminSofortrabatt";
+import { adminSofortrabatt as adminSofortrabattEn } from "./en/adminSofortrabatt";
+import { adminSofortrabatt as adminSofortrabattFr } from "./fr/adminSofortrabatt";
+import { adminSofortrabatt as adminSofortrabattIt } from "./it/adminSofortrabatt";
+import { adminSofortrabatt as adminSofortrabattRm } from "./rm/adminSofortrabatt";
+
+import { adminUniversalDetail as adminUniversalDetailDe } from "./de/adminUniversalDetail";
+import { adminUniversalDetail as adminUniversalDetailEn } from "./en/adminUniversalDetail";
+import { adminUniversalDetail as adminUniversalDetailFr } from "./fr/adminUniversalDetail";
+import { adminUniversalDetail as adminUniversalDetailIt } from "./it/adminUniversalDetail";
+import { adminUniversalDetail as adminUniversalDetailRm } from "./rm/adminUniversalDetail";
+
+import { adminDashboardList as adminDashboardListDe } from "./de/adminDashboardList";
+import { adminDashboardList as adminDashboardListEn } from "./en/adminDashboardList";
+import { adminDashboardList as adminDashboardListFr } from "./fr/adminDashboardList";
+import { adminDashboardList as adminDashboardListIt } from "./it/adminDashboardList";
+import { adminDashboardList as adminDashboardListRm } from "./rm/adminDashboardList";
+
+import { verlauf as verlaufDe } from "./de/verlauf";
+import { verlauf as verlaufEn } from "./en/verlauf";
+import { verlauf as verlaufFr } from "./fr/verlauf";
+import { verlauf as verlaufIt } from "./it/verlauf";
+import { verlauf as verlaufRm } from "./rm/verlauf";
+
+import { adminOrderDetailView as adminOrderDetailViewDe } from "./de/adminOrderDetailView";
+import { adminOrderDetailView as adminOrderDetailViewEn } from "./en/adminOrderDetailView";
+import { adminOrderDetailView as adminOrderDetailViewFr } from "./fr/adminOrderDetailView";
+import { adminOrderDetailView as adminOrderDetailViewIt } from "./it/adminOrderDetailView";
+import { adminOrderDetailView as adminOrderDetailViewRm } from "./rm/adminOrderDetailView";
+
+export type Lang = "de" | "en" | "fr" | "it" | "rm";
+
+export const translationsByLang = {
   de: {
     nav: {
       order: "Bestellung",
@@ -45,191 +139,163 @@ import { bestellung as bestellungRm } from "./rm/bestellung";
 
     passwordForgot: "Passwort vergessen?",
 
-      dealer: {
-        infoTitle: "📋 Händlerinformationen",
-        shop: "Shop",
-        company: "Firma",
-        address: "Adresse",
-        city: "PLZ / Ort",
-        email: "E-Mail",
-        phone: "Telefon",
-        loading: "⏳ Händerdaten werden geladen...",
-        notfound: "❌ Händler nicht gefunden",
-      },
+    dealer: {
+      infoTitle: "📋 Händlerinformationen",
+      shop: "Shop",
+      company: "Firma",
+      address: "Adresse",
+      city: "PLZ / Ort",
+      email: "E-Mail",
+      phone: "Telefon",
+      loading: "⏳ Händerdaten werden geladen...",
+      notfound: "❌ Händler nicht gefunden",
+    },
 
-    project: projectDe,  
-   
-      product: {
-        search: "🔍 Suche nach Artikel, Name oder EAN...",
-        groups: { all: "Alle Gruppen" },
-        categories: { all: "Alle Kategorien" },
-        sort: {
-          sony_article_asc: "Artikelnummer (aufsteigend)",
-          sony_article_desc: "Artikelnummer (absteigend)",
-          name_asc: "Name (A–Z)",
-          name_desc: "Name (Z–A)",
-        },
-        reset: "Zurücksetzen",
-      },
-
+    project: projectDe,
     support: supportDe,
-
-      admin: {
-        promotions: "Promotionen",
-        instantDiscount: "Sofortrabatt",
-        projects: "Projekte",
-        orders: "Bestellungen",
-        support: "Support",
-        monthlyOffers: "Monatsaktionen",
-        reports: "Berichte / Datenauswertung",
-        info: "Wichtige Infos",
-        actAsDealer: "Als Händler agieren",
-      },
-
-      /* 🔵 Bestpreis-Liste */
-      bestprice: {
-        "page.title": "Bestellung zum Bestpreis",
-        heading: "Bestellung zum Bestpreis",
-        addToCart: "In den Warenkorb",
-      },
-
-      /* 💰 Preise / Marktpreise */
-      pricing: {
-        uvpGross: "UVP (brutto)",
-        ekNormal: "EK normal",
-        marketPricesCurrent: "Marktpreise (aktuell)",
-        notAvailable: "nicht verfügbar",
-        priceNet: "Preis (CHF, exkl. MwSt & VRG)",
-        bestPrice: "Günstigster Preis (inkl. MwSt.)",
-      },
     bestellung: bestellungDe,
-
-      /* 📊 Verkauf melden (Seite + Modal + CSV) */
-      sales: {
-        "page.title": "Verkaufsdaten melden",
-        heading: "Verkaufsdaten melden",
-        manual: "Manuell melden",
-        upload: "CSV / Excel Upload",
-        uploadTemplate: "CSV-Vorlage",
-        next: "Weiter",
-        back: "Zurück",
-        clearCsv: "CSV leeren",
-        modalTitle: "Verkaufsdaten melden",
-        quantity: "Anzahl",
-        priceOptional: "Preis (optional)",
-        date: "Datum",
-        inhouseShare: "Inhouse Share (%)",
-        calendarWeek: "Kalenderwoche",
-        noteForAllProducts: "Gilt automatisch für alle Produkte in dieser Meldung.",
-        noteForUpload: "Gilt automatisch für alle Datensätze im Upload.",
-        totalQuantity: "Gesamtmenge",
-        totalRevenue: "Gesamtumsatz",
-        reportSale: "Verkauf melden",
-      },
-
-      /* 📁 Upload-Komponenten */
-      upload: {
-        dropzoneText: "Datei hierher ziehen oder auswählen",
-        chooseFile: "Datei wählen",
-      },
-
-      /* ⚡ Sofortrabatt / Instant Discount */
+    sales: salesDe,
     sofortrabatt: sofortrabattDe,
-      instant: {
-        "page.title": "Sofortrabatt beantragen",
-        heading: "Sofortrabatt beantragen",
-        step1: "1. TV auswählen",
-        step2: "2. Rabatt-Level wählen",
-        step3: "3. Soundbar auswählen",
-        levelSingle: "Single (nur TV)",
-        levelDouble: "Double (TV + Soundbar)",
-        levelTriple: "Triple (TV + Soundbar + Subwoofer)",
-        addToCart: "In den Warenkorb",
-      },
+    auth: authDe,
+    verlauf: verlaufDe,
 
-      /* ℹ️ Support & Kontaktinformationen */
+    adminCommon: adminCommonDe,
+    adminAccount: adminAccountDe,
+    adminUsers: adminUsersDe,
+    adminAktionen: adminAktionenDe,
+    adminBestellungen: adminBestellungenDe,
+    adminProject: adminProjectDe,
+    adminPromotions: adminPromotionsDe,
+    adminPromotionDetail: adminPromotionDetailDe,
+    adminReports: adminReportsDe,
+    adminSofortrabatt: adminSofortrabattDe,
+    adminUniversalDetail: adminUniversalDetailDe,
+    adminDashboardList: adminDashboardListDe,
+    adminOrderDetailView: adminOrderDetailViewDe,
+
+    product: {
+      search: "🔍 Suche nach Artikel, Name oder EAN...",
+      groups: { all: "Alle Gruppen" },
+      categories: { all: "Alle Kategorien" },
+      sort: {
+        sony_article_asc: "Artikelnummer (aufsteigend)",
+        sony_article_desc: "Artikelnummer (absteigend)",
+        name_asc: "Name (A–Z)",
+        name_desc: "Name (Z–A)",
+      },
+      reset: "Zurücksetzen",
+    },
+
+    bestprice: {
+      "page.title": "Bestellung zum Bestpreis",
+      heading: "Bestellung zum Bestpreis",
+      addToCart: "In den Warenkorb",
+    },
+
+    pricing: {
+      uvpGross: "UVP (brutto)",
+      ekNormal: "EK normal",
+      marketPricesCurrent: "Marktpreise (aktuell)",
+      notAvailable: "nicht verfügbar",
+      priceNet: "Preis (CHF, exkl. MwSt & VRG)",
+      bestPrice: "Günstigster Preis (inkl. MwSt.)",
+    },
+
+    upload: {
+      dropzoneText: "Datei hierher ziehen oder auswählen",
+      chooseFile: "Datei wählen",
+    },
+
+    instant: {
+      "page.title": "Sofortrabatt beantragen",
+      heading: "Sofortrabatt beantragen",
+      step1: "1. TV auswählen",
+      step2: "2. Rabatt-Level wählen",
+      step3: "3. Soundbar auswählen",
+      levelSingle: "Single (nur TV)",
+      levelDouble: "Double (TV + Soundbar)",
+      levelTriple: "Triple (TV + Soundbar + Subwoofer)",
+      addToCart: "In den Warenkorb",
+    },
+
     infos: {
-        title: "Support & Kontaktinformationen",
+      title: "Support & Kontaktinformationen",
 
-        support: {
-          title: "Technischer Support",
-          hours: "Montag – Freitag, 09:00–18:00 Uhr",
-          phone: "Telefon",
-          email: "E-Mail",
-          moreHelp: "Weitere Hilfe direkt bei Sony:",
+      support: {
+        title: "Technischer Support",
+        hours: "Montag – Freitag, 09:00–18:00 Uhr",
+        phone: "Telefon",
+        email: "E-Mail",
+        moreHelp: "Weitere Hilfe direkt bei Sony:",
+      },
+
+      news: {
+        title: "Newsletter Archiv",
+        openWeb: "Newsletter im Web öffnen",
+
+        jan2025: {
+          title: "Newsletter Januar 2025",
+          desc: "Die wichtigsten Informationen & Aktionen im Januar.",
         },
 
-        news: {
-          title: "Newsletter Archiv",
-          openWeb: "Newsletter im Web öffnen",
-
-          jan2025: {
-            title: "Newsletter Januar 2025",
-            desc: "Die wichtigsten Informationen & Aktionen im Januar.",
-          },
-
-          feb2025: {
-            title: "Newsletter Februar 2025",
-            desc: "Produktnews, Aktionen und Updates für den Februar.",
-          },
-        },
-    
-        
-        sales: {
-          internal: "Verkauf Innendienst",
-          kam: "Ansprechpartner Verkauf",
-        },
-
-        downloads: {
-          title: "Downloads",
-          sertronics: "Anmeldung Sertronics",
+        feb2025: {
+          title: "Newsletter Februar 2025",
+          desc: "Produktnews, Aktionen und Updates für den Februar.",
         },
       },
 
-
-
-
-      /* 🛒 Bestell-Overlay / Checkout */
-      checkout: {
-        "page.title": "Bestellung zum Bestpreis",
-        mainDistributor: "Haupt-Distributor",
-        defaultVia: "Standardmäßig über",
-        orderDetails: "Bestellangaben",
-        delivery: "Lieferung",
-        deliveryDateOptional: "Lieferdatum (optional)",
-        comment: "Wichtige Infos zur Bestellung (Kommentar)",
-        referenceNumber: "Ihre Bestell-/Referenz-Nr.",
-        differentDeliveryAddress: "Abweichende Lieferadresse / Direktlieferung",
-        pleaseSelect: "Bitte auswählen",
-        cheapestSupplier: "Günstigster Anbieter",
-        cheapestPrice: "Günstigster Preis (inkl. MwSt.)",
-        summaryTotal: "Gesamt",
-        summaryTotalPrice: "Gesamtpreis",
-        unitPiece: "Stück",
-        submitOrder: "Bestellung absenden",
+      sales: {
+        internal: "Verkauf Innendienst",
+        kam: "Ansprechpartner Verkauf",
       },
-      productCard: {
-        unknownModel: "Unbekanntes Modell",
-        ean: "EAN",
-        mainDistributor: "Haupt-Distributor:",
-        distributorRequired: "Distributor (Pflicht)",
-        distributorSelect: "Bitte wählen",
-        uvpGross: "UVP (brutto)",
-        ekNormal: "EK normal",
-        marketPricesCurrent: "Marktpreise (aktuell):",
-        loading: "lädt…",
-        notAvailable: "nicht verfügbar",
-        lastChecked: "Stand:",
-        amount: "Anzahl",
-        priceNet: "Preis (CHF, exkl. MwSt & VRG)",
-        saving: "gespart",
-        added: "Produkt hinzugefügt",
-        addToCart: "In den Warenkorb"
+
+      downloads: {
+        title: "Downloads",
+        sertronics: "Anmeldung Sertronics",
       },
-      cart: {
+    },
+
+    checkout: {
+      "page.title": "Bestellung zum Bestpreis",
+      mainDistributor: "Haupt-Distributor",
+      defaultVia: "Standardmäßig über",
+      orderDetails: "Bestellangaben",
+      delivery: "Lieferung",
+      deliveryDateOptional: "Lieferdatum (optional)",
+      comment: "Wichtige Infos zur Bestellung (Kommentar)",
+      referenceNumber: "Ihre Bestell-/Referenz-Nr.",
+      differentDeliveryAddress: "Abweichende Lieferadresse / Direktlieferung",
+      pleaseSelect: "Bitte auswählen",
+      cheapestSupplier: "Günstigster Anbieter",
+      cheapestPrice: "Günstigster Preis (inkl. MwSt.)",
+      summaryTotal: "Gesamt",
+      summaryTotalPrice: "Gesamtpreis",
+      unitPiece: "Stück",
+      submitOrder: "Bestellung absenden",
+    },
+
+    productCard: {
+      unknownModel: "Unbekanntes Modell",
+      ean: "EAN",
+      mainDistributor: "Haupt-Distributor:",
+      distributorRequired: "Distributor (Pflicht)",
+      distributorSelect: "Bitte wählen",
+      uvpGross: "UVP (brutto)",
+      ekNormal: "EK normal",
+      marketPricesCurrent: "Marktpreise (aktuell):",
+      loading: "lädt…",
+      notAvailable: "nicht verfügbar",
+      lastChecked: "Stand:",
+      amount: "Anzahl",
+      priceNet: "Preis (CHF, exkl. MwSt & VRG)",
+      saving: "gespart",
+      added: "Produkt hinzugefügt",
+      addToCart: "In den Warenkorb",
+    },
+
+    cart: {
       "button.cart": "Warenkorb",
       "button.items": "({count})",
-
       "title.cart": "Bestellung zum Bestpreis",
 
       "dealer.customerNumber": "Kd-Nr.",
@@ -244,7 +310,8 @@ import { bestellung as bestellungRm } from "./rm/bestellung";
 
       "mainDistributor.title": "Haupt-Distributor",
       "mainDistributor.placeholder": "Bitte auswählen",
-      "mainDistributor.defaultHint": "Standardmäßig über ElectronicPartner Schweiz AG.",
+      "mainDistributor.defaultHint":
+        "Standardmäßig über ElectronicPartner Schweiz AG.",
 
       "orderInfo.title": "Bestellangaben",
       "orderInfo.delivery": "Lieferung",
@@ -252,7 +319,8 @@ import { bestellung as bestellungRm } from "./rm/bestellung";
       "orderInfo.delivery.termin": "Zum Termin",
       "orderInfo.deliveryDate": "Lieferdatum (optional)",
       "orderInfo.comment": "Wichtige Infos zur Bestellung (Kommentar)",
-      "orderInfo.comment.placeholder": "z. B. 'Muss zwingend bis 15.10. geliefert werden'…",
+      "orderInfo.comment.placeholder":
+        "z. B. 'Muss zwingend bis 15.10. geliefert werden'…",
       "orderInfo.referenceNumber": "Ihre Bestell-/Referenz-Nr.",
       "orderInfo.reference.placeholder": "z. B. 45001234",
 
@@ -277,7 +345,8 @@ import { bestellung as bestellungRm } from "./rm/bestellung";
       "streetprice.provider.other": "Andere",
       "streetprice.providerName": "Bitte Namen des Anbieters angeben *",
       "streetprice.providerName.placeholder": "Name des Händlers",
-      "streetprice.providerName.hint": "Pflichtfeld bei Auswahl von „Andere“ — bitte genaue Händlerangabe.",
+      "streetprice.providerName.hint":
+        "Pflichtfeld bei Auswahl von „Andere“ — bitte genaue Händlerangabe.",
       "streetprice.bestPriceGross": "Günstigster Preis (inkl. MwSt.)",
 
       "product.disti.required": "Distributor (Pflichtfeld)",
@@ -292,42 +361,48 @@ import { bestellung as bestellungRm } from "./rm/bestellung";
 
       "toast.noDealer": "❌ Kein Händler gefunden – bitte neu einloggen.",
       "toast.needDistributor": "❌ Bitte Haupt-Distributor auswählen.",
-      "toast.needValidDate": "Bitte ein gültiges Lieferdatum (YYYY-MM-DD) wählen.",
+      "toast.needValidDate":
+        "Bitte ein gültiges Lieferdatum (YYYY-MM-DD) wählen.",
       "toast.invalidQuantity.title": "Ungültige Eingabe",
-      "toast.invalidQuantity.text": "Bitte gültige Menge für {product} eingeben!",
+      "toast.invalidQuantity.text":
+        "Bitte gültige Menge für {product} eingeben!",
       "toast.missingDisti.title": "❌ Distributor fehlt",
       "toast.missingDisti.text": "Bitte Distributor für {product} auswählen.",
       "toast.missingSourceName.title": "❌ Anbieter fehlt",
-      "toast.missingSourceName.text": "Bitte Händlernamen für \"Andere\" bei {product} angeben.",
+      "toast.missingSourceName.text":
+        'Bitte Händlernamen für "Andere" bei {product} angeben.',
       "toast.unknownDisti.title": "❌ Unbekannter Distributor-Code",
-      "toast.unknownDisti.text": "Distributor \"{code}\" konnte nicht gefunden werden.",
+      "toast.unknownDisti.text":
+        'Distributor "{code}" konnte nicht gefunden werden.',
       "toast.success.title": "✅ Bestellung gespeichert",
-      "toast.success.text": "Die Bestellung wurde erfolgreich übermittelt.",
+      "toast.success.text":
+        "Die Bestellung wurde erfolgreich übermittelt.",
       "toast.error.title": "❌ Fehler beim Speichern",
       "toast.error.text": "Unbekannter Fehler",
     },
-      /* E-Mail übersetzer*/
-      /* 🇩🇪 E-Mail Labels → müssen HIER rein! */
+
     email: {
-        firmendaten: "Firmendaten",
-        ansprechperson: "Ansprechperson",
-        email: "E-Mail",
-        telefon: "Telefon",
-        kundennr: "Kunden-Nr.",
-        kam: "KAM",
-        kam_email: "KAM E-Mail",
-        lieferoption: "Lieferoption",
-        lieferdatum: "Geplantes Lieferdatum",
-        lieferadresse_warn: "⚠️ Achtung: Abweichende Lieferadresse (Direktlieferung)",
-        lieferadresse: "Lieferadresse",
-        kommentar: "Kommentar des Händlers",
-        bestellpositionen: "Bestellpositionen",
-        bestellweg: "Bestellweg",
-        haendler_referenz: "Ihre Händler-Referenz",
-        bestellnr: "P5 Bestell-Nr.",
-        delivery_immediately: "Sofort",
-        delivery_scheduled: "Geplante Lieferung",
+      firmendaten: "Firmendaten",
+      ansprechperson: "Ansprechperson",
+      email: "E-Mail",
+      telefon: "Telefon",
+      kundennr: "Kunden-Nr.",
+      kam: "KAM",
+      kam_email: "KAM E-Mail",
+      lieferoption: "Lieferoption",
+      lieferdatum: "Geplantes Lieferdatum",
+      lieferadresse_warn:
+        "⚠️ Achtung: Abweichende Lieferadresse (Direktlieferung)",
+      lieferadresse: "Lieferadresse",
+      kommentar: "Kommentar des Händlers",
+      bestellpositionen: "Bestellpositionen",
+      bestellweg: "Bestellweg",
+      haendler_referenz: "Ihre Händler-Referenz",
+      bestellnr: "P5 Bestell-Nr.",
+      delivery_immediately: "Sofort",
+      delivery_scheduled: "Geplante Lieferung",
     },
+
     login: {
       welcome: "Willkommen beim Login",
       portalTitle: "P5connect Partnerportal",
@@ -355,33 +430,19 @@ import { bestellung as bestellungRm } from "./rm/bestellung";
 
       footer: "Zugang nur für registrierte Partner.",
     },
-  /*passwortchange*/
-  auth: {
-    reset: {
-      title: "Neues Passwort setzen",
-      newPassword: "Neues Passwort",
-      confirm: "Passwort bestätigen",
-      submit: "Passwort ändern",
 
-      invalidLink: "❌ Fehler: Reset-Token fehlt oder ist ungültig.",
-      expired: "❌ Der Link ist ungültig oder abgelaufen.",
-      noSession: "❌ Fehler: Auth-Session nicht verfügbar.",
-      mismatch: "❌ Die Passwörter stimmen nicht überein.",
-      short: "❌ Passwort muss mind. 8 Zeichen lang sein.",
-      success: "✅ Passwort erfolgreich geändert!",
+    activity: {
+      title: "Letzte Aktivitäten",
+      loading: "Lade Aktivitäten…",
+      empty: "Keine Einträge für den gewählten Zeitraum.",
+      status: {
+        pending: "ausstehend",
+        approved: "genehmigt",
+        rejected: "abgelehnt",
+        unknown: "—",
+      },
     },
-  },
-  activity: {
-    title: "Letzte Aktivitäten",
-    loading: "Lade Aktivitäten…",
-    empty: "Keine Einträge für den gewählten Zeitraum.",
-    status: {
-      pending: "ausstehend",
-      approved: "genehmigt",
-      rejected: "abgelehnt",
-      unknown: "—",
-    },
-  },
+
     history: {
       header: {
         all: "Letzte Aktivitäten",
@@ -415,12 +476,9 @@ import { bestellung as bestellungRm } from "./rm/bestellung";
         excel: "Excel-Export fehlgeschlagen",
         pdf: "PDF-Export fehlgeschlagen",
       },
-    }
-
+    },
   },
-  
 
-  /* 🇬🇧 English */
   en: {
     nav: {
       order: "Order",
@@ -429,12 +487,11 @@ import { bestellung as bestellungRm } from "./rm/bestellung";
       support: "Support",
       instantDiscount: "Instant Discount",
       info: "Info",
-      password: "Change Password",    
+      password: "Change Password",
       logout: "Logout",
       dashboard: "P5connect Dashboard",
       dashboardTitle: "connect Dashboard",
       backToDashboard: "Back to Dashboard",
-
     },
 
     passwordForgot: "Forgot password?",
@@ -450,8 +507,28 @@ import { bestellung as bestellungRm } from "./rm/bestellung";
       loading: "⏳ Loading dealer data...",
       notfound: "❌ Dealer not found",
     },
-    
+
     project: projectEn,
+    support: supportEn,
+    bestellung: bestellungEn,
+    sales: salesEn,
+    sofortrabatt: sofortrabattEn,
+    auth: authEn,
+    verlauf: verlaufEn,
+
+    adminCommon: adminCommonEn,
+    adminAccount: adminAccountEn,
+    adminUsers: adminUsersEn,
+    adminAktionen: adminAktionenEn,
+    adminBestellungen: adminBestellungenEn,
+    adminProject: adminProjectEn,
+    adminPromotions: adminPromotionsEn,
+    adminPromotionDetail: adminPromotionDetailEn,
+    adminReports: adminReportsEn,
+    adminSofortrabatt: adminSofortrabattEn,
+    adminUniversalDetail: adminUniversalDetailEn,
+    adminDashboardList: adminDashboardListEn,
+    adminOrderDetailView: adminOrderDetailViewEn,
 
     product: {
       search: "🔍 Search by product, name or EAN...",
@@ -464,20 +541,6 @@ import { bestellung as bestellungRm } from "./rm/bestellung";
         name_desc: "Name (Z–A)",
       },
       reset: "Reset",
-    },
-
-    support: supportEn,
-
-    admin: {
-      promotions: "Promotions",
-      instantDiscount: "Instant Discount",
-      projects: "Projects",
-      orders: "Orders",
-      support: "Support",
-      monthlyOffers: "Monthly Offers",
-      reports: "Reports / Data Analysis",
-      info: "Important Information",
-      actAsDealer: "Act as Dealer",
     },
 
     bestprice: {
@@ -495,35 +558,11 @@ import { bestellung as bestellungRm } from "./rm/bestellung";
       bestPrice: "Best price (incl. VAT)",
     },
 
-    bestellung: bestellungEn,
-
-    sales: {
-      "page.title": "Report Sales Data",
-      heading: "Report Sales Data",
-      manual: "Report manually",
-      upload: "CSV / Excel upload",
-      uploadTemplate: "CSV template",
-      next: "Next",
-      back: "Back",
-      clearCsv: "Clear CSV",
-      modalTitle: "Report sales",
-      quantity: "Quantity",
-      priceOptional: "Price (optional)",
-      date: "Date",
-      inhouseShare: "Inhouse share (%)",
-      calendarWeek: "Calendar week",
-      noteForAllProducts: "Automatically applies to all products in this report.",
-      noteForUpload: "Automatically applies to all rows in the upload.",
-      totalQuantity: "Total quantity",
-      totalRevenue: "Total revenue",
-      reportSale: "Submit sales report",
-    },
-
     upload: {
       dropzoneText: "Drag & drop file here or click to select",
       chooseFile: "Choose file",
     },
-    sofortrabatt: sofortrabattEn,
+
     instant: {
       "page.title": "Request Instant Discount",
       heading: "Request Instant Discount",
@@ -558,7 +597,6 @@ import { bestellung as bestellungRm } from "./rm/bestellung";
       },
     },
 
-
     checkout: {
       "page.title": "Best Price Order",
       mainDistributor: "Main distributor",
@@ -577,6 +615,7 @@ import { bestellung as bestellungRm } from "./rm/bestellung";
       unitPiece: "pcs",
       submitOrder: "Submit order",
     },
+
     productCard: {
       unknownModel: "Unknown model",
       ean: "EAN",
@@ -593,109 +632,118 @@ import { bestellung as bestellungRm } from "./rm/bestellung";
       priceNet: "Price (CHF, excl. VAT & fees)",
       saving: "saved",
       added: "Product added",
-      addToCart: "Add to cart"
+      addToCart: "Add to cart",
     },
+
     cart: {
-    "button.cart": "Cart",
-    "button.items": "({count})",
-    "title.cart": "Best Price Order",
+      "button.cart": "Cart",
+      "button.items": "({count})",
+      "title.cart": "Best Price Order",
 
-    "dealer.customerNumber": "Customer No.",
-    "dealer.contactPerson": "Contact",
-    "dealer.phone": "Phone",
-    "dealer.kam": "KAM",
+      "dealer.customerNumber": "Customer No.",
+      "dealer.contactPerson": "Contact",
+      "dealer.phone": "Phone",
+      "dealer.kam": "KAM",
 
-    "success.saved": "Order saved!",
-    "success.close": "Close",
+      "success.saved": "Order saved!",
+      "success.close": "Close",
 
-    "empty.noProducts": "No products selected yet.",
+      "empty.noProducts": "No products selected yet.",
 
-    "mainDistributor.title": "Main Distributor",
-    "mainDistributor.placeholder": "Please select",
-    "mainDistributor.defaultHint": "By default via ElectronicPartner Switzerland AG.",
+      "mainDistributor.title": "Main Distributor",
+      "mainDistributor.placeholder": "Please select",
+      "mainDistributor.defaultHint":
+        "By default via ElectronicPartner Switzerland AG.",
 
-    "orderInfo.title": "Order Information",
-    "orderInfo.delivery": "Delivery",
-    "orderInfo.delivery.sofort": "Immediate",
-    "orderInfo.delivery.termin": "Scheduled",
-    "orderInfo.deliveryDate": "Delivery date (optional)",
-    "orderInfo.comment": "Important notes for the order (comment)",
-    "orderInfo.comment.placeholder": "e.g. 'Must be delivered by 15.10'…",
-    "orderInfo.referenceNumber": "Your order/reference no.",
-    "orderInfo.reference.placeholder": "e.g. 45001234",
+      "orderInfo.title": "Order Information",
+      "orderInfo.delivery": "Delivery",
+      "orderInfo.delivery.sofort": "Immediate",
+      "orderInfo.delivery.termin": "Scheduled",
+      "orderInfo.deliveryDate": "Delivery date (optional)",
+      "orderInfo.comment": "Important notes for the order (comment)",
+      "orderInfo.comment.placeholder":
+        "e.g. 'Must be delivered by 15.10'…",
+      "orderInfo.referenceNumber": "Your order/reference no.",
+      "orderInfo.reference.placeholder": "e.g. 45001234",
 
-    "altDelivery.title": "Different delivery address / direct delivery",
-    "altDelivery.name": "Name / Company",
-    "altDelivery.street": "Street / No.",
-    "altDelivery.zip": "ZIP",
-    "altDelivery.city": "City",
-    "altDelivery.country": "Country",
-    "altDelivery.phone": "Phone (optional)",
-    "altDelivery.email": "Email (optional)",
+      "altDelivery.title": "Different delivery address / direct delivery",
+      "altDelivery.name": "Name / Company",
+      "altDelivery.street": "Street / No.",
+      "altDelivery.zip": "ZIP",
+      "altDelivery.city": "City",
+      "altDelivery.country": "Country",
+      "altDelivery.phone": "Phone (optional)",
+      "altDelivery.email": "Email (optional)",
 
-    "product.ean": "EAN",
-    "product.remove": "Remove",
-    "product.amount": "Quantity",
-    "product.price": "Price (CHF)",
-    "product.normalPrice": "Regular EK",
-    "product.saved": "{chf} CHF saved ({percent}%)",
-    "product.special": "Special Distribution",
+      "product.ean": "EAN",
+      "product.remove": "Remove",
+      "product.amount": "Quantity",
+      "product.price": "Price (CHF)",
+      "product.normalPrice": "Regular EK",
+      "product.saved": "{chf} CHF saved ({percent}%)",
+      "product.special": "Special Distribution",
 
-    "streetprice.bestProvider": "Lowest provider",
-    "streetprice.provider.other": "Other",
-    "streetprice.providerName": "Please enter provider name *",
-    "streetprice.providerName.placeholder": "Retailer name",
-    "streetprice.providerName.hint": "Required if 'Other' is selected — please provide exact retailer.",
-    "streetprice.bestPriceGross": "Lowest price (incl. VAT)",
+      "streetprice.bestProvider": "Lowest provider",
+      "streetprice.provider.other": "Other",
+      "streetprice.providerName": "Please enter provider name *",
+      "streetprice.providerName.placeholder": "Retailer name",
+      "streetprice.providerName.hint":
+        "Required if 'Other' is selected — please provide exact retailer.",
+      "streetprice.bestPriceGross": "Lowest price (incl. VAT)",
 
-    "product.disti.required": "Distributor (required)",
-    "product.disti.placeholder": "Please select",
+      "product.disti.required": "Distributor (required)",
+      "product.disti.placeholder": "Please select",
 
-    "footer.total": "Total:",
-    "footer.totalPieces": "{count} pcs",
-    "footer.totalPrice": "Total price:",
-    "footer.savings": "Total savings: {amount} CHF",
-    "footer.submit": "Submit order",
-    "footer.sending": "⏳ Sending…",
+      "footer.total": "Total:",
+      "footer.totalPieces": "{count} pcs",
+      "footer.totalPrice": "Total price:",
+      "footer.savings": "Total savings: {amount} CHF",
+      "footer.submit": "Submit order",
+      "footer.sending": "⏳ Sending…",
 
-    "toast.noDealer": "❌ No dealer found – please log in again.",
-    "toast.needDistributor": "❌ Please select a main distributor.",
-    "toast.needValidDate": "Please enter a valid delivery date (YYYY-MM-DD).",
-    "toast.invalidQuantity.title": "Invalid input",
-    "toast.invalidQuantity.text": "Please enter a valid quantity for {product}!",
-    "toast.missingDisti.title": "❌ Distributor missing",
-    "toast.missingDisti.text": "Please select a distributor for {product}.",
-    "toast.missingSourceName.title": "❌ Provider missing",
-    "toast.missingSourceName.text": "Please provide the retailer name when selecting \"Other\" for {product}.",
-    "toast.unknownDisti.title": "❌ Unknown distributor code",
-    "toast.unknownDisti.text": "Distributor \"{code}\" could not be found.",
-    "toast.success.title": "✅ Order saved",
-    "toast.success.text": "The order has been successfully submitted.",
-    "toast.error.title": "❌ Error saving order",
-    "toast.error.text": "Unknown error",
-  },
-      /* E-Mail übersetzer*/
-      /* 🇩🇪 E-Mail Labels → müssen HIER rein! */
-    email: {
-        firmendaten: "Company Information",
-        ansprechperson: "Contact Person",
-        email: "Email",
-        telefon: "Phone",
-        kundenNr: "Customer No.",
-        kam: "Account Manager",
-        kamEmail: "AM Email",
-        lieferoption: "Delivery Option",
-        lieferdatum: "Scheduled Delivery Date",
-        lieferadresseWarn: "⚠️ Attention: Different delivery address (direct shipment)",
-        lieferadresse: "Delivery Address",
-        kommentar: "Dealer Comment",
-        bestellpositionen: "Order Items",
-        bestellweg: "Order Method",
-        haendlerReferenz: "Your Dealer Reference",
-        bestellNr: "P5 Order No.",
-        sofort: "Immediate",
-        geplant: "Scheduled Delivery",
+      "toast.noDealer": "❌ No dealer found – please log in again.",
+      "toast.needDistributor": "❌ Please select a main distributor.",
+      "toast.needValidDate":
+        "Please enter a valid delivery date (YYYY-MM-DD).",
+      "toast.invalidQuantity.title": "Invalid input",
+      "toast.invalidQuantity.text":
+        "Please enter a valid quantity for {product}!",
+      "toast.missingDisti.title": "❌ Distributor missing",
+      "toast.missingDisti.text": "Please select a distributor for {product}.",
+      "toast.missingSourceName.title": "❌ Provider missing",
+      "toast.missingSourceName.text":
+        'Please provide the retailer name when selecting "Other" for {product}.',
+      "toast.unknownDisti.title": "❌ Unknown distributor code",
+      "toast.unknownDisti.text":
+        'Distributor "{code}" could not be found.',
+      "toast.success.title": "✅ Order saved",
+      "toast.success.text": "The order has been successfully submitted.",
+      "toast.error.title": "❌ Error saving order",
+      "toast.error.text": "Unknown error",
     },
+
+    email: {
+      firmendaten: "Company Information",
+      ansprechperson: "Contact Person",
+      email: "Email",
+      telefon: "Phone",
+      kundenNr: "Customer No.",
+      kam: "Account Manager",
+      kamEmail: "AM Email",
+      lieferoption: "Delivery Option",
+      lieferdatum: "Scheduled Delivery Date",
+      lieferadresseWarn:
+        "⚠️ Attention: Different delivery address (direct shipment)",
+      lieferadresse: "Delivery Address",
+      kommentar: "Dealer Comment",
+      bestellpositionen: "Order Items",
+      bestellweg: "Order Method",
+      haendlerReferenz: "Your Dealer Reference",
+      bestellNr: "P5 Order No.",
+      sofort: "Immediate",
+      geplant: "Scheduled Delivery",
+    },
+
     login: {
       welcome: "Welcome to login",
       portalTitle: "P5connect Partner Portal",
@@ -724,22 +772,6 @@ import { bestellung as bestellungRm } from "./rm/bestellung";
       footer: "Access restricted to registered partners only.",
     },
 
-  /*passwortchange*/
-  auth: {
-    reset: {
-      title: "Set new password",
-      newPassword: "New password",
-      confirm: "Confirm password",
-      submit: "Change password",
-
-      invalidLink: "❌ Error: Reset token missing or invalid.",
-      expired: "❌ The link is invalid or expired.",
-      noSession: "❌ Error: Auth session not available.",
-      mismatch: "❌ Passwords do not match.",
-      short: "❌ Password must be at least 8 characters.",
-      success: "✅ Password successfully changed!",
-    },
-    },
     activity: {
       title: "Recent activity",
       loading: "Loading activity…",
@@ -749,8 +781,8 @@ import { bestellung as bestellungRm } from "./rm/bestellung";
         approved: "approved",
         rejected: "rejected",
         unknown: "—",
+      },
     },
-  },
 
     history: {
       header: {
@@ -787,7 +819,7 @@ import { bestellung as bestellungRm } from "./rm/bestellung";
       },
     },
   },
-  /* 🇫🇷 Français */
+
   fr: {
     nav: {
       order: "Commande",
@@ -796,12 +828,11 @@ import { bestellung as bestellungRm } from "./rm/bestellung";
       support: "Support",
       instantDiscount: "Remise immédiate",
       info: "Infos",
-      password: "Changer le mot de passe",      
+      password: "Changer le mot de passe",
       logout: "Déconnexion",
       dashboard: "Tableau de bord P5connect",
       dashboardTitle: "connect Dashboard",
       backToDashboard: "Retour au tableau de bord",
-
     },
 
     passwordForgot: "Mot de passe oublié ?",
@@ -819,7 +850,27 @@ import { bestellung as bestellungRm } from "./rm/bestellung";
     },
 
     project: projectFr,
-    
+    support: supportFr,
+    bestellung: bestellungFr,
+    sales: salesFr,
+    sofortrabatt: sofortrabattFr,
+    auth: authFr,
+    verlauf: verlaufFr,
+
+    adminCommon: adminCommonFr,
+    adminAccount: adminAccountFr,
+    adminUsers: adminUsersFr,
+    adminAktionen: adminAktionenFr,
+    adminBestellungen: adminBestellungenFr,
+    adminProject: adminProjectFr,
+    adminPromotions: adminPromotionsFr,
+    adminPromotionDetail: adminPromotionDetailFr,
+    adminReports: adminReportsFr,
+    adminSofortrabatt: adminSofortrabattFr,
+    adminUniversalDetail: adminUniversalDetailFr,
+    adminDashboardList: adminDashboardListFr,
+    adminOrderDetailView: adminOrderDetailViewFr,
+
     product: {
       search: "🔍 Rechercher par article, nom ou EAN...",
       groups: { all: "Tous les groupes" },
@@ -831,20 +882,6 @@ import { bestellung as bestellungRm } from "./rm/bestellung";
         name_desc: "Nom (Z–A)",
       },
       reset: "Réinitialiser",
-    },
-
-    support: supportFr,
-
-    admin: {
-      promotions: "Promotions",
-      instantDiscount: "Remise immédiate",
-      projects: "Projets",
-      orders: "Commandes",
-      support: "Support",
-      monthlyOffers: "Offres mensuelles",
-      reports: "Rapports / Analyse des données",
-      info: "Informations importantes",
-      actAsDealer: "Agir en tant que revendeur",
     },
 
     bestprice: {
@@ -862,37 +899,12 @@ import { bestellung as bestellungRm } from "./rm/bestellung";
       bestPrice: "Meilleur prix (TVA incl.)",
     },
 
-    bestellung: bestellungFr,
-
-    sales: {
-      "page.title": "Déclarer des ventes",
-      heading: "Déclarer des ventes",
-      manual: "Déclarer manuellement",
-      upload: "Upload CSV / Excel",
-      uploadTemplate: "Modèle CSV",
-      next: "Suivant",
-      back: "Retour",
-      clearCsv: "Vider le CSV",
-      modalTitle: "Déclarer une vente",
-      quantity: "Quantité",
-      priceOptional: "Prix (optionnel)",
-      date: "Date",
-      inhouseShare: "Inhouse share (%)",
-      calendarWeek: "Semaine calendrier",
-      noteForAllProducts:
-        "S’applique automatiquement à tous les produits de cette déclaration.",
-      noteForUpload:
-        "S’applique automatiquement à toutes les lignes du fichier uploadé.",
-      totalQuantity: "Quantité totale",
-      totalRevenue: "Chiffre d’affaires total",
-      reportSale: "Envoyer la déclaration de vente",
-    },
-
     upload: {
-      dropzoneText: "Glissez-déposez le fichier ici ou cliquez pour sélectionner",
+      dropzoneText:
+        "Glissez-déposez le fichier ici ou cliquez pour sélectionner",
       chooseFile: "Choisir un fichier",
     },
-    sofortrabatt: sofortrabattFr,
+
     instant: {
       "page.title": "Demander une remise immédiate",
       heading: "Demander une remise immédiate",
@@ -927,7 +939,6 @@ import { bestellung as bestellungRm } from "./rm/bestellung";
       },
     },
 
-
     checkout: {
       "page.title": "Commande au meilleur prix",
       mainDistributor: "Distributeur principal",
@@ -947,6 +958,7 @@ import { bestellung as bestellungRm } from "./rm/bestellung";
       unitPiece: "pièce",
       submitOrder: "Envoyer la commande",
     },
+
     productCard: {
       unknownModel: "Modèle inconnu",
       ean: "EAN",
@@ -963,12 +975,12 @@ import { bestellung as bestellungRm } from "./rm/bestellung";
       priceNet: "Prix (CHF, hors TVA & taxes)",
       saving: "économisé",
       added: "Produit ajouté",
-      addToCart: "Ajouter au panier"
+      addToCart: "Ajouter au panier",
     },
+
     cart: {
       "button.cart": "Panier",
       "button.items": "({count})",
-
       "title.cart": "Commande au meilleur prix",
 
       "dealer.customerNumber": "N° client",
@@ -983,7 +995,8 @@ import { bestellung as bestellungRm } from "./rm/bestellung";
 
       "mainDistributor.title": "Distributeur principal",
       "mainDistributor.placeholder": "Veuillez choisir",
-      "mainDistributor.defaultHint": "Par défaut via ElectronicPartner Suisse SA.",
+      "mainDistributor.defaultHint":
+        "Par défaut via ElectronicPartner Suisse SA.",
 
       "orderInfo.title": "Informations de commande",
       "orderInfo.delivery": "Livraison",
@@ -991,7 +1004,8 @@ import { bestellung as bestellungRm } from "./rm/bestellung";
       "orderInfo.delivery.termin": "Programmée",
       "orderInfo.deliveryDate": "Date de livraison (optionnel)",
       "orderInfo.comment": "Informations importantes (commentaire)",
-      "orderInfo.comment.placeholder": "p. ex. 'Doit impérativement être livré avant le 15.10'…",
+      "orderInfo.comment.placeholder":
+        "p. ex. 'Doit impérativement être livré avant le 15.10'…",
       "orderInfo.referenceNumber": "Votre n° de commande / référence",
       "orderInfo.reference.placeholder": "p. ex. 45001234",
 
@@ -1016,7 +1030,8 @@ import { bestellung as bestellungRm } from "./rm/bestellung";
       "streetprice.provider.other": "Autre",
       "streetprice.providerName": "Nom du fournisseur *",
       "streetprice.providerName.placeholder": "Nom du revendeur",
-      "streetprice.providerName.hint": "Obligatoire si 'Autre' est sélectionné — indiquer le revendeur exact.",
+      "streetprice.providerName.hint":
+        "Obligatoire si 'Autre' est sélectionné — indiquer le revendeur exact.",
       "streetprice.bestPriceGross": "Prix le plus bas (TTC)",
 
       "product.disti.required": "Distributeur (obligatoire)",
@@ -1029,44 +1044,52 @@ import { bestellung as bestellungRm } from "./rm/bestellung";
       "footer.submit": "Envoyer la commande",
       "footer.sending": "⏳ Envoi…",
 
-      "toast.noDealer": "❌ Aucun revendeur trouvé – veuillez vous reconnecter.",
-      "toast.needDistributor": "❌ Veuillez sélectionner un distributeur principal.",
-      "toast.needValidDate": "Veuillez choisir une date de livraison valide (AAAA-MM-JJ).",
+      "toast.noDealer":
+        "❌ Aucun revendeur trouvé – veuillez vous reconnecter.",
+      "toast.needDistributor":
+        "❌ Veuillez sélectionner un distributeur principal.",
+      "toast.needValidDate":
+        "Veuillez choisir une date de livraison valide (AAAA-MM-JJ).",
       "toast.invalidQuantity.title": "Entrée invalide",
-      "toast.invalidQuantity.text": "Veuillez entrer une quantité valide pour {product} !",
+      "toast.invalidQuantity.text":
+        "Veuillez entrer une quantité valide pour {product} !",
       "toast.missingDisti.title": "❌ Distributeur manquant",
-      "toast.missingDisti.text": "Veuillez sélectionner un distributeur pour {product}.",
+      "toast.missingDisti.text":
+        "Veuillez sélectionner un distributeur pour {product}.",
       "toast.missingSourceName.title": "❌ Fournisseur manquant",
-      "toast.missingSourceName.text": "Veuillez indiquer un fournisseur lorsque « Autre » est sélectionné pour {product}.",
+      "toast.missingSourceName.text":
+        "Veuillez indiquer un fournisseur lorsque « Autre » est sélectionné pour {product}.",
       "toast.unknownDisti.title": "❌ Code distributeur inconnu",
       "toast.unknownDisti.text": "Le distributeur « {code} » est inconnu.",
       "toast.success.title": "✅ Commande enregistrée",
-      "toast.success.text": "La commande a été transmise avec succès.",
+      "toast.success.text":
+        "La commande a été transmise avec succès.",
       "toast.error.title": "❌ Erreur d’enregistrement",
       "toast.error.text": "Erreur inconnue",
     },
-          /* E-Mail übersetzer*/
-      /* 🇩🇪 E-Mail Labels → müssen HIER rein! */
+
     email: {
-        firmendaten: "Données de l’entreprise",
-        ansprechperson: "Personne de contact",
-        email: "E-mail",
-        telefon: "Téléphone",
-        kundenNr: "N° client",
-        kam: "KAM",
-        kamEmail: "E-mail KAM",
-        lieferoption: "Option de livraison",
-        lieferdatum: "Date de livraison prévue",
-        lieferadresseWarn: "⚠️ Attention : adresse de livraison différente (livraison directe)",
-        lieferadresse: "Adresse de livraison",
-        kommentar: "Commentaire du revendeur",
-        bestellpositionen: "Positions de commande",
-        bestellweg: "Méthode de commande",
-        haendlerReferenz: "Votre référence revendeur",
-        bestellNr: "N° de commande P5",
-        sofort: "Immédiatement",
-        geplant: "Livraison planifiée",
+      firmendaten: "Données de l’entreprise",
+      ansprechperson: "Personne de contact",
+      email: "E-mail",
+      telefon: "Téléphone",
+      kundenNr: "N° client",
+      kam: "KAM",
+      kamEmail: "E-mail KAM",
+      lieferoption: "Option de livraison",
+      lieferdatum: "Date de livraison prévue",
+      lieferadresseWarn:
+        "⚠️ Attention : adresse de livraison différente (livraison directe)",
+      lieferadresse: "Adresse de livraison",
+      kommentar: "Commentaire du revendeur",
+      bestellpositionen: "Positions de commande",
+      bestellweg: "Méthode de commande",
+      haendlerReferenz: "Votre référence revendeur",
+      bestellNr: "N° de commande P5",
+      sofort: "Immédiatement",
+      geplant: "Livraison planifiée",
     },
+
     login: {
       welcome: "Bienvenue sur la page de connexion",
       portalTitle: "Portail Partenaire P5connect",
@@ -1083,8 +1106,10 @@ import { bestellung as bestellungRm } from "./rm/bestellung";
 
       error: {
         unknownLogin: "Numéro de connexion inconnu.",
-        noEmail: "Aucune adresse e-mail n’est enregistrée pour ce partenaire.",
-        failed: "Échec de la connexion. Veuillez vérifier vos identifiants.",
+        noEmail:
+          "Aucune adresse e-mail n’est enregistrée pour ce partenaire.",
+        failed:
+          "Échec de la connexion. Veuillez vérifier vos identifiants.",
       },
 
       footerLine1: "© {year} P5connect.ch – Zurich, Suisse",
@@ -1095,31 +1120,15 @@ import { bestellung as bestellungRm } from "./rm/bestellung";
       footer: "Accès réservé exclusivement aux partenaires enregistrés.",
     },
 
-    /* Reset */
-    auth: {
-      reset: {
-        title: "Définir un nouveau mot de passe",
-        newPassword: "Nouveau mot de passe",
-        confirm: "Confirmer le mot de passe",
-        submit: "Changer le mot de passe",
-
-        invalidLink: "❌ Erreur : le lien de réinitialisation est manquant ou invalide.",
-        expired: "❌ Le lien est invalide ou a expiré.",
-        noSession: "❌ Erreur : session d’authentification non disponible.",
-        mismatch: "❌ Les mots de passe ne correspondent pas.",
-        short: "❌ Le mot de passe doit contenir au moins 8 caractères.",
-        success: "✅ Mot de passe modifié avec succès !",
-      },
-    },   
-      activity: {
-        title: "Activités récentes",
-        loading: "Chargement des activités…",
-        empty: "Aucune entrée pour la période sélectionnée.",
-        status: {
-          pending: "en attente",
-          approved: "approuvé",
-          rejected: "refusé",
-          unknown: "—",
+    activity: {
+      title: "Activités récentes",
+      loading: "Chargement des activités…",
+      empty: "Aucune entrée pour la période sélectionnée.",
+      status: {
+        pending: "en attente",
+        approved: "approuvé",
+        rejected: "refusé",
+        unknown: "—",
       },
     },
 
@@ -1159,7 +1168,6 @@ import { bestellung as bestellungRm } from "./rm/bestellung";
     },
   },
 
-  /* 🇮🇹 Italiano */
   it: {
     nav: {
       order: "Ordine",
@@ -1168,12 +1176,11 @@ import { bestellung as bestellungRm } from "./rm/bestellung";
       support: "Supporto",
       instantDiscount: "Sconto immediato",
       info: "Informazioni",
-      password: "Cambia password",      
+      password: "Cambia password",
       logout: "Logout",
       dashboard: "P5connect Dashboard",
       dashboardTitle: "connect Dashboard",
       backToDashboard: "Torna alla dashboard",
-
     },
 
     passwordForgot: "Password dimenticata?",
@@ -1191,6 +1198,26 @@ import { bestellung as bestellungRm } from "./rm/bestellung";
     },
 
     project: projectIt,
+    support: supportIt,
+    bestellung: bestellungIt,
+    sales: salesIt,
+    sofortrabatt: sofortrabattIt,
+    auth: authIt,
+    verlauf: verlaufIt,
+
+    adminCommon: adminCommonIt,
+    adminAccount: adminAccountIt,
+    adminUsers: adminUsersIt,
+    adminAktionen: adminAktionenIt,
+    adminBestellungen: adminBestellungenIt,
+    adminProject: adminProjectIt,
+    adminPromotions: adminPromotionsIt,
+    adminPromotionDetail: adminPromotionDetailIt,
+    adminReports: adminReportsIt,
+    adminSofortrabatt: adminSofortrabattIt,
+    adminUniversalDetail: adminUniversalDetailIt,
+    adminDashboardList: adminDashboardListIt,
+    adminOrderDetailView: adminOrderDetailViewIt,
 
     product: {
       search: "🔍 Cerca per articolo, nome o EAN...",
@@ -1203,20 +1230,6 @@ import { bestellung as bestellungRm } from "./rm/bestellung";
         name_desc: "Nome (Z–A)",
       },
       reset: "Ripristina",
-    },
-
-    support: supportIt,
-
-    admin: {
-      promotions: "Promozioni",
-      instantDiscount: "Sconto immediato",
-      projects: "Progetti",
-      orders: "Ordini",
-      support: "Supporto",
-      monthlyOffers: "Offerte mensili",
-      reports: "Report / Analisi dei dati",
-      info: "Informazioni importanti",
-      actAsDealer: "Agisci come rivenditore",
     },
 
     bestprice: {
@@ -1234,38 +1247,12 @@ import { bestellung as bestellungRm } from "./rm/bestellung";
       bestPrice: "Miglior prezzo (incl. IVA)",
     },
 
-    bestellung: bestellungIt,
-
-    sales: {
-      "page.title": "Segnalare vendite",
-      heading: "Segnalare vendite",
-      manual: "Segnala manualmente",
-      upload: "Upload CSV / Excel",
-      uploadTemplate: "Modello CSV",
-      next: "Avanti",
-      back: "Indietro",
-      clearCsv: "Svuota CSV",
-      modalTitle: "Segnalare vendita",
-      quantity: "Quantità",
-      priceOptional: "Prezzo (opzionale)",
-      date: "Data",
-      inhouseShare: "Inhouse share (%)",
-      calendarWeek: "Settimana",
-      noteForAllProducts:
-        "Valido automaticamente per tutti i prodotti in questa segnalazione.",
-      noteForUpload:
-        "Valido automaticamente per tutte le righe del file caricato.",
-      totalQuantity: "Quantità totale",
-      totalRevenue: "Fatturato totale",
-      reportSale: "Invia segnalazione vendite",
-    },
-
     upload: {
       dropzoneText:
         "Trascina qui il file oppure clicca per selezionarlo dal disco",
       chooseFile: "Seleziona file",
     },
-    sofortrabatt: sofortrabattIt,
+
     instant: {
       "page.title": "Richiedi sconto immediato",
       heading: "Richiedi sconto immediato",
@@ -1300,7 +1287,6 @@ import { bestellung as bestellungRm } from "./rm/bestellung";
       },
     },
 
-
     checkout: {
       "page.title": "Ordine al miglior prezzo",
       mainDistributor: "Distributore principale",
@@ -1320,6 +1306,7 @@ import { bestellung as bestellungRm } from "./rm/bestellung";
       unitPiece: "pezzo",
       submitOrder: "Invia ordine",
     },
+
     productCard: {
       unknownModel: "Modello sconosciuto",
       ean: "EAN",
@@ -1336,12 +1323,12 @@ import { bestellung as bestellungRm } from "./rm/bestellung";
       priceNet: "Prezzo (CHF, excl. IVA & RAEE)",
       saving: "risparmiato",
       added: "Prodotto aggiunto",
-      addToCart: "Aggiungi al carrello"
+      addToCart: "Aggiungi al carrello",
     },
+
     cart: {
       "button.cart": "Carrello",
       "button.items": "({count})",
-
       "title.cart": "Ordine al miglior prezzo",
 
       "dealer.customerNumber": "N. cliente",
@@ -1356,7 +1343,8 @@ import { bestellung as bestellungRm } from "./rm/bestellung";
 
       "mainDistributor.title": "Distributore principale",
       "mainDistributor.placeholder": "Seleziona",
-      "mainDistributor.defaultHint": "Standard tramite ElectronicPartner Svizzera SA.",
+      "mainDistributor.defaultHint":
+        "Standard tramite ElectronicPartner Svizzera SA.",
 
       "orderInfo.title": "Informazioni sull’ordine",
       "orderInfo.delivery": "Consegna",
@@ -1364,7 +1352,8 @@ import { bestellung as bestellungRm } from "./rm/bestellung";
       "orderInfo.delivery.termin": "Programmato",
       "orderInfo.deliveryDate": "Data di consegna (opzionale)",
       "orderInfo.comment": "Informazioni importanti (commento)",
-      "orderInfo.comment.placeholder": "es. 'Consegna obbligatoria entro il 15/10'…",
+      "orderInfo.comment.placeholder":
+        "es. 'Consegna obbligatoria entro il 15/10'…",
       "orderInfo.referenceNumber": "N. ordine / riferimento",
       "orderInfo.reference.placeholder": "es. 45001234",
 
@@ -1389,7 +1378,8 @@ import { bestellung as bestellungRm } from "./rm/bestellung";
       "streetprice.provider.other": "Altro",
       "streetprice.providerName": "Nome rivenditore *",
       "streetprice.providerName.placeholder": "Nome negozio",
-      "streetprice.providerName.hint": "Obbligatorio se è selezionato «Altro».",
+      "streetprice.providerName.hint":
+        "Obbligatorio se è selezionato «Altro».",
       "streetprice.bestPriceGross": "Prezzo più basso (incl. IVA)",
 
       "product.disti.required": "Distributore (obbligatorio)",
@@ -1404,13 +1394,16 @@ import { bestellung as bestellungRm } from "./rm/bestellung";
 
       "toast.noDealer": "❌ Rivenditore non trovato – accedi nuovamente.",
       "toast.needDistributor": "❌ Seleziona un distributore principale.",
-      "toast.needValidDate": "Inserisci una data valida (AAAA-MM-GG).",
+      "toast.needValidDate":
+        "Inserisci una data valida (AAAA-MM-GG).",
       "toast.invalidQuantity.title": "Valore non valido",
-      "toast.invalidQuantity.text": "Inserisci una quantità valida per {product}!",
+      "toast.invalidQuantity.text":
+        "Inserisci una quantità valida per {product}!",
       "toast.missingDisti.title": "❌ Distributore mancante",
       "toast.missingDisti.text": "Seleziona un distributore per {product}.",
       "toast.missingSourceName.title": "❌ Rivenditore mancante",
-      "toast.missingSourceName.text": "Indica il rivenditore quando scegli «Altro» per {product}.",
+      "toast.missingSourceName.text":
+        "Indica il rivenditore quando scegli «Altro» per {product}.",
       "toast.unknownDisti.title": "❌ Codice distributore sconosciuto",
       "toast.unknownDisti.text": "Il distributore «{code}» non esiste.",
       "toast.success.title": "✅ Ordine salvato",
@@ -1418,27 +1411,29 @@ import { bestellung as bestellungRm } from "./rm/bestellung";
       "toast.error.title": "❌ Errore salvataggio",
       "toast.error.text": "Errore sconosciuto",
     },
-          /* 🇩🇪 E-Mail Labels → müssen HIER rein! */
+
     email: {
-        firmendaten: "Dati dell’azienda",
-        ansprechperson: "Persona di contatto",
-        email: "E-mail",
-        telefon: "Telefono",
-        kundenNr: "N. cliente",
-        kam: "KAM",
-        kamEmail: "E-mail KAM",
-        lieferoption: "Opzione di consegna",
-        lieferdatum: "Data di consegna prevista",
-        lieferadresseWarn: "⚠️ Attenzione: indirizzo di consegna diverso (consegna diretta)",
-        lieferadresse: "Indirizzo di consegna",
-        kommentar: "Commento del rivenditore",
-        bestellpositionen: "Posizioni dell’ordine",
-        bestellweg: "Modalità dell’ordine",
-        haendlerReferenz: "Vostra referenza rivenditore",
-        bestellNr: "N. ordine P5",
-        sofort: "Immediato",
-        geplant: "Consegna programmata",
+      firmendaten: "Dati dell’azienda",
+      ansprechperson: "Persona di contatto",
+      email: "E-mail",
+      telefon: "Telefono",
+      kundenNr: "N. cliente",
+      kam: "KAM",
+      kamEmail: "E-mail KAM",
+      lieferoption: "Opzione di consegna",
+      lieferdatum: "Data di consegna prevista",
+      lieferadresseWarn:
+        "⚠️ Attenzione: indirizzo di consegna diverso (consegna diretta)",
+      lieferadresse: "Indirizzo di consegna",
+      kommentar: "Commento del rivenditore",
+      bestellpositionen: "Posizioni dell’ordine",
+      bestellweg: "Modalità dell’ordine",
+      haendlerReferenz: "Vostra referenza rivenditore",
+      bestellNr: "N. ordine P5",
+      sofort: "Immediato",
+      geplant: "Consegna programmata",
     },
+
     login: {
       welcome: "Benvenuto nella pagina di accesso",
       portalTitle: "Portale Partner P5connect",
@@ -1455,8 +1450,10 @@ import { bestellung as bestellungRm } from "./rm/bestellung";
 
       error: {
         unknownLogin: "Numero di accesso sconosciuto.",
-        noEmail: "Nessun indirizzo e-mail registrato per questo partner.",
-        failed: "Accesso non riuscito. Controllare numero di accesso e password.",
+        noEmail:
+          "Nessun indirizzo e-mail registrato per questo partner.",
+        failed:
+          "Accesso non riuscito. Controllare numero di accesso e password.",
       },
 
       footerLine1: "© {year} P5connect.ch – Zurigo, Svizzera",
@@ -1467,72 +1464,54 @@ import { bestellung as bestellungRm } from "./rm/bestellung";
       footer: "Accesso consentito solo ai partner registrati.",
     },
 
-
-    /* Passwort change */    
-    auth: {
-      reset: {
-        title: "Imposta una nuova password",
-        newPassword: "Nuova password",
-        confirm: "Conferma password",
-        submit: "Cambia password",
-
-        invalidLink: "❌ Errore: link di reset mancante o non valido.",
-        expired: "❌ Il link non è valido o è scaduto.",
-        noSession: "❌ Errore: sessione di autenticazione non disponibile.",
-        mismatch: "❌ Le password non coincidono.",
-        short: "❌ La password deve contenere almeno 8 caratteri.",
-        success: "✅ Password modificata con successo!",
+    activity: {
+      title: "Attività recenti",
+      loading: "Caricamento attività…",
+      empty: "Nessuna voce per il periodo selezionato.",
+      status: {
+        pending: "in sospeso",
+        approved: "approvato",
+        rejected: "rifiutato",
+        unknown: "—",
       },
     },
-      activity: {
-        title: "Attività recenti",
-        loading: "Caricamento attività…",
-        empty: "Nessuna voce per il periodo selezionato.",
-        status: {
-          pending: "in sospeso",
-          approved: "approvato",
-          rejected: "rifiutato",
-          unknown: "—",
-        },
+
+    history: {
+      header: {
+        all: "Attività recenti",
+        verkauf: "Vendite recenti",
+        bestellung: "Ordini recenti",
+        projekt: "Progetti recenti",
+        support: "Richieste di supporto recenti",
+        sofortrabatt: "Sconti immediati recenti",
       },
-      history: {
-        header: {
-          all: "Attività recenti",
-          verkauf: "Vendite recenti",
-          bestellung: "Ordini recenti",
-          projekt: "Progetti recenti",
-          support: "Richieste di supporto recenti",
-          sofortrabatt: "Sconti immediati recenti",
-        },
 
-        actions: {
-          excel: "Excel",
-          excelTitle: "Scarica lo storico in Excel",
-          viewAll: "Visualizza lo storico completo →",
-          pdfTitle: "Scarica PDF",
-        },
+      actions: {
+        excel: "Excel",
+        excelTitle: "Scarica lo storico in Excel",
+        viewAll: "Visualizza lo storico completo →",
+        pdfTitle: "Scarica PDF",
+      },
 
-        empty: "Nessuna voce trovata.",
-        loadingDetails: "Caricamento dettagli…",
-        noDetails: "Nessun dettaglio trovato.",
+      empty: "Nessuna voce trovata.",
+      loadingDetails: "Caricamento dettagli…",
+      noDetails: "Nessun dettaglio trovato.",
 
-        meta: {
-          positions: "art.",
-          reference: "Rif.",
-          delivery: "Consegna",
-          productFallback: "Prodotto",
-          more: "… e altri {count}",
-        },
+      meta: {
+        positions: "art.",
+        reference: "Rif.",
+        delivery: "Consegna",
+        productFallback: "Prodotto",
+        more: "… e altri {count}",
+      },
 
-        error: {
-          excel: "Esportazione Excel non riuscita",
-          pdf: "Esportazione PDF non riuscita",
-        },
+      error: {
+        excel: "Esportazione Excel non riuscita",
+        pdf: "Esportazione PDF non riuscita",
+      },
     },
-
   },
 
-  /* 🇷🇲 Rumantsch */
   rm: {
     nav: {
       order: "Cumanda",
@@ -1541,12 +1520,11 @@ import { bestellung as bestellungRm } from "./rm/bestellung";
       support: "Support",
       instantDiscount: "Rabatt immediat",
       info: "Infurmaziuns",
-      password: "Midar pled-clav",      
+      password: "Midar pled-clav",
       logout: "Sortir",
       dashboard: "P5connect Dashboard",
       dashboardTitle: "connect Dashboard",
       backToDashboard: "Turnar al dashboard",
-
     },
 
     passwordForgot: "Emblidà il pled-clav?",
@@ -1562,9 +1540,30 @@ import { bestellung as bestellungRm } from "./rm/bestellung";
       loading: "⏳ Chargiar las datas dal commerziant...",
       notfound: "❌ Commerziant betg chattà",
     },
-    
+
     project: projectRm,
+    support: supportRm,
+    bestellung: bestellungRm,
+    sales: salesRm,
+    sofortrabatt: sofortrabattRm,
+    auth: authRm,
+    verlauf: verlaufRm,
+
+    adminCommon: adminCommonRm,
+    adminAccount: adminAccountRm,
+    adminUsers: adminUsersRm,
+    adminAktionen: adminAktionenRm,
+    adminBestellungen: adminBestellungenRm,
+    adminProject: adminProjectRm,
+    adminPromotions: adminPromotionsRm,
+    adminPromotionDetail: adminPromotionDetailRm,
+    adminReports: adminReportsRm,
+    adminSofortrabatt: adminSofortrabattRm,
+    adminUniversalDetail: adminUniversalDetailRm,
+    adminDashboardList: adminDashboardListRm,
+    adminOrderDetailView: adminOrderDetailViewRm,
     
+
     product: {
       search: "🔍 Tschertgar tenor artitgel, num u EAN...",
       groups: { all: "Tut las gruppas" },
@@ -1576,20 +1575,6 @@ import { bestellung as bestellungRm } from "./rm/bestellung";
         name_desc: "Num (Z–A)",
       },
       reset: "Redefinir",
-    },
-
-    support: supportRm,
-    
-    admin: {
-      promotions: "Promoziuns",
-      instantDiscount: "Rabatt immediat",
-      projects: "Projects",
-      orders: "Cumandas",
-      support: "Sustegn",
-      monthlyOffers: "Offertas dal mais",
-      reports: "Rapports / Analisa da datas",
-      info: "Infurmaziuns impurtantas",
-      actAsDealer: "Agir sco commerziant",
     },
 
     bestprice: {
@@ -1607,38 +1592,12 @@ import { bestellung as bestellungRm } from "./rm/bestellung";
       bestPrice: "Meglier pretsch (incl. TVA)",
     },
 
-    bestellung: bestellungRm,
-
-    sales: {
-      "page.title": "Annunziar datas da vendita",
-      heading: "Annunziar datas da vendita",
-      manual: "Annunziar manualmain",
-      upload: "Telechargiar CSV / Excel",
-      uploadTemplate: "Model CSV",
-      next: "Enavant",
-      back: "Enavos",
-      clearCsv: "Stizzar il CSV",
-      modalTitle: "Annunziar vendita",
-      quantity: "Quantitad",
-      priceOptional: "Pretsch (opziunal)",
-      date: "Data",
-      inhouseShare: "Inhouse share (%)",
-      calendarWeek: "Emna dal chalender",
-      noteForAllProducts:
-        "Vala automaticamain per tut ils products en questa annunzia.",
-      noteForUpload:
-        "Vala automaticamain per tut las lingias dal datoteca telechargiada.",
-      totalQuantity: "Quantitad totala",
-      totalRevenue: "Svessa totala",
-      reportSale: "Trametter l’annunzia da vendita",
-    },
-
     upload: {
       dropzoneText:
         "Tirar il datotec qua ni cliccar per tscherner ina datoteca",
       chooseFile: "Tscherner datoteca",
     },
-    sofortrabatt: sofortrabattRm,
+
     instant: {
       "page.title": "Dumandar rabatt immediat",
       heading: "Dumandar rabatt immediat",
@@ -1673,7 +1632,6 @@ import { bestellung as bestellungRm } from "./rm/bestellung";
       },
     },
 
-
     checkout: {
       "page.title": "Cumanda al meglier pretsch",
       mainDistributor: "Distribuider principal",
@@ -1681,7 +1639,8 @@ import { bestellung as bestellungRm } from "./rm/bestellung";
       orderDetails: "Detagls da la cumanda",
       delivery: "Furniziun",
       deliveryDateOptional: "Data da furniziun (opziunala)",
-      comment: "Infurmaziuns impurtantas per questa cumanda (commentari)",
+      comment:
+        "Infurmaziuns impurtantas per questa cumanda (commentari)",
       referenceNumber: "Vossa nr. da cumanda / referenza",
       differentDeliveryAddress:
         "Autra adressa da furniziun / furniziun directa",
@@ -1693,6 +1652,7 @@ import { bestellung as bestellungRm } from "./rm/bestellung";
       unitPiece: "toc",
       submitOrder: "Trametter la cumanda",
     },
+
     productCard: {
       unknownModel: "Model nunenconschent",
       ean: "EAN",
@@ -1709,94 +1669,98 @@ import { bestellung as bestellungRm } from "./rm/bestellung";
       priceNet: "Prez (CHF, senza TVA & taxas)",
       saving: "spartgà",
       added: "Product agiuntà",
-      addToCart: "Agiuntar al charell"
+      addToCart: "Agiuntar al charell",
     },
-      cart: {
-    "button.cart": "Carschun",
-    "button.items": "({count})",
 
-    "title.cart": "Cumanda al meglier pretsch",
+    cart: {
+      "button.cart": "Carschun",
+      "button.items": "({count})",
+      "title.cart": "Cumanda al meglier pretsch",
 
-    "dealer.customerNumber": "Nr. client",
-    "dealer.contactPerson": "Persuna da contact",
-    "dealer.phone": "Telefon",
-    "dealer.kam": "KAM",
+      "dealer.customerNumber": "Nr. client",
+      "dealer.contactPerson": "Persuna da contact",
+      "dealer.phone": "Telefon",
+      "dealer.kam": "KAM",
 
-    "success.saved": "Cumanda memorisada!",
-    "success.close": "Serrar",
+      "success.saved": "Cumanda memorisada!",
+      "success.close": "Serrar",
 
-    "empty.noProducts": "Anc nagins products tschernids.",
+      "empty.noProducts": "Anc nagins products tschernids.",
 
-    "mainDistributor.title": "Distribitur principal",
-    "mainDistributor.placeholder": "Tscherna",
-    "mainDistributor.defaultHint":
-      "Standard via ElectronicPartner Svizra SA.",
+      "mainDistributor.title": "Distribitur principal",
+      "mainDistributor.placeholder": "Tscherna",
+      "mainDistributor.defaultHint":
+        "Standard via ElectronicPartner Svizra SA.",
 
-    "orderInfo.title": "Infurmaziuns da cumanda",
-    "orderInfo.delivery": "Livrativa",
-    "orderInfo.delivery.sofort": "Immediat",
-    "orderInfo.delivery.termin": "Terminà",
-    "orderInfo.deliveryDate": "Data da livrativa (optional)",
-    "orderInfo.comment": "Infurmaziuns impurtantas (commentari)",
-    "orderInfo.comment.placeholder":
-      "p.ex. 'Sto vegnir furnì fin ils 15.10'…",
-    "orderInfo.referenceNumber": "Voss nr. da cumanda / referenza",
-    "orderInfo.reference.placeholder": "p.ex. 45001234",
+      "orderInfo.title": "Infurmaziuns da cumanda",
+      "orderInfo.delivery": "Livrativa",
+      "orderInfo.delivery.sofort": "Immediat",
+      "orderInfo.delivery.termin": "Terminà",
+      "orderInfo.deliveryDate": "Data da livrativa (optional)",
+      "orderInfo.comment": "Infurmaziuns impurtantas (commentari)",
+      "orderInfo.comment.placeholder":
+        "p.ex. 'Sto vegnir furnì fin ils 15.10'…",
+      "orderInfo.referenceNumber": "Voss nr. da cumanda / referenza",
+      "orderInfo.reference.placeholder": "p.ex. 45001234",
 
-    "altDelivery.title": "Adresa da livrativa differenta / direct",
-    "altDelivery.name": "Num / Firma",
-    "altDelivery.street": "Via / Nr.",
-    "altDelivery.zip": "PLZ",
-    "altDelivery.city": "Lieu",
-    "altDelivery.country": "Pajais",
-    "altDelivery.phone": "Telefon (optional)",
-    "altDelivery.email": "E-mail (optional)",
+      "altDelivery.title": "Adresa da livrativa differenta / direct",
+      "altDelivery.name": "Num / Firma",
+      "altDelivery.street": "Via / Nr.",
+      "altDelivery.zip": "PLZ",
+      "altDelivery.city": "Lieu",
+      "altDelivery.country": "Pajais",
+      "altDelivery.phone": "Telefon (optional)",
+      "altDelivery.email": "E-mail (optional)",
 
-    "product.ean": "EAN",
-    "product.remove": "Allontanar",
-    "product.amount": "Quantitad",
-    "product.price": "Pretsch (CHF)",
-    "product.normalPrice": "Pretsch normal",
-    "product.saved": "{chf} CHF spargnads ({percent}%)",
-    "product.special": "Distribuziun speziala",
+      "product.ean": "EAN",
+      "product.remove": "Allontanar",
+      "product.amount": "Quantitad",
+      "product.price": "Pretsch (CHF)",
+      "product.normalPrice": "Pretsch normal",
+      "product.saved": "{chf} CHF spargnads ({percent}%)",
+      "product.special": "Distribuziun speziala",
 
-    "streetprice.bestProvider": "Furnitur il pli bunmarchà",
-    "streetprice.provider.other": "Auter",
-    "streetprice.providerName": "Num dal furnitur *",
-    "streetprice.providerName.placeholder": "Num da la butia",
-    "streetprice.providerName.hint":
-      "Obligatori sche «Auter» è tschernì.",
-    "streetprice.bestPriceGross": "Pretsch il pli bass (incl. MWST)",
+      "streetprice.bestProvider": "Furnitur il pli bunmarchà",
+      "streetprice.provider.other": "Auter",
+      "streetprice.providerName": "Num dal furnitur *",
+      "streetprice.providerName.placeholder": "Num da la butia",
+      "streetprice.providerName.hint":
+        "Obligatori sche «Auter» è tschernì.",
+      "streetprice.bestPriceGross": "Pretsch il pli bass (incl. MWST)",
 
-    "product.disti.required": "Distribitur (obligatori)",
-    "product.disti.placeholder": "Tscherna",
+      "product.disti.required": "Distribitur (obligatori)",
+      "product.disti.placeholder": "Tscherna",
 
-    "footer.total": "Total:",
-    "footer.totalPieces": "{count} tocs",
-    "footer.totalPrice": "Pretsch total:",
-    "footer.savings": "Spargn total: {amount} CHF",
-    "footer.submit": "Trametter cumanda",
-    "footer.sending": "⏳ Tramett…",
+      "footer.total": "Total:",
+      "footer.totalPieces": "{count} tocs",
+      "footer.totalPrice": "Pretsch total:",
+      "footer.savings": "Spargn total: {amount} CHF",
+      "footer.submit": "Trametter cumanda",
+      "footer.sending": "⏳ Tramett…",
 
-    "toast.noDealer": "❌ Betg chattà in commerziant – login danovamain.",
-    "toast.needDistributor": "❌ Tscherna in distributur.",
-    "toast.needValidDate": "Endatescha ina data valida (AAAA-MM-DD).",
-    "toast.invalidQuantity.title": "Valur nunvalida",
-    "toast.invalidQuantity.text": "Endatescha ina quantitad valida per {product}!",
-    "toast.missingDisti.title": "❌ Mancanza da distributur",
-    "toast.missingDisti.text": "Tscherna in distributur per {product}.",
-    "toast.missingSourceName.title": "❌ Furnitur mancant",
-    "toast.missingSourceName.text":
-      "Inditgar il furnitur cura che «Auter» è tschernì per {product}.",
-    "toast.unknownDisti.title": "❌ Code da distributur nunenconuschent",
-    "toast.unknownDisti.text": "Il distributur «{code}» n'exista betg.",
-    "toast.success.title": "✅ Cumanda memorisada",
-    "toast.success.text": "La cumanda è vegnida transmesscha cun success.",
-    "toast.error.title": "❌ Sbagl da memorisar",
-    "toast.error.text": "Sbagl nunenconuschent",
-  },
-            /* 🇩🇪 E-Mail Labels → müssen HIER rein! */
-  email: {
+      "toast.noDealer":
+        "❌ Betg chattà in commerziant – login danovamain.",
+      "toast.needDistributor": "❌ Tscherna in distributur.",
+      "toast.needValidDate":
+        "Endatescha ina data valida (AAAA-MM-DD).",
+      "toast.invalidQuantity.title": "Valur nunvalida",
+      "toast.invalidQuantity.text":
+        "Endatescha ina quantitad valida per {product}!",
+      "toast.missingDisti.title": "❌ Mancanza da distributur",
+      "toast.missingDisti.text": "Tscherna in distributur per {product}.",
+      "toast.missingSourceName.title": "❌ Furnitur mancant",
+      "toast.missingSourceName.text":
+        "Inditgar il furnitur cura che «Auter» è tschernì per {product}.",
+      "toast.unknownDisti.title": "❌ Code da distributur nunenconuschent",
+      "toast.unknownDisti.text": "Il distributur «{code}» n'exista betg.",
+      "toast.success.title": "✅ Cumanda memorisada",
+      "toast.success.text":
+        "La cumanda è vegnida transmesscha cun success.",
+      "toast.error.title": "❌ Sbagl da memorisar",
+      "toast.error.text": "Sbagl nunenconuschent",
+    },
+
+    email: {
       firmendaten: "Datas da l'interpresa",
       ansprechperson: "Persuna da contact",
       email: "E-mail",
@@ -1806,7 +1770,8 @@ import { bestellung as bestellungRm } from "./rm/bestellung";
       kamEmail: "E-mail KAM",
       lieferoption: "Opziun da furniziun",
       lieferdatum: "Data previsa da furniziun",
-      lieferadresseWarn: "⚠️ Attenziun: Adressa da furniziun differenta (furniziun directa)",
+      lieferadresseWarn:
+        "⚠️ Attenziun: Adressa da furniziun differenta (furniziun directa)",
       lieferadresse: "Adresa da furniziun",
       kommentar: "Commentari dal vendaider",
       bestellpositionen: "Posiziuns da l’ordinaziun",
@@ -1815,112 +1780,99 @@ import { bestellung as bestellungRm } from "./rm/bestellung";
       bestellNr: "Nr. d’ordinaziun P5",
       sofort: "Immediat",
       geplant: "Furniziun planisada",
-  },
-  login: {
-    welcome: "Bainvegni sin la pagina d’access",
-    portalTitle: "Portal partenari P5connect",
-    portalDesc:
-      "Access segirà per partenaris commerzials registrads per trametter cifras da vendita, dumondas da project e empustaziuns.",
-    securityNote:
-      "Questa connexiun è criptada. Datas d’access na vegnan betg dadas vinavant a terzs.",
-
-    loginNr: "Numer d’access",
-    loginNrPlaceholder: "Endatescha il numer d’access",
-    password: "Pled-clav",
-    passwordPlaceholder: "Endatescha il pled-clav",
-    login: "S’annunziar",
-
-    error: {
-      unknownLogin: "Numer d’access nunenconuschent.",
-      noEmail: "Naginas datas d’e-mail registradas per quest partenari.",
-      failed: "L’annunzia n’è betg reussida. Controllescha numer d’access e pled-clav.",
     },
 
-    footerLine1: "© {year} P5connect.ch – Turitg, Svizra",
-    footerLine2: "support@p5connect.ch",
-    legalImprint: "Impressum",
-    legalPrivacy: "Protecziun da datas",
+    login: {
+      welcome: "Bainvegni sin la pagina d’access",
+      portalTitle: "Portal partenari P5connect",
+      portalDesc:
+        "Access segirà per partenaris commerzials registrads per trametter cifras da vendita, dumondas da project e empustaziuns.",
+      securityNote:
+        "Questa connexiun è criptada. Datas d’access na vegnan betg dadas vinavant a terzs.",
 
-    footer: "Access mo per partenaris registrads.",
-  },
+      loginNr: "Numer d’access",
+      loginNrPlaceholder: "Endatescha il numer d’access",
+      password: "Pled-clav",
+      passwordPlaceholder: "Endatescha il pled-clav",
+      login: "S’annunziar",
 
-    /*passwort change*/
-    auth: {
-      reset: {
-        title: "Fixar in nov pled-clav",
-        newPassword: "Nov pled-clav",
-        confirm: "Confermar il pled-clav",
-        submit: "Midar il pled-clav",
+      error: {
+        unknownLogin: "Numer d’access nunenconuschent.",
+        noEmail:
+          "Naginas datas d’e-mail registradas per quest partenari.",
+        failed:
+          "L’annunzia n’è betg reussida. Controllescha numer d’access e pled-clav.",
+      },
 
-        invalidLink: "❌ Errur: il link da reset manca u n’è betg valaivel.",
-        expired: "❌ Il link è nunvalaivel u è scrudà.",
-        noSession: "❌ Errur: nagina session d’autentificaziun disponibla.",
-        mismatch: "❌ Ils pleds-clav na correspundan betg.",
-        short: "❌ Il pled-clav sto cuntegnair almain 8 cars.",
-        success: "✅ Il pled-clav è vegnì midà cun success!",
+      footerLine1: "© {year} P5connect.ch – Turitg, Svizra",
+      footerLine2: "support@p5connect.ch",
+      legalImprint: "Impressum",
+      legalPrivacy: "Protecziun da datas",
+
+      footer: "Access mo per partenaris registrads.",
+    },
+
+    activity: {
+      title: "Activitads novitads",
+      loading: "Chargiar las activitads…",
+      empty: "Naginas entradas per il temp tschernì.",
+      status: {
+        pending: "pendenta",
+        approved: "approvada",
+        rejected: "refusada",
+        unknown: "—",
       },
     },
-      activity: {
-        title: "Activitads novitads",
-        loading: "Chargiar las activitads…",
-        empty: "Naginas entradas per il temp tschernì.",
-        status: {
-          pending: "pendenta",
-          approved: "approvada",
-          rejected: "refusada",
-          unknown: "—",
-        },
+
+    history: {
+      header: {
+        all: "Activitads recentes",
+        verkauf: "Venditas recentes",
+        bestellung: "Cumandas recentes",
+        projekt: "Projects recents",
+        support: "Cas da sustegn recents",
+        sofortrabatt: "Rabats immediats recents",
       },
-      history: {
-        header: {
-          all: "Activitads recentes",
-          verkauf: "Venditas recentes",
-          bestellung: "Cumandas recentes",
-          projekt: "Projects recents",
-          support: "Cas da sustegn recents",
-          sofortrabatt: "Rabats immediats recents",
-        },
 
-        actions: {
-          excel: "Excel",
-          excelTitle: "Telechargiar l’istorgia sco Excel",
-          viewAll: "Veser l’istorgia cumpletta →",
-          pdfTitle: "Telechargiar PDF",
-        },
+      actions: {
+        excel: "Excel",
+        excelTitle: "Telechargiar l’istorgia sco Excel",
+        viewAll: "Veser l’istorgia cumpletta →",
+        pdfTitle: "Telechargiar PDF",
+      },
 
-        empty: "Naginas entradas chattadas.",
-        loadingDetails: "Chargiar detagls…",
-        noDetails: "Nagins detagls chattads.",
+      empty: "Naginas entradas chattadas.",
+      loadingDetails: "Chargiar detagls…",
+      noDetails: "Nagins detagls chattads.",
 
-        meta: {
-          positions: "pos.",
-          reference: "Ref.",
-          delivery: "Furniziun",
-          productFallback: "Product",
-          more: "… e {count} ulteriurs",
-        },
+      meta: {
+        positions: "pos.",
+        reference: "Ref.",
+        delivery: "Furniziun",
+        productFallback: "Product",
+        more: "… e {count} ulteriurs",
+      },
 
-        error: {
-          excel: "Export Excel betg reussì",
-          pdf: "Export PDF betg reussì",
-        },
-      }
-    
+      error: {
+        excel: "Export Excel betg reussì",
+        pdf: "Export PDF betg reussì",
+      },
     },
-  } as const;
+  },
+} as const;
 
-  /* -------------------------------------------------------
-    🔥 Rekursive Keys für alle verschachtelten Übersetzungen
-  --------------------------------------------------------*/
+/* -------------------------------------------------------
+   Rekursive Keys für alle verschachtelten Übersetzungen
+-------------------------------------------------------- */
 
-  type DeepKeys<T, P extends string = ""> =
-    T extends object
-      ? {
-          [K in keyof T & string]:
-            T[K] extends string
-              ? `${P}${K}`             // direkter Key, z. B. "passwordForgot"
-              : `${P}${K}` | DeepKeys<T[K], `${P}${K}.`>; // verschachtelte Keys
-        }[keyof T & string]
-      : never;
+type DeepKeys<T, P extends string = ""> =
+  T extends object
+    ? {
+        [K in keyof T & string]:
+          T[K] extends string
+            ? `${P}${K}`
+            : `${P}${K}` | DeepKeys<T[K], `${P}${K}.`>;
+      }[keyof T & string]
+    : never;
 
-  export type TranslationKey = DeepKeys<typeof translationsByLang["de"]>;
+export type TranslationKey = DeepKeys<typeof translationsByLang["de"]>;

@@ -1,0 +1,72 @@
+export const adminOrderDetailView = {
+  empty: {
+    noProducts: "Aucun produit trouvé.",
+  },
+  header: {
+    title: "Commande #{id} – {dealer}",
+  },
+  footer: {
+    totalAmount: "Montant total :",
+  },
+  dialog: {
+    mailPreview: "Aperçu de l’e-mail",
+  },
+  actions: {
+    edit: "Modifier",
+    done: "Terminer",
+    cancel: "Annuler",
+  },
+  sections: {
+    campaignLogic: "Prix promotionnels / logique",
+    rrpSalesPrices: "PVC / prix de vente",
+    oldDealerPrices: "Prix revendeur (anciens)",
+    streetPriceNewDealerPrice: "Prix marché / prix revendeur (nouveau)",
+    lowestMarketProvider: "Fournisseur le moins cher (marché)",
+  },
+  fields: {
+    ean: "EAN",
+    mode: "Mode",
+    quantity: "Quantité",
+    pricingMode: "Mode tarifaire",
+    orderMode: "Mode de commande",
+    messePriceNet: "Prix salon net",
+    displayPriceNet: "Prix display net",
+    rrpGross: "PVC brut",
+    rrpNet: "PVC net",
+    vatShort: "−{amount} TVA",
+    vrgShort: "−{amount} TAR",
+    oldEk: "Prix d’achat ancien",
+    oldDistiEkPoi: "Prix distributeur ancien (POI ancien)",
+    streetPriceGross: "Prix marché brut",
+    streetPriceNet: "Prix marché net",
+    investChf: "Investissement (CHF)",
+    marginOnStreet: "Marge sur le marché (%)",
+    newDealerPrice: "Prix revendeur / nouveau PA (CHF)",
+    marginToRrpNet: "Marge par rapport au PVC net",
+    providerSource: "Fournisseur / source",
+    customProviderPlaceholder: "Nom du revendeur (obligatoire)",
+    distributor: "Distributeur",
+    distributorPlaceholder: "– sélectionner –",
+  },
+  badges: {
+    tradeFairOrder: "Commande salon",
+    standardOrder: "Commande standard",
+    messePrice: "Prix salon",
+    display: "Display",
+    messeDisplay: "Salon + display",
+    standard: "Standard",
+    notBonusRelevant: "Non éligible au bonus",
+  },
+  values: {
+    tradeFair: "Salon",
+    standard: "Standard",
+    campaignNumber: "Campagne #{id}",
+  },
+  marketSources: {
+    placeholder: "Veuillez choisir",
+    other: "Autre",
+  },
+  fallbacks: {
+    product: "Produit",
+  },
+} as const;
