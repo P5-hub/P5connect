@@ -1,13 +1,13 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import { Toaster, toast } from "sonner";
 import { createClient } from "@/utils/supabase/client";
 
-const SESSION_DURATION = 20 * 60 * 1000;
-const WARNING_TIME = 18 * 60 * 1000;
-const AUTO_REFRESH_COOLDOWN = 30 * 1000;
+const SESSION_DURATION = 20 * 60 * 1000; // 20 Minuten Inaktivität
+const WARNING_BEFORE_EXPIRY = 2 * 60 * 1000; // 2 Minuten vor Ablauf warnen
+const AUTO_REFRESH_COOLDOWN = 30 * 1000; // max. alle 30s verlängern
 
 export default function ProtectedLayout({
   children,
@@ -16,88 +16,170 @@ export default function ProtectedLayout({
 }) {
   const supabase = createClient();
   const router = useRouter();
+  const pathname = usePathname();
 
   const [expireAt, setExpireAt] = useState<number | null>(null);
   const warningShownRef = useRef(false);
-  const intervalRef = useRef<NodeJS.Timeout | null>(null);
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const lastActivityRefreshRef = useRef(0);
 
-  // ❗ WICHTIG: Login-Seite nicht schützen
-  if (typeof window !== "undefined") {
-    const pathname = window.location.pathname;
-    if (pathname === "/login") {
-      return <main>{children}</main>;
-    }
-  }
+  const isLoginPage = pathname === "/login";
 
-  // 🔥 Session prüfen
-  useEffect(() => {
-    async function checkSession() {
-      const { data } = await supabase.auth.getSession();
-      if (!data.session) {
-        router.replace("/login");
-        return;
-      }
-      renewSession();
+  const renewSession = async () => {
+    // Optional: echte Session nochmals prüfen
+    const { data, error } = await supabase.auth.getSession();
+
+    if (error || !data.session) {
+      await forceLogout(false);
+      return;
     }
 
-    checkSession();
-  }, []);
-
-  const renewSession = () => {
     setExpireAt(Date.now() + SESSION_DURATION);
     warningShownRef.current = false;
   };
 
-  const forceLogout = async () => {
-    await supabase.auth.signOut();
-    toast.error("Sitzung abgelaufen");
+  const forceLogout = async (showToast = true) => {
+    try {
+      await supabase.auth.signOut();
+    } catch {
+      // Ignorieren, Redirect soll trotzdem erfolgen
+    }
+
+    if (showToast) {
+      toast.error("Sitzung abgelaufen");
+    }
+
     router.replace("/login");
   };
 
-  // Timer
+  // Login-Seite nicht schützen
   useEffect(() => {
-    if (!expireAt) return;
+    if (isLoginPage) return;
+
+    let mounted = true;
+
+    async function checkSession() {
+      const { data, error } = await supabase.auth.getSession();
+
+      if (!mounted) return;
+
+      if (error || !data.session) {
+        router.replace("/login");
+        return;
+      }
+
+      setExpireAt(Date.now() + SESSION_DURATION);
+      warningShownRef.current = false;
+    }
+
+    checkSession();
+
+    return () => {
+      mounted = false;
+    };
+  }, [isLoginPage, router, supabase]);
+
+  // Timer verwalten
+  useEffect(() => {
+    if (isLoginPage || !expireAt) return;
+
+    if (intervalRef.current) {
+      clearInterval(intervalRef.current);
+    }
 
     intervalRef.current = setInterval(() => {
       const remaining = expireAt - Date.now();
 
-      if (!warningShownRef.current && remaining <= WARNING_TIME) {
+      if (
+        !warningShownRef.current &&
+        remaining > 0 &&
+        remaining <= WARNING_BEFORE_EXPIRY
+      ) {
         warningShownRef.current = true;
+
         toast.warning("Ihre Sitzung läuft bald ab", {
           action: {
             label: "Verlängern",
-            onClick: () => renewSession(),
+            onClick: () => {
+              renewSession();
+            },
           },
         });
       }
 
       if (remaining <= 0) {
-        clearInterval(intervalRef.current!);
+        if (intervalRef.current) {
+          clearInterval(intervalRef.current);
+        }
         forceLogout();
       }
     }, 1000);
 
-    return () => clearInterval(intervalRef.current!);
-  }, [expireAt]);
+    return () => {
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+      }
+    };
+  }, [expireAt, isLoginPage]);
 
-  // Aktivität → verlängern
+  // Benutzeraktivität => lokalen Inaktivitäts-Timer verlängern
   useEffect(() => {
+    if (isLoginPage) return;
+
     const refresh = () => {
       const now = Date.now();
+
       if (now - lastActivityRefreshRef.current < AUTO_REFRESH_COOLDOWN) return;
+
       lastActivityRefreshRef.current = now;
       renewSession();
     };
 
-    window.addEventListener("mousemove", refresh);
-    window.addEventListener("keydown", refresh);
+    const events: Array<keyof WindowEventMap> = [
+      "mousemove",
+      "keydown",
+      "click",
+      "scroll",
+      "touchstart",
+    ];
+
+    events.forEach((event) =>
+      window.addEventListener(event, refresh, { passive: true })
+    );
 
     return () => {
-      window.removeEventListener("mousemove", refresh);
-      window.removeEventListener("keydown", refresh);
+      events.forEach((event) =>
+        window.removeEventListener(event, refresh)
+      );
     };
-  }, []);
+  }, [isLoginPage]);
+
+  // Reaktion auf Auth-Änderungen
+  useEffect(() => {
+    if (isLoginPage) return;
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === "SIGNED_OUT" || !session) {
+        router.replace("/login");
+        return;
+      }
+
+      if (event === "SIGNED_IN" || event === "TOKEN_REFRESHED") {
+        setExpireAt(Date.now() + SESSION_DURATION);
+        warningShownRef.current = false;
+      }
+    });
+
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, [isLoginPage, router, supabase]);
+
+  if (isLoginPage) {
+    return <main>{children}</main>;
+  }
 
   return (
     <>
