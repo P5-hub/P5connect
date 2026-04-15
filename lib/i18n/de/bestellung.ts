@@ -90,7 +90,6 @@ export const bestellung = {
       "Die Bestellung konnte nicht gespeichert werden.",
 
     uploadFailed: "Datei-Upload fehlgeschlagen",
-
     projectIdCopied: "Projekt-ID kopiert",
   },
 
@@ -141,13 +140,13 @@ export const bestellung = {
       allGroups: "Alle Gruppen",
       allCategories: "Alle Kategorien",
     },
-    
+
     progress: {
       title: "Bonus Fortschritt",
       afterSubmit: "Nach Absenden",
       progress: "Fortschritt",
       already: "Bereits",
-      cart: "Cart",
+      cart: "Warenkorb",
       total: "Total",
       nextTier: "Nächste Bonusstufe",
       highestTierReached: "Höchste Bonusstufe erreicht",
@@ -244,9 +243,10 @@ export const bestellung = {
       total: "Gesamt",
       totalPrice: "Gesamtpreis",
       bonusProgress: "Bonus-Fortschritt",
+      piecesValue: "{count} Stück",
+      totalSavings: "Gesamtersparnis: {amount}",
       savings: "Gesamtersparnis: {amount} CHF",
-      missingToNext:
-        "Noch {amount} bis {tier}",
+      missingToNext: "Noch {amount} bis {tier}",
       highestTierReached:
         "Höchste Bonusstufe erreicht",
       send: "Bestellung absenden",
@@ -320,5 +320,4 @@ export const bestellung = {
     dealerData: "Händlerdaten werden geladen…",
     campaign: "Lade Messekampagne…",
   },
-  
 } as const;

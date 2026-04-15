@@ -176,6 +176,15 @@ const getCartItemMode = (item: any): "display" | "messe" | "standard" => {
   return "standard";
 };
 
+const canOrderAsDisplay = (item: any) => {
+  const maxDisplayQty =
+    item?.max_display_qty_per_dealer ??
+    item?.pricing_snapshot?.max_display_qty_per_dealer ??
+    null;
+
+  return maxDisplayQty != null && Number(maxDisplayQty) > 0;
+};
+
 const getCampaignQtySummaryForProduct = (
   cart: CartItem[],
   productId: number,
@@ -367,16 +376,16 @@ function SectionCard({
 }) {
   const toneMap = {
     default: "border-slate-200 bg-white",
-    blue: "border-blue-200 bg-blue-50/40",
-    green: "border-emerald-200 bg-emerald-50/40",
-    amber: "border-amber-200 bg-amber-50/40",
-    purple: "border-purple-200 bg-purple-50/50",
+    blue: "border-slate-200 bg-white",
+    green: "border-emerald-200 bg-emerald-50/20",
+    amber: "border-amber-200 bg-amber-50/20",
+    purple: "border-slate-200 bg-white",
   };
 
   return (
     <div className={`rounded-2xl border p-4 shadow-sm ${toneMap[tone]} ${className}`}>
-      <div className="mb-3 flex items-start gap-3">
-        <div className="rounded-xl bg-white p-2 text-slate-700 shadow-sm ring-1 ring-black/5">
+      <div className="mb-4 flex items-start gap-3">
+        <div className="rounded-lg bg-slate-50 p-2 text-slate-500 ring-1 ring-slate-200">
           {icon}
         </div>
         <div>
@@ -387,7 +396,6 @@ function SectionCard({
     </div>
   );
 }
-
 function MiniStat({
   label,
   value,
@@ -398,13 +406,7 @@ function MiniStat({
   tone?: "default" | "green";
 }) {
   return (
-    <div
-      className={`rounded-xl border p-3 ${
-        tone === "green"
-          ? "border-emerald-200 bg-white"
-          : "border-slate-200 bg-white"
-      }`}
-    >
+    <div className="rounded-xl border border-slate-200 bg-white p-3">
       <div className="text-xs text-slate-500">{label}</div>
       <div className="mt-1 text-sm font-semibold text-slate-900">{value}</div>
     </div>
@@ -518,6 +520,8 @@ function ProductCard({
   const isCampaignItem = !!(item as any).campaign_id;
   const isDisplayItem = effectiveMode === "display";
   const isMesseItem = effectiveMode === "messe";
+  const isLockedCampaignPrice = isMesseItem || isDisplayItem;
+  const displayAllowed = canOrderAsDisplay(item);
 
   const historicalDisplayQty =
     historicalDisplayMap[Number((item as any).product_id)] || 0;
@@ -677,14 +681,14 @@ function ProductCard({
       lines.push({
         text: tr(
           "bestellung.campaign.limits.displayMax",
-          "Display max. {max} · bereits bestellt {ordered} · noch frei {remaining}",
+          "Display max. {max} · bereits bestellt {ordered} · noch frei {free}",
           {
             max: maxDisplayQtyPerDealer,
             ordered: persistedSummary.display,
-            remaining: clampMinZero(maxDisplayQtyPerDealer - persistedSummary.display),
+            free: clampMinZero(maxDisplayQtyPerDealer - persistedSummary.display),
           }
         ),
-        color: "text-indigo-600",
+        color: "text-slate-600",
       });
     }
 
@@ -692,26 +696,26 @@ function ProductCard({
       lines.push({
         text: tr(
           "bestellung.campaign.limits.messeMax",
-          "Messe max. {max} · bereits bestellt {ordered} · noch frei {remaining}",
+          "Messe max. {max} · bereits bestellt {ordered} · noch frei {free}",
           {
             max: maxMesseQtyPerDealer,
             ordered: persistedSummary.messe,
-            remaining: clampMinZero(maxMesseQtyPerDealer - persistedSummary.messe),
+            free: clampMinZero(maxMesseQtyPerDealer - persistedSummary.messe),
           }
         ),
-        color: "text-blue-600",
+        color: "text-slate-600",
       });
     }
 
     if (maxQtyPerDealer != null && maxQtyPerDealer > 0) {
       lines.push({
         text: tr(
-          "bestellung.campaign.limits.actionMax",
-          "Aktions max. {max} · bereits bestellt {ordered} · noch frei {remaining}",
+          "bestellung.campaign.limits.campaignMax",
+          "Aktions max. {max} · bereits bestellt {ordered} · noch frei {free}",
           {
             max: maxQtyPerDealer,
             ordered: persistedSummary.total,
-            remaining: clampMinZero(maxQtyPerDealer - persistedSummary.total),
+            free: clampMinZero(maxQtyPerDealer - persistedSummary.total),
           }
         ),
         color: "text-amber-600",
@@ -721,12 +725,12 @@ function ProductCard({
     if (maxTotalQtyPerDealer != null && maxTotalQtyPerDealer > 0) {
       lines.push({
         text: tr(
-          "bestellung.campaign.limits.totalMax",
-          "Total Aktion max. {max} · bereits bestellt {ordered} · noch frei {remaining}",
+          "bestellung.campaign.limits.totalCampaignMax",
+          "Total Aktion max. {max} · bereits bestellt {ordered} · noch frei {free}",
           {
             max: maxTotalQtyPerDealer,
             ordered: persistedSummary.total,
-            remaining: clampMinZero(maxTotalQtyPerDealer - persistedSummary.total),
+            free: clampMinZero(maxTotalQtyPerDealer - persistedSummary.total),
           }
         ),
         color: "text-emerald-600",
@@ -857,7 +861,7 @@ function ProductCard({
   };
 
   return (
-    <div className="mb-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition-shadow hover:shadow-md">
+    <div className="mb-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
       <div className="mb-3 flex items-start justify-between gap-3">
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
@@ -868,7 +872,7 @@ function ProductCard({
             </p>
 
             {allowed.length > 0 && (
-              <span className="inline-flex items-center gap-1 rounded-full border border-amber-200 bg-amber-50 px-2.5 py-1 text-[11px] font-semibold text-amber-700">
+              <span className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-[11px] font-medium text-slate-600">
                 <Star className="h-3 w-3" />
                 {tr(
                   "bestellung.cartSheet.product.specialDistribution",
@@ -880,7 +884,7 @@ function ProductCard({
             {(item as any).campaign_id &&
               (item as any).bonus_relevant === true &&
               !(item as any).overflow_from_campaign && (
-                <span className="inline-flex items-center gap-1 rounded-full border border-violet-200 bg-violet-50 px-2.5 py-1 text-[11px] font-semibold text-violet-700">
+                <span className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-[11px] font-medium text-slate-600">
                   <Sparkles className="h-3 w-3" />
                   {tr(
                     "bestellung.cartSheet.product.bonusRelevant",
@@ -890,7 +894,7 @@ function ProductCard({
               )}
 
             {(item as any).overflow_from_campaign && (
-              <span className="inline-flex items-center gap-1 rounded-full border border-blue-200 bg-blue-50 px-2.5 py-1 text-[11px] font-semibold text-blue-700">
+              <span className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-[11px] font-medium text-slate-600">
                 {tr("bestellung.cartSheet.product.normalPrice", "Normalpreis")}
               </span>
             )}
@@ -935,23 +939,23 @@ function ProductCard({
             allowedCampaignQtyForThisRow >= 0 &&
             !(item as any).overflow_from_campaign && (
               <p className="mt-1 text-[11px] text-slate-500">
-                {isDisplayItem
-                  ? tr(
-                      "bestellung.cartSheet.product.campaignQtyPossibleDisplay",
-                      "In dieser Display-Position noch max. {count} Stück zum Displaypreis möglich",
-                      { count: allowedCampaignQtyForThisRow }
-                    )
-                  : isMesseItem
-                  ? tr(
-                      "bestellung.cartSheet.product.campaignQtyPossibleMesse",
-                      "In dieser Messe-Position noch max. {count} Stück zum Messepreis möglich",
-                      { count: allowedCampaignQtyForThisRow }
-                    )
-                  : tr(
-                      "bestellung.cartSheet.product.campaignQtyPossibleCampaign",
-                      "In dieser Position noch max. {count} Stück zum Aktionspreis möglich",
-                      { count: allowedCampaignQtyForThisRow }
-                    )}
+              {isDisplayItem
+                ? tr(
+                    "bestellung.campaign.limits.rowDisplayMax",
+                    "In dieser Display-Position noch max. {count} Stück zum Displaypreis möglich",
+                    { count: allowedCampaignQtyForThisRow }
+                  )
+                : isMesseItem
+                ? tr(
+                    "bestellung.campaign.limits.rowMesseMax",
+                    "In dieser Messe-Position noch max. {count} Stück zum Messepreis möglich",
+                    { count: allowedCampaignQtyForThisRow }
+                  )
+                : tr(
+                    "bestellung.campaign.limits.rowCampaignMax",
+                    "In dieser Position noch max. {count} Stück zum Aktionspreis möglich",
+                    { count: allowedCampaignQtyForThisRow }
+                  )}
               </p>
             )}
         </div>
@@ -965,22 +969,29 @@ function ProductCard({
             type="number"
             step="0.01"
             value={price}
-            onChange={(e) =>
+            readOnly={isLockedCampaignPrice}
+            onChange={(e) => {
+              if (isLockedCampaignPrice) return;
+
               updateItem("bestellung", index, {
                 price: toMoney(e.target.value),
                 price_manual_override: true,
                 price_manual_override_value: toMoney(e.target.value),
-              })
-            }
-            className="h-10 text-center text-sm"
+              });
+            }}
+            className={`h-10 text-center text-sm font-medium ${
+              isLockedCampaignPrice
+                ? "border-emerald-300 bg-emerald-50 text-emerald-700 shadow-sm"
+                : ""
+            }`}
           />
 
-          <p className="mt-1 text-[11px] text-slate-500">
-            {tr("bestellung.cartSheet.product.normalEk", "EK normal")}:{" "}
-            <span className="font-medium text-blue-600">
-              {ek ? `${formatNumberCH(ek, 2, 2)} CHF` : "-"}
-            </span>
-          </p>
+        <p className="mt-1 text-[11px] text-slate-500">
+          {tr("bestellung.cartSheet.product.normalEk", "EK normal")}:{" "}
+          <span className="font-medium text-slate-900">
+            {ek ? `${formatNumberCH(ek, 2, 2)} CHF` : "-"}
+          </span>
+        </p>
 
           {showSavings && (
             <div className="mt-2 inline-flex items-center gap-1 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-medium text-emerald-700">
@@ -999,15 +1010,14 @@ function ProductCard({
       </div>
 
       {(item as any).campaign_id &&
-        ((item as any).display_price_netto != null ||
-          (item as any).messe_price_netto != null) &&
+        ((item as any).messe_price_netto != null || displayAllowed) &&
         !(item as any).overflow_from_campaign && (
-          <div className="mt-4 rounded-2xl border border-indigo-200 bg-indigo-50/70 p-4 text-xs">
+          <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-4 text-xs">
             <div className="mb-3 flex items-center justify-between">
-              <span className="font-semibold text-indigo-900">
+              <span className="font-semibold text-slate-900">
                 {tr("bestellung.cartSheet.product.pricingMode", "Pricing-Modus")}
               </span>
-              <span className="font-semibold text-indigo-700">
+              <span className="font-semibold text-slate-700">
                 {(item as any).pricing_mode === "display"
                   ? tr("bestellung.cartSheet.product.modeDisplay", "Display")
                   : (item as any).pricing_mode === "messe"
@@ -1036,7 +1046,7 @@ function ProductCard({
                       "Displaypreis netto"
                     )}
                   </span>
-                  <span className="font-medium text-indigo-700">
+                  <span className="font-medium text-slate-900">
                     {safeNum((item as any).display_price_netto).toFixed(2)} CHF
                   </span>
                 </div>
@@ -1050,12 +1060,12 @@ function ProductCard({
                       "Messepreis netto"
                     )}
                   </span>
-                  <span className="font-medium text-indigo-700">
+                  <span className="font-medium text-slate-900">
                     {safeNum((item as any).messe_price_netto).toFixed(2)} CHF
                   </span>
                 </div>
               )}
-
+              {/** 
               {(item as any).display_discount_vs_hrp_percent != null && (
                 <div className="flex items-center justify-between">
                   <span className="text-slate-600">
@@ -1072,33 +1082,100 @@ function ProductCard({
                   </span>
                 </div>
               )}
+              */}
             </div>
 
-            <label className="mt-3 flex items-center gap-2 rounded-xl border border-indigo-200 bg-white px-3 py-2">
-              <input
-                type="checkbox"
-                checked={!!(item as any).is_display_item}
-                onChange={(e) => {
-                  const checked = e.target.checked;
+            {displayAllowed && (
+              <label className="mt-3 flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2">
+                <input
+                  type="checkbox"
+                  checked={!!(item as any).is_display_item}
+                  onChange={(e) => {
+                    const checked = e.target.checked;
 
-                  if (checked && hasHistoricalDisplayOrder) {
-                    const existingComment = String((item as any).comment ?? "").trim();
-
-                    if (!existingComment) {
+                    if (checked && !displayAllowed) {
                       toast.error(
                         tr(
-                          "bestellung.toast.displayAlreadyOrderedTitle",
-                          "Display bereits bestellt"
+                          "bestellung.toast.displayNotAllowedTitle",
+                          "Display nicht verfügbar"
                         ),
                         {
                           description: tr(
-                            "bestellung.toast.displayAlreadyOrderedText",
-                            "Für {product} wurde bereits mindestens ein Display bestellt. Bitte im Kommentarfeld begründen, weshalb ein zusätzliches Display benötigt wird.",
+                            "bestellung.toast.displayNotAllowedText",
+                            "Für dieses Produkt ist keine Display-Bestellung hinterlegt."
+                          ),
+                          duration: TOAST_DURATION,
+                        }
+                      );
+                      return;
+                    }
+
+                    if (checked && hasHistoricalDisplayOrder) {
+                      const existingComment = String((item as any).comment ?? "").trim();
+
+                      if (!existingComment) {
+                        toast.error(
+                          tr(
+                            "bestellung.toast.displayAlreadyOrderedTitle",
+                            "Display bereits bestellt"
+                          ),
+                          {
+                            description: tr(
+                              "bestellung.toast.displayAlreadyOrderedText",
+                              "Für {product} wurde bereits mindestens ein Display bestellt. Bitte im Kommentarfeld begründen, weshalb ein zusätzliches Display benötigt wird.",
+                              {
+                                product:
+                                  item.product_name ||
+                                  (item as any).sony_article ||
+                                  tr("bestellung.cartSheet.product.unknown", "dieses Produkt"),
+                              }
+                            ),
+                            duration: TOAST_DURATION,
+                          }
+                        );
+                        return;
+                      }
+                    }
+
+                    const currentQty = Number((item as any).quantity ?? 1);
+
+                    const nextDisplayQty =
+                      persistedSummary.display +
+                      summaryOtherRows.display +
+                      currentQty;
+
+                    const nextTotalQty =
+                      persistedSummary.total + summaryOtherRows.total + currentQty;
+
+                    if (
+                      checked &&
+                      maxDisplayQtyPerDealer != null &&
+                      maxDisplayQtyPerDealer > 0 &&
+                      nextDisplayQty > maxDisplayQtyPerDealer
+                    ) {
+                      const stillFree = clampMinZero(
+                        maxDisplayQtyPerDealer -
+                          persistedSummary.display -
+                          summaryOtherRows.display
+                      );
+
+                      toast.error(
+                        tr(
+                          "bestellung.toast.displayLimitReachedTitle",
+                          "Display-Limit erreicht"
+                        ),
+                        {
+                          description: tr(
+                            "bestellung.toast.displayLimitReachedText",
+                            "Für {product} sind maximal {max} Display-Stück gültig. Bereits bestellt: {ordered}. Noch frei für diese Position: {free}.",
                             {
                               product:
                                 item.product_name ||
                                 (item as any).sony_article ||
                                 tr("bestellung.cartSheet.product.unknown", "dieses Produkt"),
+                              max: maxDisplayQtyPerDealer,
+                              ordered: persistedSummary.display,
+                              free: stillFree,
                             }
                           ),
                           duration: TOAST_DURATION,
@@ -1106,154 +1183,107 @@ function ProductCard({
                       );
                       return;
                     }
-                  }
 
-                  const currentQty = Number((item as any).quantity ?? 1);
+                    if (
+                      checked &&
+                      maxTotalQtyPerDealer != null &&
+                      maxTotalQtyPerDealer > 0 &&
+                      nextTotalQty > maxTotalQtyPerDealer
+                    ) {
+                      const stillFree = clampMinZero(
+                        maxTotalQtyPerDealer -
+                          persistedSummary.total -
+                          summaryOtherRows.total
+                      );
 
-                  const nextDisplayQty =
-                    persistedSummary.display +
-                    summaryOtherRows.display +
-                    currentQty;
-
-                  const nextTotalQty =
-                    persistedSummary.total + summaryOtherRows.total + currentQty;
-
-                  if (
-                    checked &&
-                    maxDisplayQtyPerDealer != null &&
-                    maxDisplayQtyPerDealer > 0 &&
-                    nextDisplayQty > maxDisplayQtyPerDealer
-                  ) {
-                    const stillFree = clampMinZero(
-                      maxDisplayQtyPerDealer -
-                        persistedSummary.display -
-                        summaryOtherRows.display
-                    );
-
-                    toast.error(
-                      tr(
-                        "bestellung.toast.displayLimitReachedTitle",
-                        "Display-Limit erreicht"
-                      ),
-                      {
-                        description: tr(
-                          "bestellung.toast.displayLimitReachedText",
-                          "Für {product} sind maximal {max} Display-Stück gültig. Bereits bestellt: {ordered}. Noch frei für diese Position: {free}.",
-                          {
-                            product:
-                              item.product_name ||
-                              (item as any).sony_article ||
-                              tr("bestellung.cartSheet.product.unknown", "dieses Produkt"),
-                            max: maxDisplayQtyPerDealer,
-                            ordered: persistedSummary.display,
-                            free: stillFree,
-                          }
+                      toast.error(
+                        tr(
+                          "bestellung.toast.totalLimitReachedTitle",
+                          "Gesamtlimit erreicht"
                         ),
-                        duration: TOAST_DURATION,
-                      }
+                        {
+                          description: tr(
+                            "bestellung.toast.totalLimitReachedText",
+                            "Für {product} sind maximal {max} Aktions-Stück total gültig. Bereits bestellt: {ordered}. Noch frei für diese Position: {free}.",
+                            {
+                              product:
+                                item.product_name ||
+                                (item as any).sony_article ||
+                                tr("bestellung.cartSheet.product.unknown", "dieses Produkt"),
+                              max: maxTotalQtyPerDealer,
+                              ordered: persistedSummary.total,
+                              free: stillFree,
+                            }
+                          ),
+                          duration: TOAST_DURATION,
+                        }
+                      );
+                      return;
+                    }
+
+                    const nextPricingMode = checked
+                      ? "display"
+                      : (item as any).campaign_id
+                      ? "messe"
+                      : "standard";
+
+                    const resolved = resolveCampaignPricingForItem(
+                      item,
+                      nextPricingMode
                     );
-                    return;
-                  }
 
-                  if (
-                    checked &&
-                    maxTotalQtyPerDealer != null &&
-                    maxTotalQtyPerDealer > 0 &&
-                    nextTotalQty > maxTotalQtyPerDealer
-                  ) {
-                    const stillFree = clampMinZero(
-                      maxTotalQtyPerDealer -
-                        persistedSummary.total -
-                        summaryOtherRows.total
-                    );
-
-                    toast.error(
-                      tr(
-                        "bestellung.toast.totalLimitReachedTitle",
-                        "Gesamtlimit erreicht"
-                      ),
-                      {
-                        description: tr(
-                          "bestellung.toast.totalLimitReachedText",
-                          "Für {product} sind maximal {max} Aktions-Stück total gültig. Bereits bestellt: {ordered}. Noch frei für diese Position: {free}.",
-                          {
-                            product:
-                              item.product_name ||
-                              (item as any).sony_article ||
-                              tr("bestellung.cartSheet.product.unknown", "dieses Produkt"),
-                            max: maxTotalQtyPerDealer,
-                            ordered: persistedSummary.total,
-                            free: stillFree,
-                          }
-                        ),
-                        duration: TOAST_DURATION,
-                      }
-                    );
-                    return;
-                  }
-
-                  const nextPricingMode = checked
-                    ? "display"
-                    : (item as any).campaign_id
-                    ? "messe"
-                    : "standard";
-
-                  const resolved = resolveCampaignPricingForItem(
-                    item,
-                    nextPricingMode
-                  );
-
-                  updateItem("bestellung", index, {
-                    is_display_item: checked,
-                    pricing_mode: resolved.pricing_mode,
-                    price:
-                      (item as any).price_manual_override === true
-                        ? toMoney(
-                            (item as any).price_manual_override_value ??
-                              (item as any).price ??
-                              0
-                          )
-                        : resolved.final_unit_price,
-                    upe_brutto: resolved.upe_brutto,
-                    dealer_invoice_price: resolved.dealer_invoice_price,
-                    vrg_amount: resolved.vrg_amount,
-                    mwst_rate: resolved.mwst_rate,
-                    upe_netto_excl_vrg: resolved.upe_netto_excl_vrg,
-                    display_factor_percent: resolved.display_factor_percent,
-                    display_price_netto: resolved.display_price_netto,
-                    messe_price_netto: resolved.messe_price_netto,
-                    display_discount_vs_hrp_percent:
-                      resolved.display_discount_vs_hrp_percent,
-                    pricing_snapshot: {
-                      ...((item as any).pricing_snapshot ?? {}),
-                      source: (item as any).campaign_id ? "campaign" : "standard",
-                      campaign_id: (item as any).campaign_id ?? null,
-                      campaign_name: (item as any).campaign_name ?? null,
-                      order_mode: (item as any).order_mode ?? "standard",
+                    updateItem("bestellung", index, {
+                      is_display_item: checked,
                       pricing_mode: resolved.pricing_mode,
+                      price: resolved.final_unit_price,
+                      price_manual_override: false,
+                      price_manual_override_value: null,
+
+                      lowest_price_source: null,
+                      lowest_price_source_custom: null,
+                      lowest_price_brutto: null,
+
                       upe_brutto: resolved.upe_brutto,
+                      dealer_invoice_price: resolved.dealer_invoice_price,
                       vrg_amount: resolved.vrg_amount,
                       mwst_rate: resolved.mwst_rate,
                       upe_netto_excl_vrg: resolved.upe_netto_excl_vrg,
                       display_factor_percent: resolved.display_factor_percent,
                       display_price_netto: resolved.display_price_netto,
                       messe_price_netto: resolved.messe_price_netto,
-                      final_unit_price: resolved.final_unit_price,
                       display_discount_vs_hrp_percent:
                         resolved.display_discount_vs_hrp_percent,
-                      calculated_at: new Date().toISOString(),
-                    },
-                  });
-                }}
-                className="h-4 w-4"
-              />
-              <span className="text-sm text-slate-700">
-                {tr(
-                  "bestellung.cartSheet.product.orderAsDisplay",
-                  "Als Display bestellen"
-                )}
-              </span>
-            </label>
+                      pricing_snapshot: {
+                        ...((item as any).pricing_snapshot ?? {}),
+                        source: (item as any).campaign_id ? "campaign" : "standard",
+                        campaign_id: (item as any).campaign_id ?? null,
+                        campaign_name: (item as any).campaign_name ?? null,
+                        order_mode: (item as any).order_mode ?? "standard",
+                        pricing_mode: resolved.pricing_mode,
+                        upe_brutto: resolved.upe_brutto,
+                        vrg_amount: resolved.vrg_amount,
+                        mwst_rate: resolved.mwst_rate,
+                        upe_netto_excl_vrg: resolved.upe_netto_excl_vrg,
+                        display_factor_percent: resolved.display_factor_percent,
+                        display_price_netto: resolved.display_price_netto,
+                        messe_price_netto: resolved.messe_price_netto,
+                        final_unit_price: resolved.final_unit_price,
+                        display_discount_vs_hrp_percent:
+                          resolved.display_discount_vs_hrp_percent,
+                        calculated_at: new Date().toISOString(),
+                      },
+                    });
+                  }}
+                  className="h-4 w-4"
+                />
+                <span className="text-sm text-slate-700">
+                  {tr(
+                    "bestellung.cartSheet.product.orderAsDisplay",
+                    "Als Display bestellen"
+                  )}
+                </span>
+              </label>
+            )}
 
             {!!(item as any).is_display_item && hasHistoricalDisplayOrder && (
               <div className="mt-3">
@@ -1287,106 +1317,108 @@ function ProductCard({
           </div>
         )}
 
-      <div className="mt-4 border-t border-slate-200 pt-4">
-        <FieldLabel>
-          {tr(
-            "bestellung.cartSheet.product.cheapestProvider",
-            "Günstigster Anbieter"
+      {!isLockedCampaignPrice && (
+        <div className="mt-4 border-t border-slate-200 pt-4">
+          <FieldLabel>
+            {tr(
+              "bestellung.cartSheet.product.cheapestProvider",
+              "Günstigster Anbieter"
+            )}
+          </FieldLabel>
+
+          <Select
+            value={(item as any).lowest_price_source ?? ""}
+            onValueChange={(val) => {
+              updateItem("bestellung", index, {
+                lowest_price_source: val,
+                lowest_price_source_custom:
+                  val === tr("bestellung.cartSheet.product.other", "Andere")
+                    ? (item as any).lowest_price_source_custom ?? ""
+                    : null,
+              });
+            }}
+          >
+            <SelectTrigger className="h-10 text-sm">
+              <SelectValue
+                placeholder={tr(
+                  "bestellung.cartSheet.product.providerNamePlaceholder",
+                  "Bitte auswählen"
+                )}
+              />
+            </SelectTrigger>
+
+            <SelectContent>
+              <SelectItem value="Digitec">Digitec</SelectItem>
+              <SelectItem value="Mediamarkt">Mediamarkt</SelectItem>
+              <SelectItem value="Interdiscount">Interdiscount</SelectItem>
+              <SelectItem value="Fnac">Fnac</SelectItem>
+              <SelectItem value="Brack">Brack</SelectItem>
+              <SelectItem value="Fust">Fust</SelectItem>
+              <SelectItem value={tr("bestellung.cartSheet.product.other", "Andere")}>
+                {tr("bestellung.cartSheet.product.other", "Andere")}
+              </SelectItem>
+            </SelectContent>
+          </Select>
+
+          {(item as any).lowest_price_source ===
+            tr("bestellung.cartSheet.product.other", "Andere") && (
+            <div className="mt-3">
+              <FieldLabel required>
+                {tr(
+                  "bestellung.cartSheet.product.providerName",
+                  "Bitte Namen des Anbieters angeben"
+                )}
+              </FieldLabel>
+
+              <Input
+                placeholder={tr(
+                  "bestellung.cartSheet.product.providerNamePlaceholder",
+                  "Name des Händlers"
+                )}
+                value={(item as any).lowest_price_source_custom ?? ""}
+                onChange={(e) =>
+                  updateItem("bestellung", index, {
+                    lowest_price_source_custom: e.target.value,
+                  })
+                }
+                className="h-10 border-amber-300 text-sm focus-visible:ring-amber-300"
+              />
+
+              <p className="mt-1 text-[11px] text-amber-600">
+                {tr(
+                  "bestellung.cartSheet.product.providerNameHint",
+                  "Pflichtfeld bei Auswahl von „Andere“."
+                )}
+              </p>
+            </div>
           )}
-        </FieldLabel>
 
-        <Select
-          value={(item as any).lowest_price_source ?? ""}
-          onValueChange={(val) => {
-            updateItem("bestellung", index, {
-              lowest_price_source: val,
-              lowest_price_source_custom:
-                val === tr("bestellung.cartSheet.product.other", "Andere")
-                  ? (item as any).lowest_price_source_custom ?? ""
-                  : null,
-            });
-          }}
-        >
-          <SelectTrigger className="h-10 text-sm">
-            <SelectValue
-              placeholder={tr(
-                "bestellung.cartSheet.product.providerNamePlaceholder",
-                "Bitte auswählen"
-              )}
-            />
-          </SelectTrigger>
-
-          <SelectContent>
-            <SelectItem value="Digitec">Digitec</SelectItem>
-            <SelectItem value="Mediamarkt">Mediamarkt</SelectItem>
-            <SelectItem value="Interdiscount">Interdiscount</SelectItem>
-            <SelectItem value="Fnac">Fnac</SelectItem>
-            <SelectItem value="Brack">Brack</SelectItem>
-            <SelectItem value="Fust">Fust</SelectItem>
-            <SelectItem value={tr("bestellung.cartSheet.product.other", "Andere")}>
-              {tr("bestellung.cartSheet.product.other", "Andere")}
-            </SelectItem>
-          </SelectContent>
-        </Select>
-
-        {(item as any).lowest_price_source ===
-          tr("bestellung.cartSheet.product.other", "Andere") && (
           <div className="mt-3">
-            <FieldLabel required>
+            <FieldLabel>
               {tr(
-                "bestellung.cartSheet.product.providerName",
-                "Bitte Namen des Anbieters angeben"
+                "bestellung.cartSheet.product.cheapestPriceGross",
+                "Günstigster Preis (inkl. MwSt.)"
               )}
             </FieldLabel>
 
             <Input
-              placeholder={tr(
-                "bestellung.cartSheet.product.providerNamePlaceholder",
-                "Name des Händlers"
-              )}
-              value={(item as any).lowest_price_source_custom ?? ""}
+              type="number"
+              step="0.01"
+              placeholder="0.00"
+              value={(item as any).lowest_price_brutto ?? ""}
               onChange={(e) =>
                 updateItem("bestellung", index, {
-                  lowest_price_source_custom: e.target.value,
+                  lowest_price_brutto:
+                    e.target.value === ""
+                      ? null
+                      : parseFloat(e.target.value) || null,
                 })
               }
-              className="h-10 border-amber-300 text-sm focus-visible:ring-amber-300"
+              className="h-10 text-sm"
             />
-
-            <p className="mt-1 text-[11px] text-amber-600">
-              {tr(
-                "bestellung.cartSheet.product.providerNameHint",
-                "Pflichtfeld bei Auswahl von „Andere“."
-              )}
-            </p>
           </div>
-        )}
-
-        <div className="mt-3">
-          <FieldLabel>
-            {tr(
-              "bestellung.cartSheet.product.cheapestPriceGross",
-              "Günstigster Preis (inkl. MwSt.)"
-            )}
-          </FieldLabel>
-
-          <Input
-            type="number"
-            step="0.01"
-            placeholder="0.00"
-            value={(item as any).lowest_price_brutto ?? ""}
-            onChange={(e) =>
-              updateItem("bestellung", index, {
-                lowest_price_brutto:
-                  e.target.value === ""
-                    ? null
-                    : parseFloat(e.target.value) || null,
-              })
-            }
-            className="h-10 text-sm"
-          />
         </div>
-      </div>
+      )}
 
       {allowed.length > 0 && (
         <div className="mt-4">
@@ -2251,7 +2283,35 @@ export default function CartBestellung() {
         return;
       }
 
+      if (item.is_display_item && !canOrderAsDisplay(item)) {
+        toast.error(
+          tr(
+            "bestellung.toast.displayNotAllowedTitle",
+            "Display nicht verfügbar"
+          ),
+          {
+            description: tr(
+              "bestellung.toast.displayNotAllowedText",
+              "Für {product} ist keine Display-Bestellung hinterlegt.",
+              {
+                product:
+                  item.product_name ??
+                  item.sony_article ??
+                  tr("bestellung.cartSheet.product.unknown", "Produkt"),
+              }
+            ),
+            duration: TOAST_DURATION,
+          }
+        );
+        return;
+      }
+
+      const itemMode = getCartItemMode(item);
+      const isLockedCampaignPrice =
+        itemMode === "messe" || itemMode === "display";
+
       if (
+        !isLockedCampaignPrice &&
         item.lowest_price_source ===
           tr("bestellung.cartSheet.product.other", "Andere") &&
         !item.lowest_price_source_custom?.trim()
@@ -2426,8 +2486,12 @@ export default function CartBestellung() {
           const productId = Number(i.product_id);
           const prod = productMap.get(productId);
 
+          const itemMode = getCartItemMode(i);
+          const isLockedCampaignPrice =
+            itemMode === "messe" || itemMode === "display";
+
           const brutto =
-            typeof i.lowest_price_brutto === "number"
+            !isLockedCampaignPrice && typeof i.lowest_price_brutto === "number"
               ? safeNum(i.lowest_price_brutto)
               : null;
 
@@ -2504,10 +2568,14 @@ export default function CartBestellung() {
             pricing_snapshot: i.pricing_snapshot ?? null,
             lowest_price_brutto: brutto,
             lowest_price_netto: netto,
-            lowest_price_source: i.lowest_price_source?.trim() || null,
+            lowest_price_source: !isLockedCampaignPrice
+              ? i.lowest_price_source?.trim() || null
+              : null,
+
             lowest_price_source_custom:
+              !isLockedCampaignPrice &&
               i.lowest_price_source ===
-              tr("bestellung.cartSheet.product.other", "Andere")
+                tr("bestellung.cartSheet.product.other", "Andere")
                 ? i.lowest_price_source_custom?.trim() || null
                 : null,
             margin_street:
@@ -3014,7 +3082,7 @@ export default function CartBestellung() {
 
                       <p className="mt-1 font-medium text-amber-900">
                         {tr(
-                          "bestellung.cartSheet.summary.missingToNext",
+                          "bestellung.campaign.progress.missingToNext",
                           "Es fehlen noch: {amount}",
                           { amount: formatCurrencyCH(liveRemainingToNextTier, 0, 2) }
                         )}
@@ -3286,7 +3354,7 @@ export default function CartBestellung() {
 
                 {cart.length > 0 && (
                   <div className="sticky bottom-0 -mx-2 bg-white/95 px-2 py-3 backdrop-blur sm:mx-0 sm:px-0">
-                    <div className="rounded-2xl border border-emerald-300 bg-white p-4 shadow-sm">
+                    <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
                       <div className="mb-3 flex items-center gap-2">
                         <Package className="h-4 w-4 text-slate-500" />
                         <p className="text-sm font-semibold text-slate-900">
@@ -3333,7 +3401,7 @@ export default function CartBestellung() {
                       </div>
 
                       {totalSaved > 0 && (
-                        <div className="mt-3 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-center text-sm font-medium text-emerald-700">
+                        <div className="mt-3 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-center text-sm font-medium text-slate-700">
                           {tr(
                             "bestellung.cartSheet.summary.totalSavings",
                             "Gesamtersparnis: {amount}",
@@ -3342,25 +3410,9 @@ export default function CartBestellung() {
                         </div>
                       )}
 
-                      {bonusTiers.length > 0 && liveNextBonusTier && (
-                        <div className="mt-3 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-center text-sm font-medium text-amber-800">
-                          {tr(
-                            "bestellung.cartSheet.summary.missingToNext",
-                            "Noch {amount} bis {label}",
-                            {
-                              amount: formatCurrencyCH(liveRemainingToNextTier, 0, 2),
-                              label:
-                                liveNextBonusTier.label ||
-                                tr("bestellung.campaign.progress.level", "Stufe {level}", {
-                                  level: liveNextBonusTier.tier_level,
-                                }),
-                            }
-                          )}
-                        </div>
-                      )}
-
+                      
                       {bonusTiers.length > 0 && !liveNextBonusTier && liveReachedBonusTier && (
-                        <div className="mt-3 rounded-xl border border-indigo-200 bg-indigo-50 px-3 py-2 text-center text-sm font-medium text-indigo-800">
+                        <div className="mt-3 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-center text-sm font-medium text-slate-700">
                           {tr(
                             "bestellung.cartSheet.bonus.highestTierReached",
                             "Höchste Bonusstufe erreicht"

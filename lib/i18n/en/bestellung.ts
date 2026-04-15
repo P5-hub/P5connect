@@ -14,16 +14,16 @@ export const bestellung = {
     total: "Total",
     totalPrice: "Total price",
     summary: "Summary",
-    pieces: "pcs",
+    pieces: "pieces",
     filesAttached: "{count} file(s) attached",
   },
-  
+
   viewMode: {
     both: "Show both",
     campaignOnly: "Trade fair products only",
     standardOnly: "Standard products only",
   },
-  
+
   toast: {
     productAddedTitle: "Product added",
     productAddedText: "{product} was added to the cart.",
@@ -34,10 +34,10 @@ export const bestellung = {
 
     noDealer: "❌ No dealer found – please log in again.",
     needDistributor: "❌ Please select a main distributor.",
-    needValidDate: "Please select a valid delivery date (YYYY-MM-DD).",
+    needValidDate: "Please choose a valid delivery date (YYYY-MM-DD).",
 
     invalidInputTitle: "Invalid input",
-    invalidQuantityText: "Please enter a valid quantity for {product}.",
+    invalidQuantityText: "Please enter a valid quantity for {product}!",
 
     missingDistributorTitle: "❌ Distributor missing",
     missingDistributorText:
@@ -59,7 +59,7 @@ export const bestellung = {
 
     orderSavedTitle: "✅ Order saved",
     orderSavedText:
-      "The order was successfully submitted.",
+      "The order was submitted successfully.",
 
     orderSaveErrorTitle: "❌ Error while saving",
     orderSaveErrorText: "Unknown error",
@@ -70,34 +70,33 @@ export const bestellung = {
 
     displayLimitReachedTitle: "Display limit reached",
     displayLimitReachedText:
-      "A maximum of {max} display units is valid for {product}. Already ordered: {ordered}. Still available for this line: {free}.",
+      "A maximum of {max} display units is valid for {product}. Already ordered: {ordered}. Still available for this position: {free}.",
 
     totalLimitReachedTitle: "Total limit reached",
     totalLimitReachedText:
-      "A maximum of {max} total campaign units is valid for {product}. Already ordered: {ordered}. Still available for this line: {free}.",
+      "A maximum total of {max} campaign units is valid for {product}. Already ordered: {ordered}. Still available for this position: {free}.",
 
     campaignLimitReachedTitle: "{mode} limit reached",
     campaignLimitReachedText:
-      "{allowed} units for {product} are still available at the {modeLower} price. Already ordered: {ordered}. {overflow} units were automatically added as a separate line at the regular price.",
+      "For {product}, only {allowed} units at the {modeLower} price are still possible. Already ordered: {ordered}. {overflow} unit(s) were automatically transferred as a separate position at the regular price.",
 
     campaignExhaustedTitle:
       "{mode} quota exhausted",
     campaignExhaustedText:
-      "No more {modeLower} quota is available for {product}. Already ordered: {ordered}. The full quantity was automatically transferred to the regular price.",
+      "No {modeLower} quota is available anymore for {product}. Already ordered: {ordered}. The entire quantity was automatically transferred to the regular price.",
 
     orderNotPossibleTitle: "Order not possible",
     orderNotPossibleText:
       "The order could not be saved.",
 
     uploadFailed: "File upload failed",
-
     projectIdCopied: "Project ID copied",
   },
 
   provider: {
     pleaseSelect: "Please select",
-    cheapestProvider: "Lowest-priced provider",
-    providerName: "Please enter the provider name",
+    cheapestProvider: "Cheapest provider",
+    providerName: "Please enter provider name",
     providerNamePlaceholder: "Dealer name",
     providerNameRequiredHint:
       'Required field when selecting "Other".',
@@ -137,7 +136,7 @@ export const bestellung = {
     },
 
     filters: {
-      searchPlaceholder: "Search by article, name, EAN, brand …",
+      searchPlaceholder: "Search by item, name, EAN, brand …",
       allGroups: "All groups",
       allCategories: "All categories",
     },
@@ -149,35 +148,35 @@ export const bestellung = {
       already: "Already",
       cart: "Cart",
       total: "Total",
-      nextTier: "Next bonus tier",
-      highestTierReached: "Highest bonus tier reached",
+      nextTier: "Next bonus level",
+      highestTierReached: "Highest bonus level reached",
       missingToNext: "{amount} still missing",
-      noTierAvailable: "No bonus tier available yet.",
+      noTierAvailable: "No bonus level available yet.",
       bonus: "Bonus",
-      level: "Tier {level}",
+      level: "Level {level}",
     },
 
     limits: {
       displayMax:
-        "Display max. {max} · already ordered {ordered} · still available {free}",
+        "Display max. {max} · already ordered {ordered} · remaining {free}",
       messeMax:
-        "Trade fair max. {max} · already ordered {ordered} · still available {free}",
+        "Trade fair max. {max} · already ordered {ordered} · remaining {free}",
       campaignMax:
-        "Campaign max. {max} · already ordered {ordered} · still available {free}",
+        "Campaign max. {max} · already ordered {ordered} · remaining {free}",
       totalCampaignMax:
-        "Total campaign max. {max} · already ordered {ordered} · still available {free}",
+        "Campaign total max. {max} · already ordered {ordered} · remaining {free}",
 
       rowDisplayMax:
-        "A maximum of {count} units at display price is still possible in this display line",
+        "In this display position, a maximum of {count} unit(s) at display price is still possible",
       rowMesseMax:
-        "A maximum of {count} units at trade fair price is still possible in this trade fair line",
+        "In this trade fair position, a maximum of {count} unit(s) at trade fair price is still possible",
       rowCampaignMax:
-        "A maximum of {count} units at campaign price is still possible in this line",
+        "In this position, a maximum of {count} unit(s) at campaign price is still possible",
     },
   },
 
   cartSheet: {
-    title: "Best-price order",
+    title: "Best price order",
     empty: "No products selected yet.",
 
     linkedProject: {
@@ -194,8 +193,8 @@ export const bestellung = {
       customerNumber: "Customer no.",
       contactPerson: "Contact",
       phone: "Phone",
-      email: "E-mail",
-      city: "Location",
+      email: "Email",
+      city: "City",
       kam: "KAM",
     },
 
@@ -203,7 +202,7 @@ export const bestellung = {
       title: "Main distributor",
       placeholder: "Please select",
       defaultHint:
-        "Default via ElectronicPartner Schweiz AG.",
+        "By default via ElectronicPartner Schweiz AG.",
     },
 
     order: {
@@ -215,7 +214,7 @@ export const bestellung = {
       comment:
         "Important order information (comment)",
       commentPlaceholder:
-        "e.g. 'Must be delivered by 15.10.'…",
+        "e.g. 'Must be delivered by 15.10 at the latest'…",
       referenceNumber: "Your order/reference no.",
       referencePlaceholder: "e.g. 45001234",
     },
@@ -231,7 +230,7 @@ export const bestellung = {
       city: "City",
       country: "Country",
       phoneOptional: "Phone (optional)",
-      emailOptional: "E-mail (optional)",
+      emailOptional: "Email (optional)",
     },
 
     files: {
@@ -244,29 +243,30 @@ export const bestellung = {
       total: "Total",
       totalPrice: "Total price",
       bonusProgress: "Bonus progress",
+      piecesValue: "{count} pieces",
+      totalSavings: "Total savings: {amount}",
       savings: "Total savings: {amount} CHF",
-      missingToNext:
-        "{amount} until {tier}",
+      missingToNext: "{amount} until {tier}",
       highestTierReached:
-        "Highest bonus tier reached",
+        "Highest bonus level reached",
       send: "Submit order",
       sending: "Sending…",
       continueShopping: "Continue shopping",
-      pieces: "pcs",
+      pieces: "pieces",
     },
 
     product: {
       unknown: "Unknown",
       ean: "EAN",
       specialDistribution: "Special distribution",
-      bonusRelevant: "Bonus-relevant",
+      bonusRelevant: "Bonus relevant",
       normalPrice: "Regular price",
 
       quantity: "Quantity",
       price: "Price (CHF)",
-      ekNormal: "Standard cost price",
+      ekNormal: "Normal purchase price",
       saved:
-        "{amount} CHF saved ({percent}%)",
+        "Saved {amount} CHF ({percent}%)",
 
       pricingMode: "Pricing mode",
       pricingModeDisplay: "Display",
@@ -286,12 +286,12 @@ export const bestellung = {
       reasonPlaceholder:
         "e.g. second location, renovation, new sales area …",
       reasonHint:
-        "A display has already been ordered for this product. Please explain the additional need.",
+        "A display has already been ordered for this product. Please justify the additional need.",
 
       cheapestProvider:
-        "Lowest-priced provider",
+        "Cheapest provider",
       providerName:
-        "Please enter the provider name",
+        "Please enter provider name",
       providerNamePlaceholder:
         "Dealer name",
       providerNameHint:
@@ -311,7 +311,7 @@ export const bestellung = {
 
   preview: {
     title: "Cart preview",
-    positions: "Items in cart",
+    positions: "Positions in cart",
     quantityTotal: "Total quantity",
     cartValue: "Cart value",
   },

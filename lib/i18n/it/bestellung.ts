@@ -14,47 +14,48 @@ export const bestellung = {
     total: "Totale",
     totalPrice: "Prezzo totale",
     summary: "Riepilogo",
-    pieces: "Pezzi",
+    pieces: "pezzi",
     filesAttached: "{count} file allegato/i",
   },
+
   viewMode: {
     both: "Mostra entrambi",
     campaignOnly: "Solo prodotti fiera",
     standardOnly: "Solo prodotti standard",
   },
+
   toast: {
     productAddedTitle: "Prodotto aggiunto",
     productAddedText: "{product} è stato aggiunto al carrello.",
 
-    maxCampaignQtyTitle: "Quantità massima promozione raggiunta",
+    maxCampaignQtyTitle: "Quantità promozionale massima raggiunta",
     maxCampaignQtyText:
       "Per {product} sono consentiti al massimo {count} pezzi per rivenditore.",
 
-    noDealer: "❌ Nessun rivenditore trovato – effettuare nuovamente il login.",
-    needDistributor: "❌ Selezionare il distributore principale.",
-    needValidDate: "Selezionare una data di consegna valida (YYYY-MM-DD).",
+    noDealer: "❌ Nessun rivenditore trovato – effettua nuovamente il login.",
+    needDistributor: "❌ Seleziona un distributore principale.",
+    needValidDate: "Seleziona una data di consegna valida (YYYY-MM-DD).",
 
     invalidInputTitle: "Inserimento non valido",
-    invalidQuantityText:
-      "Inserire una quantità valida per {product}!",
+    invalidQuantityText: "Inserisci una quantità valida per {product}!",
 
     missingDistributorTitle: "❌ Distributore mancante",
     missingDistributorText:
-      "Selezionare il distributore per {product}.",
+      "Seleziona un distributore per {product}.",
 
     missingProviderTitle: "❌ Fornitore mancante",
     missingProviderText:
-      "Inserire il nome del fornitore per «Altro» per {product}.",
+      'Inserisci il nome del rivenditore per “Altro” per {product}.',
 
     missingDisplayReasonTitle:
-      "Motivazione per display aggiuntivo mancante",
+      "Manca la motivazione per il display aggiuntivo",
     missingDisplayReasonText:
-      "Inserire nel campo commento il motivo per cui è necessario un display aggiuntivo per {product}.",
+      "Indica nel campo commento perché è necessario un display aggiuntivo per {product}.",
 
     unknownDistributorCodeTitle:
       "❌ Codice distributore sconosciuto",
     unknownDistributorCodeText:
-      'Distributore "{code}" non trovato.',
+      'Il distributore "{code}" non è stato trovato.',
 
     orderSavedTitle: "✅ Ordine salvato",
     orderSavedText:
@@ -65,41 +66,40 @@ export const bestellung = {
 
     displayAlreadyOrderedTitle: "Display già ordinato",
     displayAlreadyOrderedText:
-      "Per {product} è già stato ordinato almeno un display. Indicare il motivo per un display aggiuntivo nel commento.",
+      "Per {product} è già stato ordinato almeno un display. Indica nel campo commento perché è necessario un display aggiuntivo (ad es. seconda sede).",
 
     displayLimitReachedTitle: "Limite display raggiunto",
     displayLimitReachedText:
-      "Per {product} massimo {max} display consentiti. Già ordinati: {ordered}. Ancora disponibili: {free}.",
+      "Per {product} sono validi al massimo {max} pezzi display. Già ordinati: {ordered}. Ancora disponibili per questa posizione: {free}.",
 
     totalLimitReachedTitle: "Limite totale raggiunto",
     totalLimitReachedText:
-      "Per {product} massimo {max} pezzi promozionali consentiti. Già ordinati: {ordered}. Ancora disponibili: {free}.",
+      "Per {product} sono validi complessivamente al massimo {max} pezzi promozionali. Già ordinati: {ordered}. Ancora disponibili per questa posizione: {free}.",
 
     campaignLimitReachedTitle: "Limite {mode} raggiunto",
     campaignLimitReachedText:
-      "Per {product} ancora {allowed} pezzi al prezzo {modeLower}. Già ordinati: {ordered}. {overflow} pezzi aggiunti automaticamente al prezzo standard.",
+      "Per {product} sono ancora possibili {allowed} pezzi al prezzo {modeLower}. Già ordinati: {ordered}. {overflow} pezzo/i sono stati automaticamente trasferiti come posizione separata al prezzo normale.",
 
     campaignExhaustedTitle:
       "Contingente {mode} esaurito",
     campaignExhaustedText:
-      "Per {product} non è più disponibile alcun contingente {modeLower}. Già ordinati: {ordered}. Tutta la quantità è stata inserita al prezzo normale.",
+      "Per {product} non è più disponibile alcun contingente {modeLower}. Già ordinati: {ordered}. L’intera quantità è stata automaticamente trasferita al prezzo normale.",
 
     orderNotPossibleTitle: "Ordine non possibile",
     orderNotPossibleText:
-      "L’ordine non può essere salvato.",
+      "Non è stato possibile salvare l’ordine.",
 
-    uploadFailed: "Caricamento file non riuscito",
-
+    uploadFailed: "Caricamento del file non riuscito",
     projectIdCopied: "ID progetto copiato",
   },
 
   provider: {
-    pleaseSelect: "Selezionare",
+    pleaseSelect: "Seleziona",
     cheapestProvider: "Fornitore più conveniente",
-    providerName: "Inserire il nome del fornitore",
+    providerName: "Inserisci il nome del fornitore",
     providerNamePlaceholder: "Nome del rivenditore",
     providerNameRequiredHint:
-      "Campo obbligatorio se selezionato «Altro».",
+      'Campo obbligatorio se si seleziona "Altro".',
     cheapestPriceGross:
       "Prezzo più basso (IVA inclusa)",
     other: "Altro",
@@ -108,12 +108,12 @@ export const bestellung = {
   campaign: {
     campaign: "Campagna",
     activeTradefairCampaign: "Campagna fiera attiva",
-    validFromTo: "Valido dal {start} al {end}",
+    validFromTo: "Valida dal {start} al {end}",
 
     campaignProductsCount: "{count} prodotti promozionali",
     campaignProducts: "Prodotti fiera",
     campaignProductsIntro:
-      "Questi prodotti fanno attualmente parte della promozione fiera.",
+      "Questi prodotti fanno attualmente parte della campagna fiera.",
     noCampaignProducts: "Nessun prodotto fiera trovato.",
 
     badge: {
@@ -123,14 +123,8 @@ export const bestellung = {
       standard: "Promozione",
     },
 
-    filters: {
-      searchPlaceholder: "Cerca per articolo, nome, EAN, marca …",
-      allGroups: "Tutti i gruppi",
-      allCategories: "Tutte le categorie",
-    },
-    
     pricing: {
-      upeGross: "Prezzo consigliato lordo",
+      upeGross: "PVC lordo",
       dealerPrice: "Prezzo rivenditore",
       messePriceNet: "Prezzo fiera netto",
       displayPriceNet: "Prezzo display netto",
@@ -138,12 +132,18 @@ export const bestellung = {
       pricingModeDisplay: "Display",
       pricingModeMesse: "Fiera",
       pricingModeStandard: "Standard",
-      discountVsHrp: "Sconto vs. prezzo listino",
+      discountVsHrp: "Sconto vs PVC",
+    },
+
+    filters: {
+      searchPlaceholder: "Cerca per articolo, nome, EAN, marca …",
+      allGroups: "Tutti i gruppi",
+      allCategories: "Tutte le categorie",
     },
 
     progress: {
       title: "Progresso bonus",
-      afterSubmit: "Dopo invio",
+      afterSubmit: "Dopo l’invio",
       progress: "Progresso",
       already: "Già",
       cart: "Carrello",
@@ -151,27 +151,27 @@ export const bestellung = {
       nextTier: "Prossimo livello bonus",
       highestTierReached: "Livello bonus massimo raggiunto",
       missingToNext: "Mancano ancora: {amount}",
-      noTierAvailable: "Nessun livello bonus disponibile.",
+      noTierAvailable: "Nessun livello bonus disponibile al momento.",
       bonus: "Bonus",
       level: "Livello {level}",
     },
 
     limits: {
       displayMax:
-        "Display max. {max} · già ordinati {ordered} · disponibili {free}",
+        "Display max. {max} · già ordinati {ordered} · ancora disponibili {free}",
       messeMax:
-        "Fiera max. {max} · già ordinati {ordered} · disponibili {free}",
+        "Fiera max. {max} · già ordinati {ordered} · ancora disponibili {free}",
       campaignMax:
-        "Promo max. {max} · già ordinati {ordered} · disponibili {free}",
+        "Promo max. {max} · già ordinati {ordered} · ancora disponibili {free}",
       totalCampaignMax:
-        "Totale promo max. {max} · già ordinati {ordered} · disponibili {free}",
+        "Totale promo max. {max} · già ordinati {ordered} · ancora disponibili {free}",
 
       rowDisplayMax:
-        "In questa posizione display ancora max. {count} pezzi al prezzo display",
+        "In questa posizione display sono ancora possibili max. {count} pezzi al prezzo display",
       rowMesseMax:
-        "In questa posizione fiera ancora max. {count} pezzi al prezzo fiera",
+        "In questa posizione fiera sono ancora possibili max. {count} pezzi al prezzo fiera",
       rowCampaignMax:
-        "In questa posizione ancora max. {count} pezzi al prezzo promozione",
+        "In questa posizione sono ancora possibili max. {count} pezzi al prezzo promozionale",
     },
   },
 
@@ -190,8 +190,8 @@ export const bestellung = {
 
     dealerInfo: {
       title: "Informazioni rivenditore",
-      customerNumber: "N° cliente",
-      contactPerson: "Referente",
+      customerNumber: "N. cliente",
+      contactPerson: "Contatto",
       phone: "Tel.",
       email: "E-mail",
       city: "Località",
@@ -200,29 +200,30 @@ export const bestellung = {
 
     distributor: {
       title: "Distributore principale",
-      placeholder: "Selezionare",
+      placeholder: "Seleziona",
       defaultHint:
-        "Predefinito tramite ElectronicPartner Svizzera SA.",
+        "Predefinito tramite ElectronicPartner Schweiz AG.",
     },
 
     order: {
-      title: "Dettagli ordine",
+      title: "Dati ordine",
       delivery: "Consegna",
-      deliveryImmediate: "Subito",
-      deliveryScheduled: "A data",
-      deliveryDateOptional: "Data consegna (opzionale)",
-      comment: "Informazioni importanti sull’ordine (commento)",
+      deliveryImmediate: "Immediata",
+      deliveryScheduled: "Alla data prevista",
+      deliveryDateOptional: "Data di consegna (opzionale)",
+      comment:
+        "Informazioni importanti sull’ordine (commento)",
       commentPlaceholder:
-        "es. 'Deve essere consegnato entro il 15.10.'…",
-      referenceNumber: "Numero riferimento ordine",
-      referencePlaceholder: "es. 45001234",
+        "ad es. 'Deve essere consegnato tassativamente entro il 15.10'…",
+      referenceNumber: "Il tuo n. ordine / riferimento",
+      referencePlaceholder: "ad es. 45001234",
     },
 
     altDelivery: {
       title:
         "Indirizzo di consegna diverso / consegna diretta",
       useAdditionalAddress:
-        "Usare indirizzo di consegna aggiuntivo",
+        "Usa indirizzo di consegna aggiuntivo",
       name: "Nome / Azienda",
       street: "Via / N.",
       zip: "CAP",
@@ -242,26 +243,28 @@ export const bestellung = {
       total: "Totale",
       totalPrice: "Prezzo totale",
       bonusProgress: "Progresso bonus",
+      piecesValue: "{count} pezzi",
+      totalSavings: "Risparmio totale: {amount}",
       savings: "Risparmio totale: {amount} CHF",
       missingToNext: "Ancora {amount} fino a {tier}",
       highestTierReached:
         "Livello bonus massimo raggiunto",
       send: "Invia ordine",
       sending: "Invio…",
-      continueShopping: "Continua acquisti",
-      pieces: "Pezzi",
+      continueShopping: "Continua gli acquisti",
+      pieces: "pezzi",
     },
 
     product: {
       unknown: "Sconosciuto",
       ean: "EAN",
       specialDistribution: "Distribuzione speciale",
-      bonusRelevant: "Rilevante per bonus",
+      bonusRelevant: "Rilevante per il bonus",
       normalPrice: "Prezzo normale",
 
       quantity: "Quantità",
       price: "Prezzo (CHF)",
-      ekNormal: "Costo normale",
+      ekNormal: "PA normale",
       saved:
         "{amount} CHF risparmiati ({percent}%)",
 
@@ -270,36 +273,36 @@ export const bestellung = {
       pricingModeMesse: "Fiera",
       pricingModeStandard: "Standard",
 
-      upeGross: "Prezzo consigliato lordo",
+      upeGross: "PVC lordo",
       displayPriceNet: "Prezzo display netto",
       messePriceNet: "Prezzo fiera netto",
-      discountVsHrp: "Sconto vs. listino",
+      discountVsHrp: "Sconto vs PVC",
 
       orderAsDisplay:
-        "Ordinare come display",
+        "Ordina come display",
 
       reasonForAdditionalDisplay:
-        "Motivazione display aggiuntivo",
+        "Motivazione per display aggiuntivo",
       reasonPlaceholder:
-        "es. secondo punto vendita, ristrutturazione…",
+        "ad es. seconda sede, ristrutturazione, nuova area vendita …",
       reasonHint:
-        "Per questo prodotto è già stato ordinato un display. Indicare il motivo.",
+        "Per questo prodotto è già stato ordinato un display. Giustifica il fabbisogno aggiuntivo.",
 
       cheapestProvider:
         "Fornitore più conveniente",
       providerName:
-        "Inserire il nome del fornitore",
+        "Inserisci il nome del fornitore",
       providerNamePlaceholder:
-        "Nome rivenditore",
+        "Nome del rivenditore",
       providerNameHint:
-        "Campo obbligatorio se «Altro».",
+        'Campo obbligatorio se si seleziona "Altro".',
 
       cheapestPriceGross:
         "Prezzo più basso (IVA inclusa)",
 
       distributor: "Distributore",
       distributorPlaceholder:
-        "Selezionare",
+        "Seleziona",
 
       remove: "Rimuovi",
       other: "Altro",

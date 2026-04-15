@@ -55,6 +55,7 @@ type CampaignProductRow = {
   messe_price_netto: number | null;
   display_discount_percent: number | null;
   display_price_netto: number | null;
+  display_qty: number | null;
 
   matched_group_codes?: string[];
   matched_group_names?: string[];

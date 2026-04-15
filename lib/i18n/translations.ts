@@ -119,6 +119,12 @@ import { adminOrderDetailView as adminOrderDetailViewFr } from "./fr/adminOrderD
 import { adminOrderDetailView as adminOrderDetailViewIt } from "./it/adminOrderDetailView";
 import { adminOrderDetailView as adminOrderDetailViewRm } from "./rm/adminOrderDetailView";
 
+import { session as sessionDe } from "./de/session";
+import { session as sessionEn } from "./en/session";
+import { session as sessionFr } from "./fr/session";
+import { session as sessionIt } from "./it/session";
+import { session as sessionRm } from "./rm/session";
+
 export type Lang = "de" | "en" | "fr" | "it" | "rm";
 
 export const translationsByLang = {
@@ -158,6 +164,7 @@ export const translationsByLang = {
     sofortrabatt: sofortrabattDe,
     auth: authDe,
     verlauf: verlaufDe,
+    session: sessionDe,
 
     adminCommon: adminCommonDe,
     adminAccount: adminAccountDe,
@@ -515,6 +522,7 @@ export const translationsByLang = {
     sofortrabatt: sofortrabattEn,
     auth: authEn,
     verlauf: verlaufEn,
+    session: sessionEn,
 
     adminCommon: adminCommonEn,
     adminAccount: adminAccountEn,
@@ -856,6 +864,7 @@ export const translationsByLang = {
     sofortrabatt: sofortrabattFr,
     auth: authFr,
     verlauf: verlaufFr,
+    session: sessionFr,
 
     adminCommon: adminCommonFr,
     adminAccount: adminAccountFr,
@@ -1204,6 +1213,7 @@ export const translationsByLang = {
     sofortrabatt: sofortrabattIt,
     auth: authIt,
     verlauf: verlaufIt,
+    session: sessionIt,
 
     adminCommon: adminCommonIt,
     adminAccount: adminAccountIt,
@@ -1548,6 +1558,7 @@ export const translationsByLang = {
     sofortrabatt: sofortrabattRm,
     auth: authRm,
     verlauf: verlaufRm,
+    session: sessionRm,
 
     adminCommon: adminCommonRm,
     adminAccount: adminAccountRm,
