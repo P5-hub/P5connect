@@ -6,9 +6,9 @@ import { toast } from "sonner";
 import { createClient } from "@/utils/supabase/client";
 import { useI18n } from "@/lib/i18n/I18nProvider";
 
-const SESSION_DURATION = 20 * 60 * 1000; // 20 Minuten Inaktivität
-const WARNING_BEFORE_EXPIRY = 2 * 60 * 1000; // 2 Minuten vorher warnen
-const AUTO_REFRESH_COOLDOWN = 30 * 1000; // max. alle 30s verlängern
+const SESSION_DURATION = 60 * 1000; // TEST: 1 Minute
+const WARNING_BEFORE_EXPIRY = 20 * 1000; // TEST: 20 Sekunden vorher warnen
+const AUTO_REFRESH_COOLDOWN = 5 * 1000; // TEST: max. alle 5s verlängern
 
 const PUBLIC_ROUTES = [
   "/login",
