@@ -15,14 +15,26 @@ export default function AdminGuard({ children }: GuardProps) {
 
   useEffect(() => {
     async function check() {
-      const { data } = await supabase.auth.getUser();
-      const role = data.user?.user_metadata?.role;
+      const { data, error } = await supabase.auth.getUser();
 
-      if (role !== "admin") router.push("/bestellung");
-      else setReady(true);
+      if (error || !data.user) {
+        router.push("/login");
+        return;
+      }
+
+      const role = data.user.app_metadata?.role;
+      const isAdminLike = role === "admin" || role === "superadmin";
+
+      if (!isAdminLike) {
+        router.push("/bestellung");
+        return;
+      }
+
+      setReady(true);
     }
+
     check();
-  }, []);
+  }, [router, supabase]);
 
   if (!ready) return <div className="p-6 text-center">Loading…</div>;
 

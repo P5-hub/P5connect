@@ -43,6 +43,15 @@ type UpdateUserApiResponse = {
   changedOwnAccount?: boolean;
 };
 
+type CreateAdminApiResponse = {
+  success?: boolean;
+  error?: string;
+  message?: string;
+  dealer_id?: number;
+  email?: string;
+  auth_user_id?: string;
+};
+
 function generateRandomPassword(length: number = 12): string {
   const chars =
     "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789!@$%&*?";
@@ -79,6 +88,7 @@ function AdminLayoutInner({ children }: { children: ReactNode }) {
   const [openLang, setOpenLang] = useState(false);
   const [dealers, setDealers] = useState<DealerListItem[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
+  const [selectedDealerId, setSelectedDealerId] = useState<string>("");
 
   const langRef = useRef<HTMLDivElement | null>(null);
 
@@ -96,12 +106,14 @@ function AdminLayoutInner({ children }: { children: ReactNode }) {
     }
   );
 
+    
   const [currentAdminEmail, setCurrentAdminEmail] = useState<string | null>(
     null
   );
   const [currentAdminLogin, setCurrentAdminLogin] = useState<string | null>(
     null
   );
+  const [currentRole, setCurrentRole] = useState<string | null>(null);
 
   const [isUserModalOpen, setIsUserModalOpen] = useState(false);
   const [modalLogin, setModalLogin] = useState("");
@@ -111,6 +123,16 @@ function AdminLayoutInner({ children }: { children: ReactNode }) {
   const [modalError, setModalError] = useState<string | null>(null);
   const [modalSuccess, setModalSuccess] = useState<string | null>(null);
   const [showPassword, setShowPassword] = useState(false);
+
+  const [isCreateAdminModalOpen, setIsCreateAdminModalOpen] = useState(false);
+  const [createAdminEmail, setCreateAdminEmail] = useState("");
+  const [createAdminDealerId, setCreateAdminDealerId] = useState("");
+  const [createAdminPassword, setCreateAdminPassword] = useState("");
+  const [createAdminLoading, setCreateAdminLoading] = useState(false);
+  const [createAdminError, setCreateAdminError] = useState<string | null>(null);
+  const [createAdminSuccess, setCreateAdminSuccess] = useState<string | null>(
+    null
+  );
 
   const [toast, setToast] = useState<{
     type: "success" | "error";
@@ -129,6 +151,7 @@ function AdminLayoutInner({ children }: { children: ReactNode }) {
 
       const email = data.user.email;
       setCurrentAdminEmail(email);
+      setCurrentRole(data.user.app_metadata?.role ?? null);
 
       if (email.endsWith("@p5.local")) {
         const login = email.replace("@p5.local", "");
@@ -281,7 +304,7 @@ function AdminLayoutInner({ children }: { children: ReactNode }) {
       setModalLoading(false);
     }
   };
-
+  
   const handleGeneratePassword = async () => {
     const pwd = generateRandomPassword(12);
     setModalNewPassword(pwd);
@@ -300,6 +323,82 @@ function AdminLayoutInner({ children }: { children: ReactNode }) {
 
   const handleFillAdminLogin = () => {
     if (currentAdminLogin) setModalLogin(currentAdminLogin);
+  };
+
+  const openCreateAdminModal = () => {
+    setCreateAdminEmail("");
+    setCreateAdminDealerId("");
+    setCreateAdminPassword("");
+    setCreateAdminError(null);
+    setCreateAdminSuccess(null);
+    setIsCreateAdminModalOpen(true);
+    setMobileMenuOpen(false);
+  };
+
+  const closeCreateAdminModal = () => {
+    if (createAdminLoading) return;
+    setIsCreateAdminModalOpen(false);
+  };
+
+  const handleCreateAdmin = async () => {
+    setCreateAdminError(null);
+    setCreateAdminSuccess(null);
+
+    const email = createAdminEmail.trim().toLowerCase();
+    const dealer_id = Number(createAdminDealerId);
+
+    if (!email) {
+      const msg = "Bitte E-Mail eingeben.";
+      setCreateAdminError(msg);
+      showToast("error", msg);
+      return;
+    }
+
+    if (!dealer_id || Number.isNaN(dealer_id)) {
+      const msg = "Ungültige Dealer ID.";
+      setCreateAdminError(msg);
+      showToast("error", msg);
+      return;
+    }
+
+    try {
+      setCreateAdminLoading(true);
+
+      const res = await fetch("/api/admin/create-admin", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          email,
+          dealer_id,
+          password: createAdminPassword.trim() || undefined,
+        }),
+      });
+
+      const data = (await res.json()) as CreateAdminApiResponse;
+
+      if (!res.ok) {
+        const msg = data?.error || "Admin konnte nicht erstellt werden.";
+        setCreateAdminError(msg);
+        showToast("error", msg);
+        return;
+      }
+
+      const msg = data?.message || "Admin erfolgreich erstellt.";
+      setCreateAdminSuccess(msg);
+      showToast("success", msg);
+
+      setCreateAdminEmail("");
+      setCreateAdminDealerId("");
+      setCreateAdminPassword("");
+    } catch {
+      const msg = "Serverfehler beim Erstellen.";
+      setCreateAdminError(msg);
+      showToast("error", msg);
+    } finally {
+      setCreateAdminLoading(false);
+    }
   };
 
   useEffect(() => {
@@ -465,7 +564,10 @@ function AdminLayoutInner({ children }: { children: ReactNode }) {
   }, [pathname, navItems]);
 
   const handleImpersonate = async (dealerId: string) => {
-    if (!dealerId) return;
+    if (!dealerId) {
+      showToast("error", "Bitte zuerst einen Händler auswählen.");
+      return;
+    }
 
     try {
       const res = await fetch("/api/acting-as/set", {
@@ -481,7 +583,10 @@ function AdminLayoutInner({ children }: { children: ReactNode }) {
       const data = await res.json();
 
       if (!res.ok) {
-        showToast("error", data?.error || "Händlermodus konnte nicht gestartet werden.");
+        showToast(
+          "error",
+          data?.error || "Händlermodus konnte nicht gestartet werden."
+        );
         return;
       }
 
@@ -490,6 +595,16 @@ function AdminLayoutInner({ children }: { children: ReactNode }) {
     } catch {
       showToast("error", "Händlermodus konnte nicht gestartet werden.");
     }
+  };
+
+  const handleOpenDealerCrm = () => {
+    if (!selectedDealerId) {
+      showToast("error", "Bitte zuerst einen Händler auswählen.");
+      return;
+    }
+
+    router.push(`/admin/dealers/${selectedDealerId}`);
+    setMobileMenuOpen(false);
   };
 
   const handleLogout = async () => {
@@ -534,19 +649,46 @@ function AdminLayoutInner({ children }: { children: ReactNode }) {
                 />
               </div>
 
-              <select
-                onChange={(e) => handleImpersonate(e.target.value)}
-                className="border border-blue-200 bg-blue-50 text-blue-800 text-sm rounded-md px-2 py-1.5 w-52"
-                value=""
-              >
-                <option value="">{t("adminCommon.actAsDealer")}</option>
-                {filteredDealers.map((d) => (
-                  <option key={d.dealer_id} value={String(d.dealer_id)}>
-                    {d.name} ({d.email})
-                  </option>
-                ))}
-              </select>
+              <div className="flex items-center gap-2">
+                <select
+                  onChange={(e) => setSelectedDealerId(e.target.value)}
+                  className="border border-blue-200 bg-blue-50 text-blue-800 text-sm rounded-md px-2 py-1.5 w-52"
+                  value={selectedDealerId}
+                >
+                  <option value="">{t("adminCommon.actAsDealer")}</option>
+                  {filteredDealers.map((d) => (
+                    <option key={d.dealer_id} value={String(d.dealer_id)}>
+                      {d.name} ({d.email})
+                    </option>
+                  ))}
+                </select>
+
+                <button
+                  type="button"
+                  onClick={() => handleImpersonate(selectedDealerId)}
+                  className="bg-blue-600 hover:bg-blue-700 text-white text-sm px-3 py-1.5 rounded whitespace-nowrap"
+                >
+                  Als Händler öffnen
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleOpenDealerCrm}
+                  className="bg-indigo-600 hover:bg-indigo-700 text-white text-sm px-3 py-1.5 rounded whitespace-nowrap"
+                >
+                  Händlerakte
+                </button>
+              </div>
             </div>
+
+            {currentRole === "superadmin" && (
+              <button
+                onClick={openCreateAdminModal}
+                className="bg-indigo-600 hover:bg-indigo-700 text-white text-sm px-3 py-1.5 rounded flex items-center gap-1"
+              >
+                Admin anlegen
+              </button>
+            )}
 
             <button
               onClick={openUserModal}
@@ -687,9 +829,9 @@ function AdminLayoutInner({ children }: { children: ReactNode }) {
                 </div>
 
                 <select
-                  onChange={(e) => handleImpersonate(e.target.value)}
+                  onChange={(e) => setSelectedDealerId(e.target.value)}
                   className="w-full border border-blue-200 bg-blue-50 text-blue-800 text-sm rounded-md px-2 py-2"
-                  value=""
+                  value={selectedDealerId}
                 >
                   <option value="">{t("adminCommon.actAsDealer")}</option>
                   {filteredDealers.map((d) => (
@@ -698,7 +840,34 @@ function AdminLayoutInner({ children }: { children: ReactNode }) {
                     </option>
                   ))}
                 </select>
+
+                <div className="grid grid-cols-1 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => handleImpersonate(selectedDealerId)}
+                    className="w-full bg-blue-600 hover:bg-blue-700 text-white text-sm px-3 py-2 rounded"
+                  >
+                    Als Händler öffnen
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={handleOpenDealerCrm}
+                    className="w-full bg-indigo-600 hover:bg-indigo-700 text-white text-sm px-3 py-2 rounded"
+                  >
+                    Händlerakte öffnen
+                  </button>
+                </div>
               </div>
+
+              {currentRole === "superadmin" && (
+                <button
+                  onClick={openCreateAdminModal}
+                  className="w-full bg-indigo-600 hover:bg-indigo-700 text-white text-sm px-3 py-2 rounded flex items-center justify-center gap-2"
+                >
+                  Admin anlegen
+                </button>
+              )}
 
               <button
                 onClick={openUserModal}
@@ -876,6 +1045,83 @@ function AdminLayoutInner({ children }: { children: ReactNode }) {
                 {modalLoading
                   ? t("adminCommon.common.loading")
                   : t("adminCommon.common.save")}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {isCreateAdminModalOpen && (
+        <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/40 p-3">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-md p-6">
+            <h2 className="text-lg font-semibold mb-4">Neuen Admin anlegen</h2>
+
+            <div className="space-y-3">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  E-Mail
+                </label>
+                <input
+                  type="email"
+                  value={createAdminEmail}
+                  onChange={(e) => setCreateAdminEmail(e.target.value)}
+                  className="w-full border rounded-md px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-500"
+                  placeholder="admin@firma.ch"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Dealer ID
+                </label>
+                <input
+                  type="number"
+                  value={createAdminDealerId}
+                  onChange={(e) => setCreateAdminDealerId(e.target.value)}
+                  className="w-full border rounded-md px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-500"
+                  placeholder="z. B. 565"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Passwort (optional)
+                </label>
+                <input
+                  type="password"
+                  value={createAdminPassword}
+                  onChange={(e) => setCreateAdminPassword(e.target.value)}
+                  className="w-full border rounded-md px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-500"
+                  placeholder="nur bei neuem User nötig"
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  Wenn der User bereits in Supabase Auth existiert, kann das Feld leer bleiben.
+                </p>
+              </div>
+
+              {createAdminError && (
+                <p className="text-sm text-red-600">{createAdminError}</p>
+              )}
+              {createAdminSuccess && (
+                <p className="text-sm text-green-600">{createAdminSuccess}</p>
+              )}
+            </div>
+
+            <div className="flex justify-end gap-3 mt-6">
+              <button
+                onClick={closeCreateAdminModal}
+                disabled={createAdminLoading}
+                className="px-3 py-1.5 text-sm rounded border border-gray-300 text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+              >
+                Abbrechen
+              </button>
+
+              <button
+                onClick={handleCreateAdmin}
+                disabled={createAdminLoading}
+                className="px-3 py-1.5 text-sm rounded bg-indigo-600 text-white hover:bg-indigo-700 disabled:opacity-50"
+              >
+                {createAdminLoading ? "Erstelle..." : "Admin erstellen"}
               </button>
             </div>
           </div>

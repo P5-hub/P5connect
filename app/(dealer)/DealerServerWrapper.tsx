@@ -32,14 +32,15 @@ export default async function DealerServerWrapper({
   let impersonating = false;
 
   if (user) {
-    const roleFromProfile =
-      user.app_metadata?.role ?? user.user_metadata?.role ?? null;
+    const roleFromProfile = user.app_metadata?.role ?? null;
+    const isAdminLike =
+      roleFromProfile === "admin" || roleFromProfile === "superadmin";
 
-    isAdmin = roleFromProfile === "admin";
+    isAdmin = isAdminLike;
 
     const actingDealerId = cookieStore.get("acting_dealer_id")?.value ?? null;
 
-    if (isAdmin && actingDealerId) {
+    if (isAdminLike && actingDealerId) {
       const { data } = await supabase
         .from("dealers")
         .select("*")

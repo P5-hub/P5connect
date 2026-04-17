@@ -5,7 +5,7 @@ type UserLike = {
 
 type EffectiveDealerContext =
   | {
-      role: "admin";
+      role: "admin" | "superadmin";
       actingAsDealer: boolean;
       effectiveDealerId: number | null;
       ownDealerId: number | null;
@@ -32,12 +32,12 @@ function toPositiveNumber(value: unknown): number | null {
 
 function pickDealerId(user: UserLike): number | null {
   return (
+    toPositiveNumber(user.app_metadata?.dealer_id) ??
+    toPositiveNumber(user.app_metadata?.dealerId) ??
     toPositiveNumber(user.user_metadata?.dealer_id) ??
     toPositiveNumber(user.user_metadata?.dealerId) ??
     toPositiveNumber(user.user_metadata?.haendler_id) ??
     toPositiveNumber(user.user_metadata?.haendlerId) ??
-    toPositiveNumber(user.app_metadata?.dealer_id) ??
-    toPositiveNumber(user.app_metadata?.dealerId) ??
     null
   );
 }
@@ -58,12 +58,13 @@ export function getEffectiveDealerContext(
 
   const role = appRole || userRole || "dealer";
   const ownDealerId = pickDealerId(user);
+  const isAdminLike = role === "admin" || role === "superadmin";
 
-  if (role === "admin") {
+  if (isAdminLike) {
     return {
-      role: "admin",
+      role: role as "admin" | "superadmin",
       actingAsDealer: !!actingDealerId,
-      effectiveDealerId: actingDealerId ?? null,
+      effectiveDealerId: actingDealerId ?? ownDealerId ?? null,
       ownDealerId,
     };
   }

@@ -14,7 +14,6 @@ const publicRoutes = [
 export async function middleware(req: NextRequest) {
   const path = req.nextUrl.pathname;
 
-  // API + Next internals + favicon nie anfassen
   if (
     path.startsWith("/api") ||
     path.startsWith("/_next") ||
@@ -42,56 +41,44 @@ export async function middleware(req: NextRequest) {
     }
   );
 
-  // WICHTIG: serverseitig lieber getUser() statt getSession()
   const {
     data: { user },
     error: userError,
   } = await supabase.auth.getUser();
 
-  // Auth-nahe Antworten nicht cachen
   res.headers.set("Cache-Control", "private, no-store");
 
   const isPublic = publicRoutes.some(
     (route) => path === route || path.startsWith(`${route}/`)
   );
 
-  // 1) Nicht eingeloggt
   if (userError || !user) {
     if (isPublic) return res;
     return NextResponse.redirect(new URL("/login", req.url));
   }
 
-  // 2) Rolle bestimmen
   const role =
     typeof user.app_metadata?.role === "string"
       ? user.app_metadata.role
-      : typeof user.user_metadata?.role === "string"
-      ? user.user_metadata.role
       : "dealer";
 
-  // 3) Bereits eingeloggt und auf Public-Seiten
+  const isAdminLike = role === "admin" || role === "superadmin";
+
   if (path === "/login") {
-    if (role === "admin") {
+    if (isAdminLike) {
       return NextResponse.redirect(new URL("/admin", req.url));
     }
     return NextResponse.redirect(new URL("/bestellung", req.url));
   }
 
-  // reset-password Seiten dürfen auch eingeloggt erreichbar bleiben,
-  // falls du das so möchtest. Wenn nicht, hier separat umleiten.
-  if (
-    path === "/reset-password" ||
-    path === "/reset-password/change"
-  ) {
+  if (path === "/reset-password" || path === "/reset-password/change") {
     return res;
   }
 
-  // 4) Admin / Dealer Routing
-  if (role === "admin") {
+  if (isAdminLike) {
     return res;
   }
 
-  // Dealer darf nicht in /admin
   if (path.startsWith("/admin")) {
     return NextResponse.redirect(new URL("/bestellung", req.url));
   }
