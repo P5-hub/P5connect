@@ -125,9 +125,14 @@ function isValidProductItem(item: any) {
 export function GlobalCartProvider({ children }: { children: ReactNode }) {
   const dealer = useDealer();
 
-  const actingDealerId = getActingDealerIdFromCookie();
-  const effectiveDealerId = actingDealerId ?? (dealer as any)?.dealer_id ?? "none";
-  const STORAGE_KEY = `p5-cart-${effectiveDealerId}`;
+  const effectiveDealerId = React.useMemo(() => {
+    const actingDealerId = getActingDealerIdFromCookie();
+    return actingDealerId ?? (dealer as any)?.dealer_id ?? "none";
+  }, [dealer]);
+
+  const STORAGE_KEY = React.useMemo(() => {
+    return `p5-cart-${effectiveDealerId}`;
+  }, [effectiveDealerId]);
 
   const emptyState: CartState = {
     verkauf: [],

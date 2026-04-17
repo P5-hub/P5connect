@@ -1,16 +1,14 @@
-﻿export const dynamic = "force-dynamic";
+﻿import DealerServerWrapper from "./DealerServerWrapper";
+import DealerShell from "./DealerShell";
 
-import { ReactNode } from "react";
-import I18nProvider from "@/lib/i18n/I18nProvider";
-import { ThemeProvider } from "@/lib/theme/ThemeContext";
-import DealerShellClient from "./DealerShellClient";
-
-export default function DealerLayout({ children }: { children: ReactNode }) {
+export default function DealerLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   return (
-    <I18nProvider>
-      <ThemeProvider>
-        <DealerShellClient>{children}</DealerShellClient>
-      </ThemeProvider>
-    </I18nProvider>
+    <DealerServerWrapper>
+      <DealerShell>{children}</DealerShell>
+    </DealerServerWrapper>
   );
 }

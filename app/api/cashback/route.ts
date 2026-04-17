@@ -1,11 +1,28 @@
-﻿import { NextResponse } from "next/server";
-import { getSupabaseServer } from "@/lib/supabaseServer"; // ✅ richtige Importquelle
+﻿import { NextRequest, NextResponse } from "next/server";
+import { getSupabaseServer } from "@/lib/supabaseServer";
 import { getISOWeek } from "@/utils/date";
+import { getApiDealerContext } from "@/lib/auth/getApiDealerContext";
 
-export async function POST(req: Request) {
+export async function POST(req: NextRequest) {
   try {
+    const auth = await getApiDealerContext(req);
+
+    if (!auth.ok) {
+      return auth.response;
+    }
+
+    const { ctx } = auth;
+
+    if (!ctx.effectiveDealerId) {
+      return NextResponse.json(
+        { error: "No effective dealer context found" },
+        { status: 403 }
+      );
+    }
+
+    const dealer_id = ctx.effectiveDealerId;
+
     const {
-      dealer_id,
       cashback_type,
       cashback_betrag,
       seriennummer,
@@ -13,8 +30,7 @@ export async function POST(req: Request) {
       soundbar_ean,
     } = await req.json();
 
-    // ðŸ§  1. Eingabevalidierung
-    if (!dealer_id || !cashback_type || !cashback_betrag || !seriennummer) {
+    if (!cashback_type || !cashback_betrag || !seriennummer) {
       return NextResponse.json(
         { error: "Ungültiger Cashback-Antrag" },
         { status: 400 }
@@ -24,8 +40,6 @@ export async function POST(req: Request) {
     const now = new Date();
     const supabase = getSupabaseServer();
 
-    // ✅ 2. Submission-Eintrag
-    // ✅ 2. Submission-Eintrag
     const { data: submission, error: submissionError } = await (supabase as any)
       .from("submissions")
       .insert([
@@ -40,11 +54,8 @@ export async function POST(req: Request) {
       .select()
       .single();
 
-
     if (submissionError) throw submissionError;
 
-    // ✅ 3. Cashback-Claim-Eintrag
-    // ✅ 3. Cashback-Claim-Eintrag
     const { error: claimError } = await (supabase as any)
       .from("cashback_claims")
       .insert([
@@ -55,13 +66,12 @@ export async function POST(req: Request) {
           seriennummer,
           seriennummer_sb: seriennummer_sb || null,
           soundbar_ean: soundbar_ean || null,
-          created_at: now.toISOString(), // ðŸ”¹ konsistentes Logging
+          created_at: now.toISOString(),
         },
       ]);
 
     if (claimError) throw claimError;
 
-    // ✅ 4. Erfolgsmeldung
     return NextResponse.json({ success: true });
   } catch (err: any) {
     console.error("❌ Cashback API Error:", err);
@@ -71,4 +81,3 @@ export async function POST(req: Request) {
     );
   }
 }
-

@@ -1,5 +1,6 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { getApiDealerContext } from "@/lib/auth/getApiDealerContext";
 
 const supabase = createClient(
   process.env.SUPABASE_URL!,
@@ -29,12 +30,10 @@ function parseProjectId(raw: FormDataEntryValue | null): ParsedProjectId {
     };
   }
 
-  // ✅ UUID accepted
   if (UUID_RE.test(s)) {
     return { ok: true, value: s, valueStr: s, kind: "uuid" };
   }
 
-  // ✅ numeric accepted (also tolerates "77,8" / "77.8" -> 77)
   const normalized = s.replace(",", ".");
   const n = Number(normalized);
 
@@ -50,30 +49,36 @@ function parseProjectId(raw: FormDataEntryValue | null): ParsedProjectId {
   return { ok: true, value: id, valueStr: String(id), kind: "number" };
 }
 
-function parseOptionalNumber(raw: FormDataEntryValue | null) {
-  const s = typeof raw === "string" ? raw.trim() : "";
-  if (!s || s === "undefined" || s === "null") return null;
-  const n = Number(s);
-  return Number.isFinite(n) ? n : null;
-}
-
 function parseOptionalString(raw: FormDataEntryValue | null) {
   const s = typeof raw === "string" ? raw.trim() : "";
   if (!s || s === "undefined" || s === "null") return null;
   return s;
 }
 
-export async function POST(req: Request) {
+export async function POST(req: NextRequest) {
   try {
+    const auth = await getApiDealerContext(req);
+
+    if (!auth.ok) {
+      return auth.response;
+    }
+
+    const { ctx } = auth;
+
+    if (!ctx.effectiveDealerId) {
+      return NextResponse.json(
+        { error: "No effective dealer context found" },
+        { status: 403 }
+      );
+    }
+
+    const dealerId = ctx.effectiveDealerId;
+
     const formData = await req.formData();
 
     const file = formData.get("file");
     const projectIdRaw = formData.get("project_id");
-    const dealerIdRaw = formData.get("dealer_id");
     const loginNrRaw = formData.get("login_nr");
-
-    console.log("UPLOAD formData keys:", Array.from(formData.keys()));
-    console.log("UPLOAD project_id raw:", projectIdRaw, "dealer_id raw:", dealerIdRaw);
 
     if (!(file instanceof File)) {
       return NextResponse.json(
@@ -87,20 +92,15 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: parsedProject.error }, { status: 400 });
     }
 
-    const dealer_id_num = parseOptionalNumber(dealerIdRaw);
     const login_nr = parseOptionalString(loginNrRaw);
 
     const arrayBuffer = await file.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
 
     const safeName = sanitizeFilename(file.name);
-    const dealerSegment =
-      dealer_id_num !== null ? `/dealer_${String(dealer_id_num)}` : "";
-
-    // ✅ use string version for folders (works for uuid and numbers)
+    const dealerSegment = `/dealer_${String(dealerId)}`;
     const path = `projects/${parsedProject.valueStr}${dealerSegment}/${Date.now()}-${safeName}`;
 
-    // 1) Upload in Storage
     const { error: uploadError } = await supabase.storage.from(BUCKET).upload(path, buffer, {
       contentType: file.type || "application/octet-stream",
       upsert: false,
@@ -113,12 +113,10 @@ export async function POST(req: Request) {
       );
     }
 
-    // 2) DB Insert
-    // ✅ project_id goes in as number OR uuid string (depending on what arrived)
     const { error: dbError } = await supabase.from("project_files").insert({
       project_id: parsedProject.value,
       file_name: file.name,
-      dealer_id: dealer_id_num,
+      dealer_id: dealerId,
       login_nr,
       bucket: BUCKET,
       path,
@@ -131,8 +129,6 @@ export async function POST(req: Request) {
       return NextResponse.json(
         {
           error: `DB insert failed: ${dbError.message}`,
-          hint:
-            "Falls project_files.project_id ein INTEGER ist, musst du im Frontend eine Zahl senden (nicht UUID). Falls es UUID ist, passt es so.",
         },
         { status: 400 }
       );

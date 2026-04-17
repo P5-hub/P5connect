@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState, useMemo, useCallback } from "react";
-import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import {
   BadgeInfo,
@@ -35,7 +34,6 @@ import { calcInvestByRule } from "@/lib/helpers/calcHelpers";
 import ProjectFileUpload from "@/app/(dealer)/components/project/ProjectFileUpload";
 import { useTheme } from "@/lib/theme/ThemeContext";
 import { calcCampaignPrice } from "@/lib/helpers/campaignPricing";
-import { getDealerIdFromUrl } from "@/lib/dealer/getDealerIdFromUrl";
 import { useI18n } from "@/lib/i18n/I18nProvider";
 
 import {
@@ -1535,11 +1533,7 @@ function ProductList({
 export default function CartBestellung() {
   const { t } = useI18n();
   const dealer = useDealer();
-  const searchParams = useSearchParams();
-  const effectiveDealerId = getDealerIdFromUrl(
-    searchParams,
-    (dealer as any)?.dealer_id
-  );
+  const effectiveDealerId = (dealer as any)?.dealer_id ?? null;
 
   const tr = useCallback<TranslateFn>(
     (key, fallback, params) => {
@@ -2177,25 +2171,30 @@ export default function CartBestellung() {
     [removeItem]
   );
 
-  const createOrderViaRpc = async (
+  const createOrderViaApi = async (
     submissionPayload: Record<string, any>,
     itemPayloads: Record<string, any>[]
   ) => {
-    const { data, error } = await supabase.rpc(
-      "create_order_with_campaign_guard",
-      {
-        p_submission: submissionPayload,
-        p_items: itemPayloads,
-      }
-    );
+    const res = await fetch("/api/orders/create", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        submissionPayload,
+        itemPayloads,
+      }),
+    });
 
-    if (error) {
-      throw error;
+    const data = await res.json();
+
+    if (!res.ok) {
+      throw new Error(data?.error || data?.message || "Order create failed");
     }
 
     return (data ?? {
       ok: false,
-      message: "Unbekannter RPC-Fehler",
+      message: "Unbekannter API-Fehler",
     }) as {
       ok: boolean;
       submission_id?: number;
@@ -2614,7 +2613,7 @@ export default function CartBestellung() {
           };
         });
 
-        const rpcResult = await createOrderViaRpc(
+        const rpcResult = await createOrderViaApi(
           submissionPayload,
           itemPayloads
         );

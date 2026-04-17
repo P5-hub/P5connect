@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { useSearchParams } from "next/navigation";
 import {
   BadgePercent,
   CalendarRange,
@@ -21,7 +20,6 @@ import { useDealer } from "@/app/(dealer)/DealerContext";
 import { useCart } from "@/app/(dealer)/GlobalCartProvider";
 import { getSupabaseBrowser } from "@/lib/supabaseClient";
 import { calcCampaignPrice } from "@/lib/helpers/campaignPricing";
-import { getDealerIdFromUrl } from "@/lib/dealer/getDealerIdFromUrl";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { useI18n } from "@/lib/i18n/I18nProvider";
@@ -244,8 +242,7 @@ function CampaignBadge({
 export default function BestellungForm() {
   const { t } = useI18n();
   const dealer = useDealer();
-  const searchParams = useSearchParams();
-  const effectiveDealerId = getDealerIdFromUrl(searchParams, dealer?.dealer_id);
+  const effectiveDealerId = dealer?.dealer_id ?? null;
 
   const supabase = getSupabaseBrowser();
   const { state, addItem, openCart, getItems } = useCart();

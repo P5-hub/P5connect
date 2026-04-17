@@ -10,13 +10,13 @@ export default function VerkaufClient() {
   const { dealer, loading } = useActiveDealer();
 
   if (loading) {
-    return <p className="text-gray-500">⏳ Händler wird geladen…</p>;
+    return <p className="text-gray-500">{t("sales.loading.dealer")}</p>;
   }
 
   if (!dealer) {
     return (
       <p className="text-red-500 p-4">
-        Händler konnte nicht geladen werden.
+        {t("sales.errors.dealerLoadFailed")}
       </p>
     );
   }
@@ -25,7 +25,7 @@ export default function VerkaufClient() {
     <div className="space-y-6 pb-20">
       <h1 className="text-2xl font-bold flex items-center gap-2 text-green-600">
         <BarChart3 className="w-7 h-7" />
-        {t("sales.heading")}
+        {t("sales.page.heading")}
       </h1>
 
       <VerkaufForm />

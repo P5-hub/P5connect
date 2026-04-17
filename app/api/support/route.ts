@@ -1,7 +1,6 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-import { cookies } from "next/headers";
-import { createServerClient } from "@supabase/ssr";
+import { getApiDealerContext } from "@/lib/auth/getApiDealerContext";
 
 /**
  * ⚠️ Service-Role Client
@@ -29,52 +28,6 @@ function num(v: any) {
 
 function sanitizeFilename(name: string) {
   return name.replace(/[^\w.\-() ]+/g, "_");
-}
-
-function getActingDealerIdFromCookie(req: Request): number | null {
-  const cookie = req.headers.get("cookie") || "";
-  const match = cookie
-    .split(";")
-    .map((c) => c.trim())
-    .find((c) => c.startsWith("acting_dealer_id="));
-
-  if (!match) return null;
-  const raw = decodeURIComponent(match.split("=")[1] || "").trim();
-  const n = Number(raw);
-  return Number.isFinite(n) && n > 0 ? n : null;
-}
-
-/**
- * ✅ Auth-Dealer Fallback:
- * - liest Supabase Session (Auth Cookie)
- * - findet dealer_id über dealers.auth_user_id
- */
-async function getDealerIdFromSupabaseSession(): Promise<number | null> {
-  const cookieStore = await cookies();
-
-  const supabaseAuth = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        get(name: string) {
-          return cookieStore.get(name)?.value;
-        },
-      },
-    }
-  );
-
-  const { data, error } = await supabaseAuth.auth.getUser();
-  if (error || !data?.user) return null;
-
-  const { data: dealer, error: dealerErr } = await supabaseAdmin
-    .from("dealers")
-    .select("dealer_id")
-    .eq("auth_user_id", data.user.id)
-    .maybeSingle();
-
-  if (dealerErr || !dealer?.dealer_id) return null;
-  return Number(dealer.dealer_id) || null;
 }
 
 async function uploadSupportFile(
@@ -110,11 +63,28 @@ async function uploadSupportFile(
   };
 }
 
-export async function POST(req: Request) {
+export async function POST(req: NextRequest) {
   let uploadedPaths: string[] = [];
   let submission_id: number | null = null;
 
   try {
+    const auth = await getApiDealerContext(req);
+
+    if (!auth.ok) {
+      return auth.response;
+    }
+
+    const { ctx } = auth;
+
+    if (!ctx.effectiveDealerId) {
+      return NextResponse.json(
+        { error: "No effective dealer context found" },
+        { status: 403 }
+      );
+    }
+
+    const dealer_id = ctx.effectiveDealerId;
+
     const contentType = req.headers.get("content-type") || "";
 
     let payload: any = null;
@@ -146,28 +116,7 @@ export async function POST(req: Request) {
       payload = await req.json();
     }
 
-    // 2) dealer_id bestimmen (Payload -> acting cookie -> Supabase session)
-    const dealerFromPayload = Number(payload?.dealer_id);
-    const dealerFromCookie = getActingDealerIdFromCookie(req);
-
-    let dealer_id =
-      (Number.isFinite(dealerFromPayload) && dealerFromPayload > 0
-        ? dealerFromPayload
-        : null) ?? dealerFromCookie;
-
-    if (!dealer_id) {
-      const fromSession = await getDealerIdFromSupabaseSession();
-      dealer_id = fromSession ?? null;
-    }
-
-    if (!dealer_id) {
-      return NextResponse.json(
-        { error: "dealer_id fehlt oder ungültig (Payload/Cookie/Session)" },
-        { status: 400 }
-      );
-    }
-
-    // 3) Dateien validieren
+    // 2) Dateien validieren
     if (files.length > MAX_FILES) {
       return NextResponse.json(
         { error: `Maximal ${MAX_FILES} Belege erlaubt` },
@@ -186,7 +135,7 @@ export async function POST(req: Request) {
       }
     }
 
-    // 4) Meta robust lesen (neu + alt)
+    // 3) Meta robust lesen (neu + alt)
     const meta = payload?.meta ?? {};
 
     const support_type =
@@ -201,7 +150,7 @@ export async function POST(req: Request) {
     const sonyShare = payload?.sonyShare ?? meta?.sonyShare ?? null;
     const sonyAmount = payload?.sonyAmount ?? meta?.sonyAmount ?? null;
 
-    // 5) Submission anlegen
+    // 4) Submission anlegen
     const { data: submission, error: subErr } = await supabaseAdmin
       .from("submissions")
       .insert({
@@ -220,7 +169,7 @@ export async function POST(req: Request) {
 
     submission_id = submission.submission_id;
 
-    // 6) Dateien uploaden + in submission_files speichern
+    // 5) Dateien uploaden + in submission_files speichern
     let uploadedFilesMeta: Array<{
       file_name: string;
       file_path: string;
@@ -258,7 +207,6 @@ export async function POST(req: Request) {
         throw new Error(`submission_files insert fehlgeschlagen: ${filesErr.message}`);
       }
 
-      // optional: ersten Pfad zusätzlich im submissions-Eintrag hinterlegen
       const { error: subUpdateErr } = await supabaseAdmin
         .from("submissions")
         .update({
@@ -271,7 +219,7 @@ export async function POST(req: Request) {
       }
     }
 
-    // 7) Items (Sell-Out)
+    // 6) Items (Sell-Out)
     if (items.length > 0) {
       const mappedItems = items.map((i: any) => ({
         submission_id,
@@ -295,7 +243,7 @@ export async function POST(req: Request) {
       }
     }
 
-    // 8) support_details speichern
+    // 7) support_details speichern
     if (support_type) {
       const supportTypText = [
         support_type,

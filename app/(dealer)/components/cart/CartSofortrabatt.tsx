@@ -23,30 +23,53 @@ type PromoType = "classic_fixed" | "tv55_soundbar_percent";
 /* -------------------------------------------------- */
 /* HELPERS                                            */
 /* -------------------------------------------------- */
-const hasCategory = (items: any[], keywords: string[]) =>
-  items.some((i) =>
-    keywords.some((k) =>
-      (i.category || i.gruppe || "").toLowerCase().includes(k)
-    )
-  );
+function normalizeText(value: any) {
+  return String(value || "").trim().toLowerCase();
+}
 
-const getRabattLevel = (items: any[]) => {
-  const hasTV = hasCategory(items, ["tv"]);
-  const hasSoundbar = hasCategory(items, ["soundbar"]);
-  const hasSub = hasCategory(items, ["sub"]);
+function getRole(item: any): "tv" | "soundbar" | "sub" | null {
+  const category = normalizeText(item?.category);
+  const ph2 = String(item?.ph2 || "").trim().toUpperCase();
+
+  // ZUERST: Soundbar
+  if (category === "soundbar" || category.includes("soundbar")) {
+    return "soundbar";
+  }
+
+  // DANACH: Sub / Rear Speaker
+  if (
+    category === "subwoofer" ||
+    category.includes("subwoofer") ||
+    category.includes("rear speaker") ||
+    category.includes("rear") ||
+    category.includes("rearspeaker")
+  ) {
+    return "sub";
+  }
+
+  // TV nur noch klar über PH2 oder TV-Kategorie
+  if (
+    ph2 === "TME" ||
+    category === "lcd" ||
+    category === "mini led" ||
+    category === "rgb" ||
+    category.includes("tv")
+  ) {
+    return "tv";
+  }
+
+  return null;
+}
+
+function getRabattLevel(items: any[]) {
+  const hasTV = items.some((i) => getRole(i) === "tv");
+  const hasSoundbar = items.some((i) => getRole(i) === "soundbar");
+  const hasSub = items.some((i) => getRole(i) === "sub");
 
   if (hasTV && hasSoundbar && hasSub) return 3;
   if (hasTV && hasSoundbar) return 2;
   if (hasTV) return 1;
   return 0;
-};
-
-function getRole(item: any): "tv" | "soundbar" | "sub" | null {
-  const c = (item.category || item.gruppe || "").toLowerCase();
-  if (c.includes("tv")) return "tv";
-  if (c.includes("soundbar")) return "soundbar";
-  if (c.includes("sub")) return "sub";
-  return null;
 }
 
 function parseTvInches(product: any): number {
@@ -61,19 +84,23 @@ function parseTvInches(product: any): number {
   const source = [
     product?.sony_article,
     product?.product_name,
+    product?.model,
     product?.name,
     product?.title,
+    product?.ean,
   ]
     .filter(Boolean)
     .join(" ");
 
-  const match = source.match(/(\d{2,3})\s*(?:["]|zoll|inch)/i);
-  if (match) return Number(match[1]);
+  const matches = source.match(/\d{2,3}/g);
 
-  const sonyMatch = source.match(/(?:^|[^\d])(\d{2,3})(?:[A-Z]|$)/);
-  if (sonyMatch) {
-    const value = Number(sonyMatch[1]);
-    if (value >= 32 && value <= 100) return value;
+  if (matches) {
+    for (const raw of matches) {
+      const value = Number(raw);
+      if (value >= 32 && value <= 120) {
+        return value;
+      }
+    }
   }
 
   return 0;
@@ -121,9 +148,12 @@ export default function CartSofortrabatt() {
 
   const tvInches = tvItem ? parseTvInches(tvItem) : 0;
 
-  /* -------------------------------------------------- */
-  /* FILE HANDLING                                      */
-  /* -------------------------------------------------- */
+  console.log("SOFORTRABATT ITEMS:", items);
+  console.log("TV ITEM FOUND:", tvItem);
+  console.log("SOUNDBAR ITEM FOUND:", soundbarItem);
+  console.log("SUB ITEM FOUND:", subItem);
+  console.log("TV INCHES:", tvInches);
+
   const addFiles = (fileList: FileList | null) => {
     if (!fileList) return;
 
@@ -144,9 +174,6 @@ export default function CartSofortrabatt() {
     }));
   };
 
-  /* -------------------------------------------------- */
-  /* PRICE HANDLING                                     */
-  /* -------------------------------------------------- */
   const updateSalesPrice = (field: "soundbar" | "subwoofer", value: string) => {
     setOrderDetails((prev: any) => ({
       ...prev,
@@ -157,11 +184,8 @@ export default function CartSofortrabatt() {
     }));
   };
 
-  /* -------------------------------------------------- */
-  /* RABATT                                             */
-  /* -------------------------------------------------- */
   const getClassicRabattForItem = (item: any) => {
-    const isTV = (item.category || item.gruppe || "").toLowerCase().includes("tv");
+    const isTV = getRole(item) === "tv";
     if (!isTV) return 0;
 
     if (rabattLevel === 1) return Number(item.sofortrabatt_amount || 0);
@@ -200,9 +224,6 @@ export default function CartSofortrabatt() {
     };
   }, [promoType, items, rabattLevel, salesPrices, soundbarItem, subItem]);
 
-  /* -------------------------------------------------- */
-  /* SUBMIT                                             */
-  /* -------------------------------------------------- */
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
 
@@ -311,10 +332,6 @@ export default function CartSofortrabatt() {
     setLoading(false);
   };
 
-  /* -------------------------------------------------- */
-  /* UI                                                 */
-  /* -------------------------------------------------- */
-
   return (
     <Sheet open={open} onOpenChange={(o) => !o && closeCart()}>
       <SheetContent side="right" className="w-full sm:w-[600px] flex flex-col">
@@ -363,7 +380,6 @@ export default function CartSofortrabatt() {
               )}
             </div>
 
-            {/* ITEMS */}
             <div className="flex-1 overflow-y-auto space-y-4 py-4">
               {items.map((item: any, index: number) => {
                 const role = getRole(item);
@@ -379,6 +395,9 @@ export default function CartSofortrabatt() {
                           {item.product_name || item.sony_article || "Produkt"}
                         </p>
                         <p className="text-xs text-gray-500">EAN: {item.ean}</p>
+                        <p className="text-xs text-gray-400">
+                          Rolle: {role || "unbekannt"} | Kategorie: {item.category || "-"} | PH2: {item.ph2 || "-"}
+                        </p>
                       </div>
 
                       <button
@@ -452,7 +471,6 @@ export default function CartSofortrabatt() {
               })}
             </div>
 
-            {/* FILE UPLOAD */}
             <div className="border-t pt-4 space-y-3">
               <label className="text-sm font-medium">
                 {t("sofortrabatt.cart.uploadInvoices")}
@@ -486,7 +504,6 @@ export default function CartSofortrabatt() {
               )}
             </div>
 
-            {/* FOOTER */}
             <div className="border-t pt-4 space-y-3">
               <p>
                 {t("sofortrabatt.cart.total")}:{" "}

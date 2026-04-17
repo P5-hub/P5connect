@@ -1,5 +1,6 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { getApiDealerContext } from "@/lib/auth/getApiDealerContext";
 
 /* --------------------------------------------------
    Supabase Service Client
@@ -16,11 +17,41 @@ type PromoType = "classic_fixed" | "tv55_soundbar_percent";
 /* --------------------------------------------
    Helpers
 -------------------------------------------- */
+function normalizeText(value: any) {
+  return String(value || "").trim().toLowerCase();
+}
+
 function getProductRole(item: any): "tv" | "soundbar" | "sub" | null {
-  const c = (item.category || item.gruppe || "").toLowerCase();
-  if (c.includes("tv")) return "tv";
-  if (c.includes("soundbar")) return "soundbar";
-  if (c.includes("sub")) return "sub";
+  const category = normalizeText(item?.category);
+  const ph2 = String(item?.ph2 || "").trim().toUpperCase();
+
+  // ZUERST: Soundbar
+  if (category === "soundbar" || category.includes("soundbar")) {
+    return "soundbar";
+  }
+
+  // DANACH: Sub / Rear Speaker
+  if (
+    category === "subwoofer" ||
+    category.includes("subwoofer") ||
+    category.includes("rear speaker") ||
+    category.includes("rear") ||
+    category.includes("rearspeaker")
+  ) {
+    return "sub";
+  }
+
+  // TV nur noch klar über PH2 oder TV-Kategorie
+  if (
+    ph2 === "TME" ||
+    category === "lcd" ||
+    category === "mini led" ||
+    category === "rgb" ||
+    category.includes("tv")
+  ) {
+    return "tv";
+  }
+
   return null;
 }
 
@@ -36,19 +67,23 @@ function parseTvInches(product: any): number {
   const source = [
     product?.sony_article,
     product?.product_name,
+    product?.model,
     product?.name,
     product?.title,
+    product?.ean,
   ]
     .filter(Boolean)
     .join(" ");
 
-  const match = source.match(/(\d{2,3})\s*(?:["]|zoll|inch)/i);
-  if (match) return Number(match[1]);
+  const matches = source.match(/\d{2,3}/g);
 
-  const sonyMatch = source.match(/(?:^|[^\d])(\d{2,3})(?:[A-Z]|$)/);
-  if (sonyMatch) {
-    const value = Number(sonyMatch[1]);
-    if (value >= 32 && value <= 100) return value;
+  if (matches) {
+    for (const raw of matches) {
+      const value = Number(raw);
+      if (value >= 32 && value <= 120) {
+        return value;
+      }
+    }
   }
 
   return 0;
@@ -129,7 +164,26 @@ function calculatePercentPromoRabatt(
     throw new Error("Ungültige Artikelkombination");
   }
 
+  const tvSource = [
+    tvItem?.sony_article,
+    tvItem?.product_name,
+    tvItem?.model,
+    tvItem?.name,
+    tvItem?.title,
+    tvItem?.ean,
+  ]
+    .filter(Boolean)
+    .join(" ");
+
   const tvInches = parseTvInches(tvItem);
+
+  console.log("📺 Sofortrabatt TV validation");
+  console.log("tvItem:", tvItem);
+  console.log("soundbarItem:", soundbarItem);
+  console.log("subItem:", subItem);
+  console.log("tvSource:", tvSource);
+  console.log("tvInches:", tvInches);
+
   if (tvInches < 55) {
     throw new Error("Die Promotion gilt nur für TVs ab 55 Zoll");
   }
@@ -205,11 +259,27 @@ function calculateRabattByPromo(
 /* --------------------------------------------
    POST Handler
 -------------------------------------------- */
-export async function POST(req: Request) {
+export async function POST(req: NextRequest) {
   try {
+    const auth = await getApiDealerContext(req);
+
+    if (!auth.ok) {
+      return auth.response;
+    }
+
+    const { ctx } = auth;
+
+    if (!ctx.effectiveDealerId) {
+      return NextResponse.json(
+        { error: "No effective dealer context found" },
+        { status: 403 }
+      );
+    }
+
+    const dealer_id = ctx.effectiveDealerId;
+
     const formData = await req.formData();
 
-    const dealer_id = Number(formData.get("dealer_id"));
     const itemsRaw = formData.get("items");
     const promoType = String(
       formData.get("promo_type") || "classic_fixed"
@@ -218,7 +288,7 @@ export async function POST(req: Request) {
 
     const filesRaw = formData.getAll("files") as unknown[];
 
-    if (!dealer_id || !itemsRaw) {
+    if (!itemsRaw) {
       return NextResponse.json({ error: "Ungültige Daten" }, { status: 400 });
     }
 
@@ -245,7 +315,6 @@ export async function POST(req: Request) {
       );
     }
 
-    /* 1) Upload Files */
     const uploadedPaths: string[] = [];
 
     for (const file of files) {
@@ -272,11 +341,9 @@ export async function POST(req: Request) {
       uploadedPaths.push(filePath);
     }
 
-    /* 2) Rabatt berechnen */
     const { rabattLevel, rabattBetrag, detailComment, enrichedProducts } =
       calculateRabattByPromo(promoType, items, salesPrices);
 
-    /* 3) Claim speichern */
     const { error: insertError } = await supabase
       .from("sofortrabatt_claims")
       .insert([

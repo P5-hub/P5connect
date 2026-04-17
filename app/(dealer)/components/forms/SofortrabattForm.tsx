@@ -9,15 +9,27 @@ import { useDealer } from "@/app/(dealer)/DealerContext";
 import { useCart } from "@/app/(dealer)/GlobalCartProvider";
 import { useI18n } from "@/lib/i18n/I18nProvider";
 import { getSupabaseBrowser } from "@/lib/supabaseClient";
-
-import type { Product } from "@/types/Product";
+import { Database } from "@/types/supabase";
 import { getThemeByForm } from "@/lib/theme/ThemeContext";
 
+type Product = Database["public"]["Tables"]["products"]["Row"];
 type PromoType = "classic_fixed" | "tv55_soundbar_percent";
 
 /* ------------------------------------------------------
    HELPERS
 ------------------------------------------------------ */
+function normalizeText(value: any) {
+  return String(value || "").trim().toLowerCase();
+}
+
+function normalizeArticle(value: any) {
+  return String(value || "")
+    .toUpperCase()
+    .replace(/\s+/g, "")
+    .replace(/-/g, "")
+    .replace(/\./g, "");
+}
+
 function parseTvInches(product: any): number {
   const direct =
     Number(product?.screen_size_inch) ||
@@ -30,6 +42,7 @@ function parseTvInches(product: any): number {
   const source = [
     product?.sony_article,
     product?.product_name,
+    product?.model,
     product?.name,
     product?.title,
     product?.ean,
@@ -37,13 +50,15 @@ function parseTvInches(product: any): number {
     .filter(Boolean)
     .join(" ");
 
-  const match = source.match(/(\d{2,3})\s*(?:["]|zoll|inch)/i);
-  if (match) return Number(match[1]);
+  const matches = source.match(/\d{2,3}/g);
 
-  const sonyMatch = source.match(/(?:^|[^\d])(\d{2,3})(?:[A-Z]|$)/);
-  if (sonyMatch) {
-    const value = Number(sonyMatch[1]);
-    if (value >= 32 && value <= 100) return value;
+  if (matches) {
+    for (const raw of matches) {
+      const value = Number(raw);
+      if (value >= 32 && value <= 120) {
+        return value;
+      }
+    }
   }
 
   return 0;
@@ -51,18 +66,6 @@ function parseTvInches(product: any): number {
 
 function getProductLabel(product: any) {
   return product?.sony_article || product?.product_name || "Unknown product";
-}
-
-function normalizeText(value: any) {
-  return String(value || "").trim().toLowerCase();
-}
-
-function normalizeArticle(value: any) {
-  return String(value || "")
-    .toUpperCase()
-    .replace(/\s+/g, "")
-    .replace(/-/g, "")
-    .replace(/\./g, "");
 }
 
 function getSoundbarCompatibilityKey(product: any): string {
@@ -152,7 +155,6 @@ export default function SofortrabattForm() {
 
   const [promoType, setPromoType] = useState<PromoType>("tv55_soundbar_percent");
 
-  /* ---------- Produktauswahl ---------- */
   const [tvList, setTvList] = useState<Product[]>([]);
   const [soundbarList, setSoundbarList] = useState<Product[]>([]);
   const [subwooferList, setSubwooferList] = useState<Product[]>([]);
@@ -180,9 +182,6 @@ export default function SofortrabattForm() {
     return null;
   };
 
-  /* ------------------------------------------------------
-     LOAD PRODUCTS
-  ------------------------------------------------------ */
   useEffect(() => {
     const loadProducts = async () => {
       const { data, error } = await supabase
@@ -195,9 +194,9 @@ export default function SofortrabattForm() {
         return;
       }
 
-      const formatted = (data || []).map((p) => ({
+      const formatted: Product[] = (data || []).map((p) => ({
         ...p,
-        product_id: String(p.product_id),
+        product_id: Number(p.product_id),
       }));
 
       const tvs = formatted.filter(
@@ -260,9 +259,6 @@ export default function SofortrabattForm() {
     return getCompatibilityHint(selectedSoundbar);
   }, [selectedSoundbar, t]);
 
-  /* ------------------------------------------------------
-     ADD TO CART
-  ------------------------------------------------------ */
   const handleAddToCart = () => {
     if (!selectedTV) {
       toast.error(t("sofortrabatt.toast.selectTv"));
@@ -285,10 +281,55 @@ export default function SofortrabattForm() {
 
     clearCart("sofortrabatt");
 
-    addItem("sofortrabatt", selectedTV);
+    console.log("SELECTED TV BEFORE ADD:", selectedTV);
+    console.log("SELECTED SOUNDBAR BEFORE ADD:", selectedSoundbar);
+    console.log("SELECTED SUB BEFORE ADD:", selectedSub);
 
-    if (selectedSoundbar) addItem("sofortrabatt", selectedSoundbar);
-    if (selectedSub) addItem("sofortrabatt", selectedSub);
+    addItem("sofortrabatt", {
+      ...selectedTV,
+      product_id: selectedTV.product_id,
+      sony_article: selectedTV.sony_article,
+      product_name: selectedTV.product_name,
+      model: selectedTV.model,
+      ean: selectedTV.ean,
+      ph2: selectedTV.ph2,
+      ph3: selectedTV.ph3,
+      ph4: selectedTV.ph4,
+      category: selectedTV.category,
+      gruppe: selectedTV.gruppe,
+    });
+
+    if (selectedSoundbar) {
+      addItem("sofortrabatt", {
+        ...selectedSoundbar,
+        product_id: selectedSoundbar.product_id,
+        sony_article: selectedSoundbar.sony_article,
+        product_name: selectedSoundbar.product_name,
+        model: selectedSoundbar.model,
+        ean: selectedSoundbar.ean,
+        ph2: selectedSoundbar.ph2,
+        ph3: selectedSoundbar.ph3,
+        ph4: selectedSoundbar.ph4,
+        category: selectedSoundbar.category,
+        gruppe: selectedSoundbar.gruppe,
+      });
+    }
+
+    if (selectedSub) {
+      addItem("sofortrabatt", {
+        ...selectedSub,
+        product_id: selectedSub.product_id,
+        sony_article: selectedSub.sony_article,
+        product_name: selectedSub.product_name,
+        model: selectedSub.model,
+        ean: selectedSub.ean,
+        ph2: selectedSub.ph2,
+        ph3: selectedSub.ph3,
+        ph4: selectedSub.ph4,
+        category: selectedSub.category,
+        gruppe: selectedSub.gruppe,
+      });
+    }
 
     setOrderDetails((prev: any) => ({
       ...prev,
@@ -348,17 +389,12 @@ export default function SofortrabattForm() {
     }
   };
 
-  /* ------------------------------------------------------
-     RENDER
-  ------------------------------------------------------ */
-
   if (!dealer) {
     return <p className="text-gray-500">⏳ Händler wird geladen…</p>;
   }
 
   return (
     <div className="space-y-8">
-      {/* PROMO AUSWAHL */}
       <div>
         <h3 className={`text-lg font-semibold mb-3 ${theme.color}`}>
           {t("sofortrabatt.promo.select")}
@@ -397,7 +433,6 @@ export default function SofortrabattForm() {
         </div>
       </div>
 
-      {/* AUSWAHL ÜBERSICHT */}
       <div className="sticky top-2 z-10">
         <div className="rounded-2xl border bg-white/95 backdrop-blur px-4 py-3 shadow-sm">
           <div className="grid grid-cols-1 md:grid-cols-4 gap-3 text-sm">
@@ -450,7 +485,6 @@ export default function SofortrabattForm() {
         </div>
       </div>
 
-      {/* TV */}
       <div ref={tvSectionRef} className="space-y-4">
         <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-3">
           <div>
@@ -545,7 +579,6 @@ export default function SofortrabattForm() {
         )}
       </div>
 
-      {/* SOUNDBAR */}
       {selectedTV && (
         <div ref={soundbarSectionRef} className="space-y-4">
           <div>
@@ -579,7 +612,6 @@ export default function SofortrabattForm() {
         </div>
       )}
 
-      {/* ZUBEHÖR */}
       {selectedTV && selectedSoundbar && (
         <div ref={accessorySectionRef} className="space-y-4">
           <div>
@@ -632,7 +664,6 @@ export default function SofortrabattForm() {
         </div>
       )}
 
-      {/* BUTTON FALLBACK UNTEN */}
       {selectedTV && (
         <div className="md:hidden">
           <Button onClick={handleAddToCart} className={theme.bg}>

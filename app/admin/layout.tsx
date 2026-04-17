@@ -21,10 +21,6 @@ import {
 import PendingIndicator from "@/components/admin/PendingIndicator";
 import MiniBadge from "@/components/admin/MiniBadge";
 
-/* ------------------------------------------------------------------
-   TYPES
------------------------------------------------------------------- */
-
 type PendingKey =
   | "promotions"
   | "sofortrabatt"
@@ -46,10 +42,6 @@ type UpdateUserApiResponse = {
   error?: string;
   changedOwnAccount?: boolean;
 };
-
-/* ------------------------------------------------------------------
-   HILFSFUNKTIONEN
------------------------------------------------------------------- */
 
 function generateRandomPassword(length: number = 12): string {
   const chars =
@@ -77,10 +69,6 @@ function getLanguageLabel(lang: Lang) {
       return "English";
   }
 }
-
-/* ------------------------------------------------------------------
-   INNER LAYOUT
------------------------------------------------------------------- */
 
 function AdminLayoutInner({ children }: { children: ReactNode }) {
   const pathname = usePathname();
@@ -134,9 +122,6 @@ function AdminLayoutInner({ children }: { children: ReactNode }) {
     setTimeout(() => setToast(null), 4000);
   };
 
-  /* ------------------------------------------------------------------
-     Admin-User laden
-  ------------------------------------------------------------------ */
   useEffect(() => {
     const loadAdmin = async () => {
       const { data, error } = await supabase.auth.getUser();
@@ -317,9 +302,6 @@ function AdminLayoutInner({ children }: { children: ReactNode }) {
     if (currentAdminLogin) setModalLogin(currentAdminLogin);
   };
 
-  /* ------------------------------------------------------------------
-     Click outside Language Dropdown
-  ------------------------------------------------------------------ */
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
       if (langRef.current && !langRef.current.contains(e.target as Node)) {
@@ -331,9 +313,6 @@ function AdminLayoutInner({ children }: { children: ReactNode }) {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  /* ------------------------------------------------------------------
-     Load dealers
-  ------------------------------------------------------------------ */
   useEffect(() => {
     const loadDealers = async () => {
       const { data } = await supabase
@@ -349,9 +328,6 @@ function AdminLayoutInner({ children }: { children: ReactNode }) {
     loadDealers();
   }, [supabase]);
 
-  /* ------------------------------------------------------------------
-     Pending counts
-  ------------------------------------------------------------------ */
   const loadPendingCounts = async () => {
     const counts: Record<PendingKey, number> = {
       promotions: 0,
@@ -394,7 +370,6 @@ function AdminLayoutInner({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     loadPendingCounts();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
@@ -412,9 +387,6 @@ function AdminLayoutInner({ children }: { children: ReactNode }) {
     };
   }, [supabase]);
 
-  /* ------------------------------------------------------------------
-     Filter dealers
-  ------------------------------------------------------------------ */
   const filteredDealers = useMemo(() => {
     const lower = searchTerm.toLowerCase();
 
@@ -431,9 +403,6 @@ function AdminLayoutInner({ children }: { children: ReactNode }) {
     });
   }, [dealers, searchTerm]);
 
-  /* ------------------------------------------------------------------
-     Navigation
-  ------------------------------------------------------------------ */
   const navItems: {
     href: string;
     key: PendingKey | null;
@@ -495,10 +464,32 @@ function AdminLayoutInner({ children }: { children: ReactNode }) {
     return match ? match.color : "text-gray-800";
   }, [pathname, navItems]);
 
-  const handleImpersonate = (dealerId: string) => {
+  const handleImpersonate = async (dealerId: string) => {
     if (!dealerId) return;
-    window.open(`/bestellung?dealer_id=${dealerId}`, "_blank");
-    setMobileMenuOpen(false);
+
+    try {
+      const res = await fetch("/api/acting-as/set", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          dealer_id: Number(dealerId),
+        }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        showToast("error", data?.error || "Händlermodus konnte nicht gestartet werden.");
+        return;
+      }
+
+      window.open("/bestellung", "_blank");
+      setMobileMenuOpen(false);
+    } catch {
+      showToast("error", "Händlermodus konnte nicht gestartet werden.");
+    }
   };
 
   const handleLogout = async () => {
@@ -507,10 +498,6 @@ function AdminLayoutInner({ children }: { children: ReactNode }) {
   };
 
   const langLabel = getLanguageLabel(lang);
-
-  /* ------------------------------------------------------------------
-     RENDER
-  ------------------------------------------------------------------ */
 
   return (
     <div className="min-h-screen flex flex-col bg-gray-50">
@@ -909,10 +896,6 @@ function AdminLayoutInner({ children }: { children: ReactNode }) {
     </div>
   );
 }
-
-/* ------------------------------------------------------------------
-   WRAPPER
------------------------------------------------------------------- */
 
 export default function AdminLayout({ children }: { children: ReactNode }) {
   return (

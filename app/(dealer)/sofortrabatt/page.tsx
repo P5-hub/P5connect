@@ -1,50 +1,8 @@
-import { cookies } from "next/headers";
-import { createServerClient } from "@supabase/ssr";
-import DealerServerWrapper from "@/app/(dealer)/DealerServerWrapper";
 import SofortrabattClient from "./SofortrabattClient";
 
+export const dynamic = "force-dynamic";
+export const fetchCache = "force-no-store";
+
 export default async function SofortrabattPage() {
-  const cookieStore = await cookies();
-
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        get(name) {
-          return cookieStore.get(name)?.value;
-        },
-      },
-    }
-  );
-
-  // User ermitteln
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) {
-    return <p className="p-4 text-red-600">Nicht eingeloggt.</p>;
-  }
-
-  // Händler laden
-  const { data: dealer } = await supabase
-    .from("dealers")
-    .select("*")
-    .eq("auth_user_id", user.id)
-    .maybeSingle();
-
-  if (!dealer) {
-    return (
-      <p className="p-4 text-red-600">
-        Händlerdaten nicht gefunden – bitte Support kontaktieren.
-      </p>
-    );
-  }
-
-  return (
-    <DealerServerWrapper dealer={dealer}>
-      <SofortrabattClient />
-    </DealerServerWrapper>
-  );
+  return <SofortrabattClient />;
 }

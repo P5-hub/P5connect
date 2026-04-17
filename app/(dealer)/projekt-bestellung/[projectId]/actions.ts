@@ -1,34 +1,22 @@
 "use server";
 
-import { cookies } from "next/headers";
-import { createServerClient } from "@supabase/ssr";
+import { getServerDealerContext } from "@/lib/auth/getServerDealerContext";
 
 export async function seedCartFromProjectAction(projectId: string) {
   if (!projectId) {
     throw new Error("projectId fehlt");
   }
 
-  const cookieStore = await cookies();
-
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        get(name: string) {
-          return cookieStore.get(name)?.value;
-        },
-      },
-    }
-  );
+  const { supabase, effectiveDealerId } = await getServerDealerContext();
 
   /* =====================================================
-     1️⃣ Projekt-Stammdaten (project_requests)
+     1️⃣ Projekt-Stammdaten (nur eigenes / impersoniertes Projekt)
   ===================================================== */
   const { data: project } = await supabase
     .from("project_requests")
     .select(`
       id,
+      dealer_id,
       project_name,
       customer,
       location,
@@ -38,23 +26,26 @@ export async function seedCartFromProjectAction(projectId: string) {
       project_file_url
     `)
     .eq("id", projectId)
+    .eq("dealer_id", effectiveDealerId)
     .single();
 
   if (!project) {
-    throw new Error("Projekt nicht gefunden (project_requests)");
+    throw new Error("Projekt nicht gefunden oder keine Berechtigung");
   }
 
   /* =====================================================
-     2️⃣ letzte Projekt-Submission (Workflow!)
+     2️⃣ letzte Projekt-Submission (nur für aktiven Händler)
   ===================================================== */
   const { data: projectSubmission } = await supabase
     .from("submissions")
     .select(`
       submission_id,
       project_id,
+      dealer_id,
       customer_name
     `)
     .eq("project_id", projectId)
+    .eq("dealer_id", effectiveDealerId)
     .eq("typ", "projekt")
     .order("created_at", { ascending: false })
     .limit(1)
@@ -84,22 +75,15 @@ export async function seedCartFromProjectAction(projectId: string) {
   }
 
   /* =====================================================
-     4️⃣ Rückgabe (BEIDE IDs!)
-  ===================================================== */
-  /* =====================================================
-    4️⃣ Rückgabe (DTO – sauber gemappt)
+     4️⃣ Rückgabe
   ===================================================== */
   return {
     project: {
-      project_id: project.id, // UUID (intern, nicht anzeigen!)
-      submission_id: projectSubmission.submission_id, // 🔥 Projekt-ID = P-xxx
+      project_id: project.id,
+      submission_id: projectSubmission.submission_id,
       project_name:
-        project.project_name ??
-        `Projekt #${projectSubmission.submission_id}`,
-      customer:
-        project.customer ??
-        projectSubmission.customer_name ??
-        null,
+        project.project_name ?? `Projekt #${projectSubmission.submission_id}`,
+      customer: project.customer ?? projectSubmission.customer_name ?? null,
       location: project.location,
       start_date: project.start_date,
       end_date: project.end_date,
@@ -117,5 +101,4 @@ export async function seedCartFromProjectAction(projectId: string) {
       __origin: "project",
     })),
   };
-
 }

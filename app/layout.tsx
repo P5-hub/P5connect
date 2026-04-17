@@ -4,7 +4,6 @@ import "./globals.css";
 import type { Metadata } from "next";
 import { Toaster } from "sonner";
 import I18nProvider from "@/lib/i18n/I18nProvider";
-import SessionTimeoutManager from "@/components/SessionTimeoutManager";
 
 export const metadata: Metadata = {
   title: "Sony Partner Dashboard",
@@ -21,10 +20,9 @@ export default function RootLayout({
       <head>
         <meta charSet="UTF-8" />
       </head>
-      <body className="min-h-screen bg-gray-50 text-gray-900">
+      <body className="min-h-screen bg-gray-50 text-gray-900 flex flex-col">
         <I18nProvider>
-          <SessionTimeoutManager />
-          <main>{children}</main>
+          {children}
 
           <Toaster
             position="top-right"

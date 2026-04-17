@@ -1,12 +1,17 @@
-﻿import { NextResponse } from "next/server";
+﻿import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseServer } from "@/utils/supabase/server";
-import { cookies } from "next/headers";
+import { getApiDealerContext } from "@/lib/auth/getApiDealerContext";
 
 /**
  * GET /api/verkaufsreport?format=json|csv
  */
-export async function GET(req: Request) {
-  const cookieStore = cookies();
+export async function GET(req: NextRequest) {
+  const auth = await getApiDealerContext(req);
+
+  if (!auth.ok) {
+    return auth.response;
+  }
+
   const supabase = await getSupabaseServer();
 
   // 🔒 Auth prüfen
@@ -45,7 +50,6 @@ export async function GET(req: Request) {
   // ======================================================
   if (format === "csv") {
     try {
-      // Excel verträgt ; als Trennzeichen besser
       const separator = ";";
 
       const fields = [
@@ -64,16 +68,13 @@ export async function GET(req: Request) {
         "letzter_verkauf",
       ];
 
-      // Header-Zeile
       const header = fields.join(separator);
 
-      // Datenzeilen sauber escapen
       const rows = data.map((row: any) =>
         fields
           .map((f) => {
             const value = row[f] ?? "";
-            // Alle ; escapen + Strings in Quotes
-            return `"${String(value).replace(/"/g, '""')}"`
+            return `"${String(value).replace(/"/g, '""')}"`;
           })
           .join(separator)
       );

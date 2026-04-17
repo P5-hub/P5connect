@@ -1,14 +1,23 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 
-export async function POST() {
-  const res = NextResponse.json({ success: true });
+export async function POST(req: NextRequest) {
+  try {
+    const { dealerId } = await req.json();
 
-  // Cookie löschen
-  res.cookies.set("acting_dealer_id", "", {
-    path: "/",
-    httpOnly: true,
-    maxAge: 0,
-  });
+    if (!dealerId) {
+      return NextResponse.json({ error: "dealerId fehlt" }, { status: 400 });
+    }
 
-  return res;
+    const res = NextResponse.json({ ok: true });
+
+    res.cookies.set("acting_dealer_id", String(dealerId), {
+      httpOnly: true,
+      path: "/",
+      sameSite: "lax",
+    });
+
+    return res;
+  } catch (err) {
+    return NextResponse.json({ error: "Fehler beim Setzen" }, { status: 500 });
+  }
 }

@@ -1,5 +1,6 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseServer } from "@/utils/supabase/server";
+import { getApiDealerContext } from "@/lib/auth/getApiDealerContext";
 import type { Database } from "@/types/supabase";
 
 type SubmissionInsert =
@@ -8,7 +9,24 @@ type SubmissionInsert =
 type SubmissionItemInsert =
   Database["public"]["Tables"]["submission_items"]["Insert"];
 
-export async function POST(req: Request) {
+export async function POST(req: NextRequest) {
+  const auth = await getApiDealerContext(req);
+
+  if (!auth.ok) {
+    return auth.response;
+  }
+
+  const { ctx } = auth;
+
+  if (!ctx.effectiveDealerId) {
+    return NextResponse.json(
+      { error: "No effective dealer context found" },
+      { status: 403 }
+    );
+  }
+
+  const dealer_id = ctx.effectiveDealerId;
+
   const supabase = await getSupabaseServer();
 
   // --------------------------------------------------
@@ -27,12 +45,6 @@ export async function POST(req: Request) {
   // --------------------------------------------------
   const body = await req.json();
 
-  const dealer_id = Number(
-    body.dealer_id ??
-    body.dealerId ??
-    body.dealer?.dealer_id
-  );
-
   const rows = Array.isArray(body.rows) ? body.rows : [];
 
   const calendar_week =
@@ -46,8 +58,6 @@ export async function POST(req: Request) {
       { status: 400 }
     );
   }
-
-  /* ⬇️⬇️⬇️ HIER NEU EINFÜGEN ⬇️⬇️⬇️ */
 
   // --------------------------------------------------
   // ✅ VALIDIERUNG SONY-ANTEILE (PROZENT)
@@ -89,7 +99,9 @@ export async function POST(req: Request) {
   const inhouse_qty = dealer_total_qty - sony_qty;
   const inhouse_revenue = dealer_total_revenue - sony_revenue;
 
-
+  // Werte bewusst berechnet, auch wenn sie aktuell nicht direkt gespeichert werden
+  void inhouse_qty;
+  void inhouse_revenue;
 
   // --------------------------------------------------
   // 1️⃣ SUBMISSION (Workflow / Dashboard)
@@ -100,10 +112,9 @@ export async function POST(req: Request) {
     status: "approved",
     source: "csv",
     calendar_week,
-    sony_share_qty: sony_share_qty,         // Prozent
-    sony_share_revenue: sony_share_revenue, // Prozent
+    sony_share_qty: sony_share_qty,
+    sony_share_revenue: sony_share_revenue,
   };
-
 
   const { data: submission, error: subErr } = await supabase
     .from("submissions")
@@ -130,7 +141,7 @@ export async function POST(req: Request) {
     serial: r.seriennummer ?? null,
     datum: r.date ?? null,
     comment: r.comment ?? null,
-    source: "csv", // empfohlen
+    source: "csv",
   }));
 
   const { error: subItemErr } = await supabase
@@ -167,7 +178,6 @@ export async function POST(req: Request) {
     })
     .select("id")
     .single();
-
 
   if (meldungErr || !meldung) {
     return NextResponse.json(

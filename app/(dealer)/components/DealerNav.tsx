@@ -1,18 +1,26 @@
 ﻿"use client";
 
 import Link from "next/link";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useState, useMemo, useEffect, useRef } from "react";
 import { Globe, ShoppingCart, Menu, X } from "lucide-react";
 
 import { useI18n } from "@/lib/i18n/I18nProvider";
 import { createClient } from "@/utils/supabase/client";
 import { useCart } from "@/app/(dealer)/GlobalCartProvider";
+import { useDealer, useDealerMeta } from "@/app/(dealer)/DealerContext";
+
+type Dealer = {
+  dealer_id: number;
+  login_nr?: string | null;
+  store_name?: string | null;
+  company_name?: string | null;
+  name?: string | null;
+};
 
 export default function DealerNav() {
   const pathname = usePathname();
   const router = useRouter();
-  const searchParams = useSearchParams();
   const supabase = createClient();
   const { t, lang, setLang } = useI18n();
 
@@ -22,10 +30,17 @@ export default function DealerNav() {
   const { state, openCart } = useCart();
   const bestellungCount = state.bestellung.length;
 
-  const [dealerName, setDealerName] = useState<string | null>(null);
-  const dealerIdParam = searchParams.get("dealer_id");
+  const dealer = useDealer() as Dealer | null;
+  const { impersonating } = useDealerMeta();
 
   const langRef = useRef<HTMLDivElement | null>(null);
+
+  const dealerDisplayName =
+    dealer?.company_name ||
+    dealer?.store_name ||
+    dealer?.name ||
+    dealer?.login_nr ||
+    (dealer?.dealer_id ? `#${dealer.dealer_id}` : null);
 
   // Farben für aktiven Menüpunkt
   const colorMap: Record<string, string> = {
@@ -42,7 +57,7 @@ export default function DealerNav() {
     return match ? colorMap[match] : "text-gray-800";
   }, [pathname]);
 
-  const baseNavItems = [
+  const navItems = [
     { href: "/bestellung", key: "nav.order", color: "text-blue-600" },
     { href: "/verkauf", key: "nav.sales", color: "text-green-600" },
     { href: "/projekt", key: "nav.project", color: "text-purple-600" },
@@ -55,27 +70,6 @@ export default function DealerNav() {
     { href: "/infos", key: "nav.info", color: "text-gray-600" },
   ];
 
-  const navItems = baseNavItems.map((item) => ({
-    ...item,
-    href: dealerIdParam ? `${item.href}?dealer_id=${dealerIdParam}` : item.href,
-  }));
-
-  // Händlername laden, falls Impersonation
-  useEffect(() => {
-    if (!dealerIdParam) return;
-
-    (async () => {
-      const id = Number(dealerIdParam);
-      const { data } = await supabase
-        .from("dealers")
-        .select("name")
-        .eq("dealer_id", id)
-        .maybeSingle();
-
-      setDealerName(data?.name ?? `#${dealerIdParam}`);
-    })();
-  }, [dealerIdParam, supabase]);
-
   // Click outside Language dropdown (Desktop)
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
@@ -87,8 +81,7 @@ export default function DealerNav() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  const isActive = (hrefWithQuery: string) =>
-    pathname.startsWith(hrefWithQuery.split("?")[0]);
+  const isActive = (href: string) => pathname.startsWith(href);
 
   const goPassword = () => {
     setMobileOpen(false);
@@ -107,7 +100,7 @@ export default function DealerNav() {
         <div className="flex justify-between items-center px-3 md:px-6 py-2 md:py-3">
           {/* LOGO */}
           <Link
-            href={dealerIdParam ? `/bestellung?dealer_id=${dealerIdParam}` : "/"}
+            href="/bestellung"
             className="font-semibold text-gray-800 text-base md:text-lg flex items-center"
           >
             <span className="text-black">P</span>
@@ -243,11 +236,11 @@ export default function DealerNav() {
 
             <div className="p-4 space-y-4 overflow-y-auto">
               {/* Impersonation Hinweis */}
-              {dealerIdParam && (
+              {impersonating && dealer && (
                 <div className="rounded border bg-blue-50 p-3 text-sm text-blue-900">
                   Admin arbeitet als{" "}
                   <span className="font-semibold">
-                    {dealerName ?? `#${dealerIdParam}`}
+                    {dealerDisplayName ?? `#${dealer.dealer_id}`}
                   </span>
                 </div>
               )}
