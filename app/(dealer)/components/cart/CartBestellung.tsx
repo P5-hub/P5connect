@@ -792,10 +792,10 @@ function ProductCard({
       tr("bestellung.cartSheet.product.unknown", "Unbekannt");
 
     const modeLabel = isDisplayItem
-      ? tr("bestellung.cartSheet.product.modeDisplay", "Display")
+      ? tr("bestellung.cartSheet.product.pricingModeDisplay", "Display")
       : isMesseItem
-      ? tr("bestellung.cartSheet.product.modeMesse", "Messe")
-      : tr("bestellung.cartSheet.product.modeCampaign", "Aktion");
+      ? tr("bestellung.cartSheet.product.pricingModeMesse", "Messe")
+      : tr("bestellung.campaign.badge.standard", "Aktion");
 
     const alreadyOrderedCount = isDisplayItem
       ? persistedSummary.display
@@ -839,19 +839,19 @@ function ProductCard({
 
     toast.warning(
       tr(
-        "bestellung.toast.campaignQuotaExhaustedTitle",
+        "bestellung.toast.campaignExhaustedTitle",
         "{mode}-Kontingent ausgeschöpft",
         { mode: modeLabel }
       ),
       {
         description: tr(
-          "bestellung.toast.campaignQuotaExhaustedText",
+          "bestellung.toast.campaignExhaustedText",
           "Für {product} ist kein {modeLower}kontingent mehr frei. Bereits bestellt: {ordered}. Die gesamte Menge wurde automatisch zum Normalpreis übernommen.",
           {
             product: productLabel,
             modeLower: modeLabel.toLowerCase(),
             ordered: alreadyOrderedCount,
-          }
+          }      
         ),
         duration: TOAST_DURATION,
       }
@@ -960,9 +960,8 @@ function ProductCard({
 
         <div>
           <FieldLabel>
-            {tr("bestellung.cartSheet.product.price", "Preis")} (CHF)
+            {tr("bestellung.cartSheet.product.price", "Preis (CHF)")}
           </FieldLabel>
-
           <Input
             type="number"
             step="0.01"
@@ -985,7 +984,7 @@ function ProductCard({
           />
 
         <p className="mt-1 text-[11px] text-slate-500">
-          {tr("bestellung.cartSheet.product.normalEk", "EK normal")}:{" "}
+          {tr("bestellung.cartSheet.product.ekNormal", "EK normal")}:{" "}
           <span className="font-medium text-slate-900">
             {ek ? `${formatNumberCH(ek, 2, 2)} CHF` : "-"}
           </span>
@@ -1017,10 +1016,10 @@ function ProductCard({
               </span>
               <span className="font-semibold text-slate-700">
                 {(item as any).pricing_mode === "display"
-                  ? tr("bestellung.cartSheet.product.modeDisplay", "Display")
+                  ? tr("bestellung.cartSheet.product.pricingModeDisplay", "Display")
                   : (item as any).pricing_mode === "messe"
-                  ? tr("bestellung.cartSheet.product.modeMesse", "Messe")
-                  : tr("bestellung.cartSheet.product.modeStandard", "Standard")}
+                  ? tr("bestellung.cartSheet.product.pricingModeMesse", "Messe")
+                  : tr("bestellung.cartSheet.product.pricingModeStandard", "Standard")}
               </span>
             </div>
 
@@ -1287,7 +1286,7 @@ function ProductCard({
               <div className="mt-3">
                 <FieldLabel required>
                   {tr(
-                    "bestellung.cartSheet.product.displayReasonLabel",
+                    "bestellung.cartSheet.product.reasonForAdditionalDisplay",
                     "Begründung für zusätzliches Display"
                   )}
                 </FieldLabel>
@@ -1300,13 +1299,13 @@ function ProductCard({
                   }
                   className="min-h-[90px] w-full rounded-xl border border-amber-300 bg-white p-3 text-sm outline-none transition focus:border-amber-400"
                   placeholder={tr(
-                    "bestellung.cartSheet.product.displayReasonPlaceholder",
+                    "bestellung.cartSheet.product.reasonPlaceholder",
                     "z. B. zweiter Standort, Umbau, neue Verkaufsfläche …"
                   )}
                 />
                 <p className="mt-1 text-[11px] text-amber-700">
                   {tr(
-                    "bestellung.cartSheet.product.displayReasonHint",
+                    "bestellung.cartSheet.product.reasonHint",
                     "Für dieses Produkt wurde bereits ein Display bestellt. Bitte Zusatzbedarf begründen."
                   )}
                 </p>
@@ -1502,7 +1501,7 @@ function ProductList({
     return (
       <div className="rounded-2xl border border-slate-200 bg-white p-6 text-center text-sm text-slate-500 shadow-sm">
         {tr(
-          "bestellung.cartSheet.product.empty",
+          "bestellung.cartSheet.empty",
           "Noch keine Produkte ausgewählt."
         )}
       </div>
@@ -2219,7 +2218,7 @@ export default function CartBestellung() {
     if (hasNormal && !distributor) {
       toast.error(
         tr(
-          "bestellung.toast.mainDistributorMissing",
+          "bestellung.toast.needDistributor",
           "❌ Bitte Haupt-Distributor auswählen."
         ),
         { duration: TOAST_DURATION }
@@ -2232,7 +2231,7 @@ export default function CartBestellung() {
     if (deliveryMode === "termin" && !requestedDate) {
       toast.error(
         tr(
-          "bestellung.toast.invalidDeliveryDate",
+          "bestellung.toast.needValidDate",
           "Bitte gültiges Lieferdatum (YYYY-MM-DD) wählen."
         ),
         { duration: TOAST_DURATION }
@@ -2246,7 +2245,7 @@ export default function CartBestellung() {
 
     for (const item of cart as any[]) {
       if (!item.quantity || item.quantity <= 0) {
-        toast.error(tr("bestellung.toast.invalidQuantityTitle", "Ungültige Eingabe"), {
+        toast.error(tr("bestellung.toast.invalidInputTitle", "Ungültige Eingabe"), {
           description: tr(
             "bestellung.toast.invalidQuantityText",
             "Bitte gültige Menge für {product} eingeben.",
@@ -2316,10 +2315,10 @@ export default function CartBestellung() {
         !item.lowest_price_source_custom?.trim()
       ) {
         toast.error(
-          tr("bestellung.toast.missingProviderNameTitle", "❌ Anbieter fehlt"),
+          tr("bestellung.toast.missingProviderTitle", "❌ Anbieter fehlt"),
           {
             description: tr(
-              "bestellung.toast.missingProviderNameText",
+              "bestellung.toast.missingProviderText",
               "Bitte Händlernamen für „Andere“ bei {product} angeben.",
               {
                 product:
@@ -2656,7 +2655,7 @@ export default function CartBestellung() {
 
             if (!res.ok) {
               let errorText = tr(
-                "bestellung.toast.fileUploadFailed",
+                "bestellung.toast.uploadFailed",
                 "Datei-Upload fehlgeschlagen"
               );
 
@@ -2668,15 +2667,15 @@ export default function CartBestellung() {
                   errorText =
                     json?.error ||
                     json?.message ||
-                    `${tr("bestellung.toast.fileUploadFailed", "Upload fehlgeschlagen")} (${res.status})`;
+                    `${tr("bestellung.toast.uploadFailed", "Upload fehlgeschlagen")} (${res.status})`
                 } else {
                   const text = await res.text();
                   errorText =
                     text ||
-                    `${tr("bestellung.toast.fileUploadFailed", "Upload fehlgeschlagen")} (${res.status})`;
+                    `${tr("bestellung.toast.uploadFailed", "Upload fehlgeschlagen")} (${res.status})`
                 }
               } catch {
-                errorText = `${tr("bestellung.toast.fileUploadFailed", "Upload fehlgeschlagen")} (${res.status})`;
+                errorText = `${tr("bestellung.toast.uploadFailed", "Upload fehlgeschlagen")} (${res.status})`
               }
 
               throw new Error(errorText);
@@ -2722,9 +2721,9 @@ export default function CartBestellung() {
       console.error("Order API Error:", err);
 
       const errorMessage =
-        err?.message || err?.toString?.() || tr("bestellung.toast.unknownError", "Unbekannter Fehler");
+        err?.message || err?.toString?.() || tr("bestellung.toast.orderSaveErrorText", "Unbekannter Fehler");
 
-      toast.error(tr("bestellung.toast.saveErrorTitle", "❌ Fehler beim Speichern"), {
+      toast.error(tr("bestellung.toast.orderSaveErrorTitle", "❌ Fehler beim Speichern"), {
         description: errorMessage,
         duration: TOAST_DURATION,
       });
@@ -2855,16 +2854,23 @@ export default function CartBestellung() {
               <div className="flex items-center gap-2">
                 <Hash className="h-4 w-4 text-slate-400" />
                 <span>
-                  {tr("bestellung.cartSheet.dealerInfo.customerNo", "Kd-Nr.")}:{" "}
+                  {tr("bestellung.cartSheet.dealerInfo.customerNumber", "Kd-Nr.")}:{" "}
                   <span className="font-medium">{dealerLoginNr || "–"}</span>
                 </span>
               </div>
-
               <div className="flex items-center gap-2">
                 <User className="h-4 w-4 text-slate-400" />
                 <span>
                   {tr("bestellung.cartSheet.dealerInfo.contactPerson", "AP")}:{" "}
                   <span className="font-medium">{dealerContact || "–"}</span>
+                </span>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <MapPin className="h-4 w-4 text-slate-400" />
+                <span>
+                  {tr("bestellung.cartSheet.dealerInfo.city", "Ort")}:{" "}
+                  <span className="font-medium">{dealerCityZip || "–"}</span>
                 </span>
               </div>
 
@@ -2881,14 +2887,6 @@ export default function CartBestellung() {
                 <span>
                   {tr("bestellung.cartSheet.dealerInfo.email", "E-Mail")}:{" "}
                   <span className="font-medium">{dealerEmail || "–"}</span>
-                </span>
-              </div>
-
-              <div className="flex items-center gap-2">
-                <MapPin className="h-4 w-4 text-slate-400" />
-                <span>
-                  {tr("bestellung.cartSheet.dealerInfo.location", "Ort")}:{" "}
-                  <span className="font-medium">{dealerCityZip || "–"}</span>
                 </span>
               </div>
 
@@ -2911,7 +2909,7 @@ export default function CartBestellung() {
             </p>
             <SheetClose asChild>
               <Button>
-                {tr("bestellung.cartSheet.summary.close", "Schließen")}
+                {tr("bestellung.common.close", "Schließen")}
               </Button>
             </SheetClose>
           </div>
@@ -3186,7 +3184,7 @@ export default function CartBestellung() {
                   <div>
                     <FieldLabel>
                       {tr(
-                        "bestellung.cartSheet.order.reference",
+                        "bestellung.cartSheet.order.referenceNumber",
                         "Ihre Bestell-/Referenz-Nr."
                       )}
                     </FieldLabel>
@@ -3221,7 +3219,7 @@ export default function CartBestellung() {
                     className="h-4 w-4"
                   />
                   {tr(
-                    "bestellung.cartSheet.altDelivery.toggle",
+                    "bestellung.cartSheet.altDelivery.useAdditionalAddress",
                     "Zusätzliche Lieferadresse verwenden"
                   )}
                 </label>
@@ -3427,13 +3425,13 @@ export default function CartBestellung() {
                         {loading ? (
                           <>
                             <Loader2 className="h-4 w-4 animate-spin" />
-                            {tr("bestellung.cartSheet.summary.submitting", "Sende…")}
+                            {tr("bestellung.cartSheet.summary.sending", "Sende…")}
                           </>
                         ) : (
                           <>
                             <CheckCircle2 className="h-4 w-4" />
                             {tr(
-                              "bestellung.cartSheet.summary.submit",
+                              "bestellung.cartSheet.summary.send",
                               "Bestellung absenden"
                             )}
                           </>

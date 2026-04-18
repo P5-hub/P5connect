@@ -72,6 +72,10 @@ export const bestellung = {
     displayLimitReachedText:
       "Für {product} sind maximal {max} Display-Stück gültig. Bereits bestellt: {ordered}. Noch frei für diese Position: {free}.",
 
+    displayNotAllowedTitle: "Display nicht verfügbar",
+    displayNotAllowedText:
+      "Für dieses Produkt ist keine Display-Bestellung hinterlegt.",
+
     totalLimitReachedTitle: "Gesamtlimit erreicht",
     totalLimitReachedText:
       "Für {product} sind maximal {max} Aktions-Stück total gültig. Bereits bestellt: {ordered}. Noch frei für diese Position: {free}.",
@@ -90,6 +94,9 @@ export const bestellung = {
       "Die Bestellung konnte nicht gespeichert werden.",
 
     uploadFailed: "Datei-Upload fehlgeschlagen",
+    fileUploadFailed: "Datei-Upload fehlgeschlagen",
+    fileUploadPartialFailure:
+      "Die Bestellung wurde gespeichert, aber der Datei-Upload ist fehlgeschlagen.",
     projectIdCopied: "Projekt-ID kopiert",
   },
 
@@ -186,6 +193,7 @@ export const bestellung = {
       open: "Projekt öffnen",
       remove: "Projekt entfernen",
       copied: "Projekt-ID kopiert",
+      copyId: "Projekt-ID kopieren",
     },
 
     dealerInfo: {
@@ -210,6 +218,7 @@ export const bestellung = {
       delivery: "Lieferung",
       deliveryImmediate: "Sofort",
       deliveryScheduled: "Zum Termin",
+      deliveryPlaceholder: "Bitte wählen",
       deliveryDateOptional: "Lieferdatum (optional)",
       comment:
         "Wichtige Infos zur Bestellung (Kommentar)",
@@ -231,11 +240,30 @@ export const bestellung = {
       country: "Land",
       phoneOptional: "Telefon (optional)",
       emailOptional: "E-Mail (optional)",
+      defaultCountry: "Schweiz",
     },
 
     files: {
       title: "Dateien zur Bestellung",
       attached: "{count} Datei(en) angehängt",
+    },
+
+    bonus: {
+      title: "Bonus live im Warenkorb",
+      activeCampaign: "Aktive Kampagne",
+      from: "Von",
+      to: "Bis",
+      alreadyBooked: "Bereits bestellt",
+      thisOrder: "Diese Bestellung",
+      afterSubmit: "Nach Absenden",
+      currentTier: "Aktuell erreichte Stufe",
+      noneYet: "Noch keine",
+      progressToNext: "Fortschritt zur nächsten Stufe",
+      nextTier: "Nächste Bonusstufe",
+      fromThreshold: "ab",
+      bonus: "Bonus",
+      estimatedBonus: "Bonus",
+      highestTierReached: "Höchste Bonusstufe erreicht",
     },
 
     summary: {
@@ -253,10 +281,12 @@ export const bestellung = {
       sending: "Sende…",
       continueShopping: "Weiter einkaufen",
       pieces: "Stück",
+      close: "Schließen",
     },
 
     product: {
       unknown: "Unbekannt",
+      empty: "Noch keine Produkte ausgewählt.",
       ean: "EAN",
       specialDistribution: "Spezialvertrieb",
       bonusRelevant: "Bonusrelevant",
@@ -265,6 +295,7 @@ export const bestellung = {
       quantity: "Anzahl",
       price: "Preis (CHF)",
       ekNormal: "EK normal",
+      normalEk: "EK normal",
       saved:
         "{amount} CHF gespart ({percent}%)",
 
@@ -272,6 +303,11 @@ export const bestellung = {
       pricingModeDisplay: "Display",
       pricingModeMesse: "Messe",
       pricingModeStandard: "Standard",
+
+      modeDisplay: "Display",
+      modeMesse: "Messe",
+      modeStandard: "Standard",
+      modeCampaign: "Aktion",
 
       upeGross: "UPE brutto",
       displayPriceNet: "Displaypreis netto",

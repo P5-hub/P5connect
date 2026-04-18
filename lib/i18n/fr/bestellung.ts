@@ -20,7 +20,7 @@ export const bestellung = {
 
   viewMode: {
     both: "Afficher les deux",
-    campaignOnly: "Produits salon uniquement",
+    campaignOnly: "Produits promo uniquement",
     standardOnly: "Produits standard uniquement",
   },
 
@@ -28,7 +28,7 @@ export const bestellung = {
     productAddedTitle: "Produit ajouté",
     productAddedText: "{product} a été ajouté au panier.",
 
-    maxCampaignQtyTitle: "Quantité promotionnelle maximale atteinte",
+    maxCampaignQtyTitle: "Quantité promo maximale atteinte",
     maxCampaignQtyText:
       "Un maximum de {count} pièces par revendeur est autorisé pour {product}.",
 
@@ -37,7 +37,7 @@ export const bestellung = {
     needValidDate: "Veuillez choisir une date de livraison valide (YYYY-MM-DD).",
 
     invalidInputTitle: "Saisie invalide",
-    invalidQuantityText: "Veuillez saisir une quantité valide pour {product} !",
+    invalidQuantityText: "Veuillez saisir une quantité valide pour {product}.",
 
     missingDistributorTitle: "❌ Distributeur manquant",
     missingDistributorText:
@@ -48,7 +48,7 @@ export const bestellung = {
       'Veuillez indiquer le nom du revendeur pour « Autre » pour {product}.',
 
     missingDisplayReasonTitle:
-      "Justification pour un display supplémentaire manquante",
+      "Justification du display supplémentaire manquante",
     missingDisplayReasonText:
       "Veuillez indiquer dans le champ commentaire pourquoi un display supplémentaire est nécessaire pour {product}.",
 
@@ -66,40 +66,47 @@ export const bestellung = {
 
     displayAlreadyOrderedTitle: "Display déjà commandé",
     displayAlreadyOrderedText:
-      "Au moins un display a déjà été commandé pour {product}. Veuillez expliquer dans le champ commentaire pourquoi un display supplémentaire est nécessaire (p. ex. deuxième site).",
+      "Au moins un display a déjà été commandé pour {product}. Veuillez indiquer dans le commentaire pourquoi un display supplémentaire est nécessaire (p. ex. deuxième site).",
 
     displayLimitReachedTitle: "Limite de display atteinte",
     displayLimitReachedText:
-      "Un maximum de {max} pièces display est autorisé pour {product}. Déjà commandé : {ordered}. Encore disponible pour cette position : {free}.",
+      "Un maximum de {max} pièces display est autorisé pour {product}. Déjà commandé : {ordered}. Encore disponible pour cette ligne : {free}.",
+
+    displayNotAllowedTitle: "Display non disponible",
+    displayNotAllowedText:
+      "Aucune commande display n’est définie pour ce produit.",
 
     totalLimitReachedTitle: "Limite totale atteinte",
     totalLimitReachedText:
-      "Un total maximum de {max} pièces promotionnelles est autorisé pour {product}. Déjà commandé : {ordered}. Encore disponible pour cette position : {free}.",
+      "Un maximum total de {max} pièces promo est autorisé pour {product}. Déjà commandé : {ordered}. Encore disponible pour cette ligne : {free}.",
 
     campaignLimitReachedTitle: "Limite {mode} atteinte",
     campaignLimitReachedText:
-      "Pour {product}, il reste encore {allowed} pièce(s) possible(s) au prix {modeLower}. Déjà commandé : {ordered}. {overflow} pièce(s) ont été automatiquement reprises comme position séparée au prix normal.",
+      "{allowed} pièce(s) pour {product} sont encore possibles au prix {modeLower}. Déjà commandé : {ordered}. {overflow} pièce(s) ont été automatiquement ajoutées comme ligne séparée au prix normal.",
 
     campaignExhaustedTitle:
-      "Contingent {mode} épuisé",
+      "Quota {mode} épuisé",
     campaignExhaustedText:
-      "Il n’y a plus de contingent {modeLower} disponible pour {product}. Déjà commandé : {ordered}. La quantité entière a été automatiquement reprise au prix normal.",
+      "Il ne reste plus de quota {modeLower} pour {product}. Déjà commandé : {ordered}. La quantité totale a été automatiquement reprise au prix normal.",
 
     orderNotPossibleTitle: "Commande impossible",
     orderNotPossibleText:
       "La commande n’a pas pu être enregistrée.",
 
     uploadFailed: "Échec du téléversement du fichier",
-    projectIdCopied: "ID du projet copié",
+    fileUploadFailed: "Échec du téléversement du fichier",
+    fileUploadPartialFailure:
+      "La commande a été enregistrée, mais le téléversement du fichier a échoué.",
+    projectIdCopied: "ID du projet copiée",
   },
 
   provider: {
-    pleaseSelect: "Veuillez sélectionner",
+    pleaseSelect: "Veuillez choisir",
     cheapestProvider: "Fournisseur le moins cher",
     providerName: "Veuillez indiquer le nom du fournisseur",
     providerNamePlaceholder: "Nom du revendeur",
     providerNameRequiredHint:
-      "Champ obligatoire si « Autre » est sélectionné.",
+      "Champ obligatoire lorsque « Autre » est sélectionné.",
     cheapestPriceGross:
       "Prix le plus bas (TVA incl.)",
     other: "Autre",
@@ -111,10 +118,10 @@ export const bestellung = {
     validFromTo: "Valable du {start} au {end}",
 
     campaignProductsCount: "{count} produits promotionnels",
-    campaignProducts: "Produits salon",
+    campaignProducts: "Produits promo",
     campaignProductsIntro:
-      "Ces produits font actuellement partie de la campagne salon.",
-    noCampaignProducts: "Aucun produit salon trouvé.",
+      "Ces produits font actuellement partie de la campagne.",
+    noCampaignProducts: "Aucun produit promo trouvé.",
 
     badge: {
       display: "Display",
@@ -132,7 +139,7 @@ export const bestellung = {
       pricingModeDisplay: "Display",
       pricingModeMesse: "Salon",
       pricingModeStandard: "Standard",
-      discountVsHrp: "Remise vs PVC",
+      discountVsHrp: "Remise vs HRP",
     },
 
     filters: {
@@ -145,54 +152,55 @@ export const bestellung = {
       title: "Progression du bonus",
       afterSubmit: "Après envoi",
       progress: "Progression",
-      already: "Déjà",
+      already: "Déjà commandé",
       cart: "Panier",
       total: "Total",
       nextTier: "Prochain niveau de bonus",
       highestTierReached: "Niveau de bonus maximal atteint",
       missingToNext: "Il manque encore : {amount}",
-      noTierAvailable: "Aucun niveau de bonus disponible pour l’instant.",
+      noTierAvailable: "Aucun niveau de bonus disponible pour le moment.",
       bonus: "Bonus",
       level: "Niveau {level}",
     },
 
     limits: {
       displayMax:
-        "Display max. {max} · déjà commandé {ordered} · encore disponible {free}",
+        "Display max. {max} · déjà commandé {ordered} · reste {free}",
       messeMax:
-        "Salon max. {max} · déjà commandé {ordered} · encore disponible {free}",
+        "Salon max. {max} · déjà commandé {ordered} · reste {free}",
       campaignMax:
-        "Promo max. {max} · déjà commandé {ordered} · encore disponible {free}",
+        "Promo max. {max} · déjà commandé {ordered} · reste {free}",
       totalCampaignMax:
-        "Total promo max. {max} · déjà commandé {ordered} · encore disponible {free}",
+        "Promo total max. {max} · déjà commandé {ordered} · reste {free}",
 
       rowDisplayMax:
-        "Dans cette position display, encore max. {count} pièce(s) au prix display possible(s)",
+        "Dans cette ligne display, max. {count} pièce(s) encore possible(s) au prix display",
       rowMesseMax:
-        "Dans cette position salon, encore max. {count} pièce(s) au prix salon possible(s)",
+        "Dans cette ligne salon, max. {count} pièce(s) encore possible(s) au prix salon",
       rowCampaignMax:
-        "Dans cette position, encore max. {count} pièce(s) au prix promotionnel possible(s)",
+        "Dans cette ligne, max. {count} pièce(s) encore possible(s) au prix promo",
     },
   },
 
   cartSheet: {
     title: "Commande au meilleur prix",
-    empty: "Aucun produit sélectionné pour le moment.",
+    empty: "Aucun produit sélectionné.",
 
     linkedProject: {
       title: "Projet lié",
       customer: "Client",
       project: "Projet",
       open: "Ouvrir le projet",
-      remove: "Supprimer le projet",
-      copied: "ID du projet copié",
+      remove: "Retirer le projet",
+      copied: "ID du projet copiée",
+      copyId: "Copier l’ID du projet",
     },
 
     dealerInfo: {
-      title: "Informations revendeur",
+      title: "Informations du revendeur",
       customerNumber: "N° client",
       contactPerson: "Contact",
-      phone: "Tél.",
+      phone: "Téléphone",
       email: "E-mail",
       city: "Lieu",
       kam: "KAM",
@@ -200,7 +208,7 @@ export const bestellung = {
 
     distributor: {
       title: "Distributeur principal",
-      placeholder: "Veuillez sélectionner",
+      placeholder: "Veuillez choisir",
       defaultHint:
         "Par défaut via ElectronicPartner Schweiz AG.",
     },
@@ -209,12 +217,13 @@ export const bestellung = {
       title: "Informations de commande",
       delivery: "Livraison",
       deliveryImmediate: "Immédiate",
-      deliveryScheduled: "À la date prévue",
+      deliveryScheduled: "À une date précise",
+      deliveryPlaceholder: "Veuillez choisir",
       deliveryDateOptional: "Date de livraison (optionnelle)",
       comment:
-        "Informations importantes sur la commande (commentaire)",
+        "Informations importantes pour la commande (commentaire)",
       commentPlaceholder:
-        "p. ex. 'Doit impérativement être livré avant le 15.10'…",
+        "p. ex. « Doit impérativement être livré au plus tard le 15.10 »…",
       referenceNumber: "Votre n° de commande / référence",
       referencePlaceholder: "p. ex. 45001234",
     },
@@ -227,15 +236,34 @@ export const bestellung = {
       name: "Nom / Société",
       street: "Rue / N°",
       zip: "NPA",
-      city: "Lieu",
+      city: "Localité",
       country: "Pays",
       phoneOptional: "Téléphone (optionnel)",
       emailOptional: "E-mail (optionnel)",
+      defaultCountry: "Suisse",
     },
 
     files: {
       title: "Fichiers pour la commande",
       attached: "{count} fichier(s) joint(s)",
+    },
+
+    bonus: {
+      title: "Bonus live dans le panier",
+      activeCampaign: "Campagne active",
+      from: "De",
+      to: "À",
+      alreadyBooked: "Déjà commandé",
+      thisOrder: "Cette commande",
+      afterSubmit: "Après envoi",
+      currentTier: "Niveau actuellement atteint",
+      noneYet: "Aucun pour le moment",
+      progressToNext: "Progression vers le niveau suivant",
+      nextTier: "Prochain niveau de bonus",
+      fromThreshold: "dès",
+      bonus: "Bonus",
+      estimatedBonus: "Bonus",
+      highestTierReached: "Niveau de bonus maximal atteint",
     },
 
     summary: {
@@ -253,18 +281,21 @@ export const bestellung = {
       sending: "Envoi…",
       continueShopping: "Continuer les achats",
       pieces: "pièces",
+      close: "Fermer",
     },
 
     product: {
       unknown: "Inconnu",
+      empty: "Aucun produit sélectionné.",
       ean: "EAN",
       specialDistribution: "Distribution spéciale",
-      bonusRelevant: "Pertinent pour le bonus",
+      bonusRelevant: "Éligible au bonus",
       normalPrice: "Prix normal",
 
       quantity: "Quantité",
       price: "Prix (CHF)",
-      ekNormal: "PA normal",
+      ekNormal: "Prix d’achat normal",
+      normalEk: "Prix d’achat normal",
       saved:
         "{amount} CHF économisés ({percent}%)",
 
@@ -273,16 +304,21 @@ export const bestellung = {
       pricingModeMesse: "Salon",
       pricingModeStandard: "Standard",
 
+      modeDisplay: "Display",
+      modeMesse: "Salon",
+      modeStandard: "Standard",
+      modeCampaign: "Promotion",
+
       upeGross: "PVC brut",
       displayPriceNet: "Prix display net",
       messePriceNet: "Prix salon net",
-      discountVsHrp: "Remise vs PVC",
+      discountVsHrp: "Remise vs HRP",
 
       orderAsDisplay:
         "Commander comme display",
 
       reasonForAdditionalDisplay:
-        "Justification pour un display supplémentaire",
+        "Justification du display supplémentaire",
       reasonPlaceholder:
         "p. ex. deuxième site, rénovation, nouvelle surface de vente …",
       reasonHint:
@@ -295,14 +331,14 @@ export const bestellung = {
       providerNamePlaceholder:
         "Nom du revendeur",
       providerNameHint:
-        "Champ obligatoire si « Autre » est sélectionné.",
+        "Champ obligatoire lorsque « Autre » est sélectionné.",
 
       cheapestPriceGross:
         "Prix le plus bas (TVA incl.)",
 
       distributor: "Distributeur",
       distributorPlaceholder:
-        "Veuillez sélectionner",
+        "Veuillez choisir",
 
       remove: "Supprimer",
       other: "Autre",
@@ -317,7 +353,7 @@ export const bestellung = {
   },
 
   loading: {
-    dealerData: "Chargement des données revendeur…",
+    dealerData: "Chargement des données du revendeur…",
     campaign: "Chargement de la campagne salon…",
   },
 } as const;

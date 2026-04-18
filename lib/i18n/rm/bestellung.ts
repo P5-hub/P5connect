@@ -1,159 +1,166 @@
 export const bestellung = {
   common: {
-    unknown: "Betg nunenconuschent",
+    unknown: "Nunenconuschent",
     unknownProduct: "Product nunenconuschent",
     remove: "Allontanar",
     reset: "Redefinir",
     close: "Serrar",
     continueShopping: "Cuntinuar cun cumprar",
-    addToCart: "Agiuntar al charut",
-    cartOpen: "Avrir il charut",
-    loading: "Chargiament…",
+    addToCart: "Agiuntar al chantun",
+    cartOpen: "Avrir chantun",
+    loading: "Chargia…",
     quantity: "Quantitad",
     price: "Pretsch",
     total: "Total",
     totalPrice: "Pretsch total",
-    summary: "Resumaziun",
+    summary: "Survista",
     pieces: "tocs",
     filesAttached: "{count} datoteca(s) agiuntada(s)",
   },
 
   viewMode: {
-    both: "Mussar omadus",
-    campaignOnly: "Mo products da fiera",
+    both: "Mussar tuts dus",
+    campaignOnly: "Mo products da promoziun",
     standardOnly: "Mo products standards",
   },
 
   toast: {
     productAddedTitle: "Product agiuntà",
-    productAddedText: "{product} è vegnì agiuntà al charut.",
+    productAddedText: "{product} è vegnì agiuntà al chantun.",
 
     maxCampaignQtyTitle: "Quantitad maximala da promoziun cuntanschida",
     maxCampaignQtyText:
-      "Per {product} èn maximalmain {count} tocs per commerziant permess.",
+      "Per {product} èn maximalmain {count} tocs lubids per commerziant.",
 
-    noDealer: "❌ Nagin commerziant chattà – per plaschair annunzia puspè.",
-    needDistributor: "❌ Per plaschair tscherna in distributur principal.",
-    needValidDate: "Per plaschair tscherna ina data da furniziun valida (YYYY-MM-DD).",
+    noDealer: "❌ Nagin commerziant chattà – annunzia p.pl. danovamain.",
+    needDistributor: "❌ Tscherna p.pl. in distributur principal.",
+    needValidDate: "Tscherna p.pl. ina data da furniziun valaivla (YYYY-MM-DD).",
 
     invalidInputTitle: "Endataziun nunvalaivla",
-    invalidQuantityText: "Per plaschair endatescha ina quantitad valida per {product}!",
+    invalidQuantityText: "Endatescha p.pl. ina quantitad valaivla per {product}.",
 
     missingDistributorTitle: "❌ Distributur manca",
     missingDistributorText:
-      "Per plaschair tscherna in distributur per {product}.",
+      "Tscherna p.pl. in distributur per {product}.",
 
-    missingProviderTitle: "❌ Purschider manca",
+    missingProviderTitle: "❌ Furnitur manca",
     missingProviderText:
-      'Per plaschair endatescha il num dal commerziant per "Auter" tar {product}.',
+      'Endatescha p.pl. il num dal commerziant per "Auter" per {product}.',
 
     missingDisplayReasonTitle:
-      "Motivaziun per in display supplementar manca",
+      "Motivaziun per display supplementar manca",
     missingDisplayReasonText:
-      "Per plaschair inditgescha en il champ da commentari pertge ch’in display supplementar è necessari per {product}.",
+      "Inditgescha p.pl. en il champ da commentari pertge che in display supplementar è necessari per {product}.",
 
     unknownDistributorCodeTitle:
       "❌ Code da distributur nunenconuschent",
     unknownDistributorCodeText:
-      'Il distributur "{code}" n’è betg vegnì chattà.',
+      'Il distributur "{code}" n’ha betg pudì vegnir chattà.',
 
     orderSavedTitle: "✅ Empustaziun memorisada",
     orderSavedText:
       "L’empustaziun è vegnida tramessa cun success.",
 
-    orderSaveErrorTitle: "❌ Errur durant la memorisaziun",
+    orderSaveErrorTitle: "❌ Errur tar memorisar",
     orderSaveErrorText: "Errur nunenconuschenta",
 
     displayAlreadyOrderedTitle: "Display gia empustà",
     displayAlreadyOrderedText:
-      "Per {product} è gia vegnì empustà almain in display. Per plaschair motivescha en il champ da commentari pertge ch’in display supplementar è necessari (p.ex. segund lieu).",
+      "Per {product} è gia vegnì empustà almain in display. Inditgescha p.pl. en il commentari pertge che in display supplementar è necessari (p.ex. segund lieu).",
 
-    displayLimitReachedTitle: "Limit da display cuntanschì",
+    displayLimitReachedTitle: "Limita da display cuntanschida",
     displayLimitReachedText:
-      "Per {product} èn maximalmain {max} tocs display valaivels. Gia empustà: {ordered}. Anc liber per questa posiziun: {free}.",
+      "Per {product} èn maximalmain {max} tocs display valaivels. Gia empustà: {ordered}. Anc liber per questa lingia: {free}.",
 
-    totalLimitReachedTitle: "Limit total cuntanschì",
+    displayNotAllowedTitle: "Display betg disponibel",
+    displayNotAllowedText:
+      "Per quest product n’è nagina empustaziun da display registrada.",
+
+    totalLimitReachedTitle: "Limita totala cuntanschida",
     totalLimitReachedText:
-      "Per {product} èn maximalmain {max} tocs d’acziun totalmain valaivels. Gia empustà: {ordered}. Anc liber per questa posiziun: {free}.",
+      "Per {product} èn maximalmain {max} tocs da promoziun totals valaivels. Gia empustà: {ordered}. Anc liber per questa lingia: {free}.",
 
-    campaignLimitReachedTitle: "Limit {mode} cuntanschì",
+    campaignLimitReachedTitle: "Limita {mode} cuntanschida",
     campaignLimitReachedText:
-      "Per {product} èn anc {allowed} tocs pussaivels al pretsch {modeLower}. Gia empustà: {ordered}. {overflow} toc(s) èn vegnids surpigliads automaticamain sco posiziun separada al pretsch normal.",
+      "Per {product} èn anc {allowed} toc(s) pussaivels al pretsch {modeLower}. Gia empustà: {ordered}. {overflow} toc(s) èn stads surpigliads automaticamain sco posiziun separada al pretsch normal.",
 
     campaignExhaustedTitle:
       "Contingent {mode} exaust",
     campaignExhaustedText:
-      "Per {product} na datti nagin contingent {modeLower} pli liber. Gia empustà: {ordered}. L’entira quantitad è vegnida surpigliada automaticamain al pretsch normal.",
+      "Per {product} na datti nagin contingent {modeLower} pli. Gia empustà: {ordered}. L’entira quantitad è vegnida automaticamain surpigliada al pretsch normal.",
 
     orderNotPossibleTitle: "Empustaziun betg pussaivla",
     orderNotPossibleText:
       "L’empustaziun n’ha betg pudì vegnir memorisada.",
 
-    uploadFailed: "Upload da datoteca betg reussì",
-    projectIdCopied: "ID dal project copià",
+    uploadFailed: "Upload da datoteca nunreussì",
+    fileUploadFailed: "Upload da datoteca nunreussì",
+    fileUploadPartialFailure:
+      "L’empustaziun è vegnida memorisada, ma l’upload da datoteca n’è betg reussì.",
+    projectIdCopied: "ID dal project copiada",
   },
 
   provider: {
-    pleaseSelect: "Per plaschair tscherna",
-    cheapestProvider: "Purschider il pli favuraivel",
-    providerName: "Per plaschair endatescha il num dal purschider",
+    pleaseSelect: "Tscherna p.pl.",
+    cheapestProvider: "Furnitur il pli favuraivel",
+    providerName: "Endatescha p.pl. il num dal furnitur",
     providerNamePlaceholder: "Num dal commerziant",
     providerNameRequiredHint:
-      'Champ obligatori sche "Auter" è tschernì.',
+      'Champ obligatoric cura che "Auter" è tschernì.',
     cheapestPriceGross:
-      "Pretsch il pli bass (incl. TVA)",
+      "Pretsch il pli bass (incl. MWST)",
     other: "Auter",
   },
 
   campaign: {
     campaign: "Campagna",
     activeTradefairCampaign: "Campagna da fiera activa",
-    validFromTo: "Valida da {start} fin {end}",
+    validFromTo: "Valida dal {start} al {end}",
 
-    campaignProductsCount: "{count} products d’acziun",
-    campaignProducts: "Products da fiera",
+    campaignProductsCount: "{count} products da promoziun",
+    campaignProducts: "Products da promoziun",
     campaignProductsIntro:
-      "Quests products fan actualmain part da la campagna da fiera.",
-    noCampaignProducts: "Nagins products da fiera chattads.",
+      "Quests products fan actualmain part da la campagna.",
+    noCampaignProducts: "Nagins products da promoziun chattads.",
 
     badge: {
       display: "Display",
       mixed: "Fiera + Display",
       messe: "Pretsch da fiera",
-      standard: "Acziun",
+      standard: "Promoziun",
     },
 
     pricing: {
-      upeGross: "PSP brut",
-      dealerPrice: "Pretsch commerziant",
+      upeGross: "PVC brut",
+      dealerPrice: "Pretsch dal commerziant",
       messePriceNet: "Pretsch da fiera net",
       displayPriceNet: "Pretsch display net",
-      pricingMode: "Modus da pretsch",
+      pricingMode: "Moda da pretsch",
       pricingModeDisplay: "Display",
       pricingModeMesse: "Fiera",
       pricingModeStandard: "Standard",
-      discountVsHrp: "Rabatt vs PSP",
+      discountVsHrp: "Rabatt vs. HRP",
     },
 
     filters: {
-      searchPlaceholder: "Tschertgar tenor artitgel, num, EAN, marca …",
-      allGroups: "Tut ils groups",
-      allCategories: "Tuttas categorias",
+      searchPlaceholder: "Tschertga tenor artitgel, num, EAN, marca …",
+      allGroups: "Tut las gruppas",
+      allCategories: "Tuttas las categorias",
     },
 
     progress: {
       title: "Progress dal bonus",
       afterSubmit: "Suenter trametter",
       progress: "Progress",
-      already: "Gia",
-      cart: "Charut",
+      already: "Gia empustà",
+      cart: "Chantun",
       total: "Total",
-      nextTier: "Proxima stgalim da bonus",
-      highestTierReached: "La pli auta stgalim da bonus è cuntanschida",
-      missingToNext: "I manca anc: {amount}",
-      noTierAvailable: "Anc nagina stgalim da bonus disponibla.",
+      nextTier: "Proxim nivel da bonus",
+      highestTierReached: "Il pli aut nivel da bonus cuntanschì",
+      missingToNext: "Anc mancan: {amount}",
+      noTierAvailable: "Anc nagin nivel da bonus disponibel.",
       bonus: "Bonus",
-      level: "Stgalim {level}",
+      level: "Nivel {level}",
     },
 
     limits: {
@@ -162,16 +169,16 @@ export const bestellung = {
       messeMax:
         "Fiera max. {max} · gia empustà {ordered} · anc liber {free}",
       campaignMax:
-        "Acziun max. {max} · gia empustà {ordered} · anc liber {free}",
+        "Promo max. {max} · gia empustà {ordered} · anc liber {free}",
       totalCampaignMax:
-        "Total acziun max. {max} · gia empustà {ordered} · anc liber {free}",
+        "Promo total max. {max} · gia empustà {ordered} · anc liber {free}",
 
       rowDisplayMax:
-        "En questa posiziun display èn anc maximalmain {count} tocs pussaivels al pretsch display",
+        "En questa lingia da display èn anc max. {count} toc(s) pussaivels al pretsch da display",
       rowMesseMax:
-        "En questa posiziun da fiera èn anc maximalmain {count} tocs pussaivels al pretsch da fiera",
+        "En questa lingia da fiera èn anc max. {count} toc(s) pussaivels al pretsch da fiera",
       rowCampaignMax:
-        "En questa posiziun èn anc maximalmain {count} tocs pussaivels al pretsch d’acziun",
+        "En questa lingia èn anc max. {count} toc(s) pussaivels al pretsch da promoziun",
     },
   },
 
@@ -185,14 +192,15 @@ export const bestellung = {
       project: "Project",
       open: "Avrir project",
       remove: "Allontanar project",
-      copied: "ID dal project copià",
+      copied: "ID dal project copiada",
+      copyId: "Copiar ID dal project",
     },
 
     dealerInfo: {
       title: "Infurmaziuns dal commerziant",
       customerNumber: "Nr. client",
       contactPerson: "Contact",
-      phone: "Tel.",
+      phone: "Telefon",
       email: "E-mail",
       city: "Lieu",
       kam: "KAM",
@@ -200,37 +208,39 @@ export const bestellung = {
 
     distributor: {
       title: "Distributur principal",
-      placeholder: "Per plaschair tscherna",
+      placeholder: "Tscherna p.pl.",
       defaultHint:
-        "Da standard via ElectronicPartner Schweiz AG.",
+        "Standardmain via ElectronicPartner Schweiz AG.",
     },
 
     order: {
       title: "Indicaziuns da l’empustaziun",
       delivery: "Furniziun",
       deliveryImmediate: "Immediat",
-      deliveryScheduled: "Al termin",
-      deliveryDateOptional: "Data da furniziun (optional)",
+      deliveryScheduled: "A termin",
+      deliveryPlaceholder: "Tscherna p.pl.",
+      deliveryDateOptional: "Data da furniziun (opziunala)",
       comment:
         "Infurmaziuns impurtantas tar l’empustaziun (commentari)",
       commentPlaceholder:
-        "p.ex. 'Sto vegnir furnì absolutamain fin ils 15.10'…",
-      referenceNumber: "Tes numer d’empustaziun / referenza",
+        "p.ex. 'Sto vegnir furnì obligatori fin ils 15.10'…",
+      referenceNumber: "Tes nr. d’empustaziun / referenza",
       referencePlaceholder: "p.ex. 45001234",
     },
 
     altDelivery: {
       title:
-        "Adressa da furniziun divergenta / furniziun directa",
+        "Autra adressa da furniziun / furniziun directa",
       useAdditionalAddress:
-        "Utilisar adressa da furniziun supplementara",
+        "Duvrar adressa da furniziun supplementara",
       name: "Num / Firma",
       street: "Via / Nr.",
-      zip: "NP",
+      zip: "PLZ",
       city: "Lieu",
       country: "Pajais",
-      phoneOptional: "Telefon (optional)",
-      emailOptional: "E-mail (optional)",
+      phoneOptional: "Telefon (opziunal)",
+      emailOptional: "E-mail (opziunal)",
+      defaultCountry: "Svizra",
     },
 
     files: {
@@ -238,8 +248,26 @@ export const bestellung = {
       attached: "{count} datoteca(s) agiuntada(s)",
     },
 
+    bonus: {
+      title: "Bonus live en il chantun",
+      activeCampaign: "Campagna activa",
+      from: "Da",
+      to: "Fin",
+      alreadyBooked: "Gia empustà",
+      thisOrder: "Questa empustaziun",
+      afterSubmit: "Suenter trametter",
+      currentTier: "Nivel actualmain cuntanschì",
+      noneYet: "Anc nagin",
+      progressToNext: "Progress fin al proxim nivel",
+      nextTier: "Proxim nivel da bonus",
+      fromThreshold: "a partir da",
+      bonus: "Bonus",
+      estimatedBonus: "Bonus",
+      highestTierReached: "Il pli aut nivel da bonus cuntanschì",
+    },
+
     summary: {
-      title: "Resumaziun",
+      title: "Survista",
       total: "Total",
       totalPrice: "Pretsch total",
       bonusProgress: "Progress dal bonus",
@@ -248,15 +276,17 @@ export const bestellung = {
       savings: "Respargn total: {amount} CHF",
       missingToNext: "Anc {amount} fin {tier}",
       highestTierReached:
-        "La pli auta stgalim da bonus è cuntanschida",
+        "Il pli aut nivel da bonus cuntanschì",
       send: "Trametter empustaziun",
-      sending: "Tramet…",
+      sending: "Trametta…",
       continueShopping: "Cuntinuar cun cumprar",
       pieces: "tocs",
+      close: "Serrar",
     },
 
     product: {
       unknown: "Nunenconuschent",
+      empty: "Anc nagins products tschernids.",
       ean: "EAN",
       specialDistribution: "Distribuziun speziala",
       bonusRelevant: "Relevant per bonus",
@@ -264,19 +294,25 @@ export const bestellung = {
 
       quantity: "Quantitad",
       price: "Pretsch (CHF)",
-      ekNormal: "Pretsch d’acquisiziun normal",
+      ekNormal: "Pretsch d’acquist normal",
+      normalEk: "Pretsch d’acquist normal",
       saved:
         "{amount} CHF spargnads ({percent}%)",
 
-      pricingMode: "Modus da pretsch",
+      pricingMode: "Moda da pretsch",
       pricingModeDisplay: "Display",
       pricingModeMesse: "Fiera",
       pricingModeStandard: "Standard",
 
-      upeGross: "PSP brut",
+      modeDisplay: "Display",
+      modeMesse: "Fiera",
+      modeStandard: "Standard",
+      modeCampaign: "Promoziun",
+
+      upeGross: "PVC brut",
       displayPriceNet: "Pretsch display net",
       messePriceNet: "Pretsch da fiera net",
-      discountVsHrp: "Rabatt vs PSP",
+      discountVsHrp: "Rabatt vs. HRP",
 
       orderAsDisplay:
         "Empustar sco display",
@@ -286,23 +322,23 @@ export const bestellung = {
       reasonPlaceholder:
         "p.ex. segund lieu, renovaziun, nova surfatscha da vendita …",
       reasonHint:
-        "Per quest product è gia vegnì empustà in display. Per plaschair motivescha il basegn supplementar.",
+        "Per quest product è gia vegnì empustà in display. Motivai p.pl. il basegn supplementar.",
 
       cheapestProvider:
-        "Purschider il pli favuraivel",
+        "Furnitur il pli favuraivel",
       providerName:
-        "Per plaschair endatescha il num dal purschider",
+        "Endatescha p.pl. il num dal furnitur",
       providerNamePlaceholder:
         "Num dal commerziant",
       providerNameHint:
-        'Champ obligatori sche "Auter" è tschernì.',
+        'Champ obligatoric cura che "Auter" è tschernì.',
 
       cheapestPriceGross:
-        "Pretsch il pli bass (incl. TVA)",
+        "Pretsch il pli bass (incl. MWST)",
 
       distributor: "Distributur",
       distributorPlaceholder:
-        "Per plaschair tscherna",
+        "Tscherna p.pl.",
 
       remove: "Allontanar",
       other: "Auter",
@@ -310,14 +346,14 @@ export const bestellung = {
   },
 
   preview: {
-    title: "Prevista dal charut",
-    positions: "Posiziuns en il charut",
+    title: "Prevista dal chantun",
+    positions: "Posiziuns en il chantun",
     quantityTotal: "Quantitad totala",
-    cartValue: "Valur dal charut",
+    cartValue: "Valur dal chantun",
   },
 
   loading: {
-    dealerData: "Las novitads dal commerziant vegnan chargiadas…",
+    dealerData: "Chargiar las datas dal commerziant…",
     campaign: "Chargiar la campagna da fiera…",
   },
 } as const;
