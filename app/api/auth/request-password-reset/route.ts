@@ -75,12 +75,10 @@ export async function POST(req: Request) {
 
     const baseUrl = getBaseUrl(req);
 
-    const { error: resetError } = await supabaseAdmin.auth.resetPasswordForEmail(
-      authEmail,
-      {
+    const { error: resetError } =
+      await supabaseAdmin.auth.resetPasswordForEmail(authEmail, {
         redirectTo: `${baseUrl}/reset-password/change`,
-      }
-    );
+      });
 
     if (resetError) {
       return NextResponse.json(
@@ -98,6 +96,7 @@ export async function POST(req: Request) {
     });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : "Unbekannter Fehler";
+
     return NextResponse.json(
       { error: "Unerwarteter Fehler: " + message },
       { status: 500 }
