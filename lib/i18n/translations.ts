@@ -141,6 +141,9 @@ export const translationsByLang = {
       dashboard: "connect Dashboard",
       dashboardTitle: "connect Dashboard",
       backToDashboard: "Zurück zum Dashboard",
+      openAsDealer: "Als Händler öffnen",
+      dealerFile: "Händlerakte",
+      createAdmin: "Admin anlegen",
     },
 
     passwordForgot: "Passwort vergessen?",
@@ -499,6 +502,9 @@ export const translationsByLang = {
       dashboard: "connect Dashboard",
       dashboardTitle: "connect Dashboard",
       backToDashboard: "Back to Dashboard",
+      openAsDealer: "Open as dealer",
+      dealerFile: "Dealer file",
+      createAdmin: "Create admin",
     },
 
     passwordForgot: "Forgot password?",
@@ -841,6 +847,9 @@ export const translationsByLang = {
       dashboard: "connect Dashboard",
       dashboardTitle: "connect Dashboard",
       backToDashboard: "Retour au tableau de bord",
+      openAsDealer: "Ouvrir en tant que revendeur",
+      dealerFile: "Dossier revendeur",
+      createAdmin: "Créer un admin",
     },
 
     passwordForgot: "Mot de passe oublié ?",
@@ -1204,6 +1213,9 @@ export const translationsByLang = {
       phone: "Telefono",
       loading: "⏳ Caricamento dati del rivenditore...",
       notfound: "❌ Rivenditore non trovato",
+    openAsDealer: "Apri come rivenditore",
+    dealerFile: "Scheda rivenditore",
+    createAdmin: "Crea admin",
     },
 
     project: projectIt,
@@ -1535,6 +1547,10 @@ export const translationsByLang = {
       dashboard: "connect Dashboard",
       dashboardTitle: "connect Dashboard",
       backToDashboard: "Turnar al dashboard",
+      openAsDealer: "Avrir sco commerziant",
+      dealerFile: "Dossier dal commerziant",
+      createAdmin: "Crear admin",
+
     },
 
     passwordForgot: "Emblidà il pled-clav?",
