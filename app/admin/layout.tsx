@@ -686,7 +686,7 @@ function AdminLayoutInner({ children }: { children: ReactNode }) {
                 onClick={openCreateAdminModal}
                 className="bg-indigo-600 hover:bg-indigo-700 text-white text-sm px-3 py-1.5 rounded flex items-center gap-1"
               >
-                {t("nav.createAdmin")}Admin anlegen
+                {t("nav.createAdmin")}
               </button>
             )}
 
