@@ -668,7 +668,7 @@ function AdminLayoutInner({ children }: { children: ReactNode }) {
                   onClick={() => handleImpersonate(selectedDealerId)}
                   className="bg-blue-600 hover:bg-blue-700 text-white text-sm px-3 py-1.5 rounded whitespace-nowrap"
                 >
-                  Als Händler öffnen
+                  {t("nav.openAsDealer")}
                 </button>
 
                 <button
@@ -676,7 +676,7 @@ function AdminLayoutInner({ children }: { children: ReactNode }) {
                   onClick={handleOpenDealerCrm}
                   className="bg-indigo-600 hover:bg-indigo-700 text-white text-sm px-3 py-1.5 rounded whitespace-nowrap"
                 >
-                  Händlerakte
+                  {t("nav.dealerFile")}
                 </button>
               </div>
             </div>
@@ -686,7 +686,7 @@ function AdminLayoutInner({ children }: { children: ReactNode }) {
                 onClick={openCreateAdminModal}
                 className="bg-indigo-600 hover:bg-indigo-700 text-white text-sm px-3 py-1.5 rounded flex items-center gap-1"
               >
-                Admin anlegen
+                {t("nav.createAdmin")}Admin anlegen
               </button>
             )}
 
@@ -847,7 +847,7 @@ function AdminLayoutInner({ children }: { children: ReactNode }) {
                     onClick={() => handleImpersonate(selectedDealerId)}
                     className="w-full bg-blue-600 hover:bg-blue-700 text-white text-sm px-3 py-2 rounded"
                   >
-                    Als Händler öffnen
+                    {t("nav.openAsDealer")}
                   </button>
 
                   <button
@@ -855,7 +855,7 @@ function AdminLayoutInner({ children }: { children: ReactNode }) {
                     onClick={handleOpenDealerCrm}
                     className="w-full bg-indigo-600 hover:bg-indigo-700 text-white text-sm px-3 py-2 rounded"
                   >
-                    Händlerakte öffnen
+                    {t("nav.dealerFile")}
                   </button>
                 </div>
               </div>
@@ -865,7 +865,7 @@ function AdminLayoutInner({ children }: { children: ReactNode }) {
                   onClick={openCreateAdminModal}
                   className="w-full bg-indigo-600 hover:bg-indigo-700 text-white text-sm px-3 py-2 rounded flex items-center justify-center gap-2"
                 >
-                  Admin anlegen
+                  {t("nav.createAdmin")}
                 </button>
               )}
 
