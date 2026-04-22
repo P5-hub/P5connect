@@ -16,6 +16,9 @@ import {
   Menu,
   X,
   Bell,
+  IdCard,
+  ShieldPlus,
+  KeyRound,
 } from "lucide-react";
 
 import PendingIndicator from "@/components/admin/PendingIndicator";
@@ -620,6 +623,9 @@ function AdminLayoutInner({ children }: { children: ReactNode }) {
 
   const langLabel = getLanguageLabel(lang);
 
+  const actionBtn =
+  "rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-700 transition whitespace-nowrap hover:bg-gray-50 hover:border-gray-300";
+
   return (
     <div className="min-h-screen flex flex-col bg-gray-50">
       <header className="bg-white shadow-md fixed top-0 left-0 right-0 z-50 border-b">
@@ -638,11 +644,11 @@ function AdminLayoutInner({ children }: { children: ReactNode }) {
             </span>
           </Link>
 
-          <div className="hidden md:flex items-center gap-5">
+          <div className="hidden md:flex items-center gap-4">
             <PendingIndicator />
 
-            <div className="relative flex items-center gap-2">
-              <UserRound className="w-5 h-5 text-blue-600" />
+            <div className="flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-2 py-2 shadow-sm">
+              <UserRound className="w-4 h-4 text-blue-600 ml-1" />
 
               <div className="relative">
                 <Search className="absolute left-3 top-2.5 w-4 h-4 text-gray-400" />
@@ -651,54 +657,52 @@ function AdminLayoutInner({ children }: { children: ReactNode }) {
                   placeholder={t("adminCommon.common.searchDealer")}
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-9 pr-3 py-1.5 text-sm border border-blue-200 bg-blue-50 text-blue-800 rounded-md w-52 outline-none"
+                  className="pl-9 pr-3 py-2 text-sm border border-gray-200 bg-gray-50 text-gray-800 rounded-lg w-44 outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>
 
-              <div className="flex items-center gap-2">
-                <select
-                  onChange={(e) => setSelectedDealerId(e.target.value)}
-                  className="border border-blue-200 bg-blue-50 text-blue-800 text-sm rounded-md px-2 py-1.5 w-52"
-                  value={selectedDealerId}
-                >
-                  <option value="">{t("adminCommon.actAsDealer")}</option>
-                  {filteredDealers.map((d) => (
-                    <option key={d.dealer_id} value={String(d.dealer_id)}>
-                      {d.name} ({d.email})
-                    </option>
-                  ))}
-                </select>
-
-                <button
-                  type="button"
-                  onClick={() => handleImpersonate(selectedDealerId)}
-                  className="bg-blue-600 hover:bg-blue-700 text-white text-sm px-3 py-1.5 rounded whitespace-nowrap"
-                >
-                  {t("nav.openAsDealer")}
-                </button>
-
-                <button
-                  type="button"
-                  onClick={handleOpenDealerCrm}
-                  className="bg-indigo-600 hover:bg-indigo-700 text-white text-sm px-3 py-1.5 rounded whitespace-nowrap"
-                >
-                  {t("nav.dealerFile")}
-                </button>
-              </div>
-            </div>
-
-            {currentRole === "superadmin" && (
-              <button
-                onClick={openCreateAdminModal}
-                className="bg-indigo-600 hover:bg-indigo-700 text-white text-sm px-3 py-1.5 rounded flex items-center gap-1"
+              <select
+                onChange={(e) => setSelectedDealerId(e.target.value)}
+                className="border border-gray-200 bg-gray-50 text-gray-800 text-sm rounded-lg px-3 py-2 w-52 outline-none focus:ring-2 focus:ring-blue-500"
+                value={selectedDealerId}
               >
-                {t("nav.createAdmin")}
+                <option value="">{t("adminCommon.actAsDealer")}</option>
+                {filteredDealers.map((d) => (
+                  <option key={d.dealer_id} value={String(d.dealer_id)}>
+                    {d.name} ({d.email})
+                  </option>
+                ))}
+              </select>
+
+              <button
+                type="button"
+                onClick={() => handleImpersonate(selectedDealerId)}
+                className={`${actionBtn} hover:bg-blue-50 hover:border-blue-200 hover:text-blue-700`}
+              >
+                {t("nav.openAsDealer")}
               </button>
-            )}
+
+              <button
+                type="button"
+                onClick={handleOpenDealerCrm}
+                className={`${actionBtn} hover:bg-indigo-50 hover:border-indigo-200 hover:text-indigo-700`}
+              >
+                {t("nav.dealerFile")}
+              </button>
+
+              {currentRole === "superadmin" && (
+                <button
+                  onClick={openCreateAdminModal}
+                  className={`${actionBtn} hover:bg-indigo-50 hover:border-indigo-200 hover:text-indigo-700`}
+                >
+                  {t("nav.createAdmin")}
+                </button>
+              )}
+            </div>
 
             <button
               onClick={openUserModal}
-              className="bg-yellow-500 hover:bg-yellow-600 text-white text-sm px-3 py-1.5 rounded flex items-center gap-1"
+              className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-50 hover:border-gray-300 whitespace-nowrap"
             >
               {t("adminAccount.button")}
             </button>
@@ -706,7 +710,7 @@ function AdminLayoutInner({ children }: { children: ReactNode }) {
             <div className="relative" ref={langRef}>
               <button
                 onClick={() => setOpenLang((o) => !o)}
-                className="flex items-center gap-1 text-sm text-gray-800 hover:text-black"
+                className="flex items-center gap-1 rounded-lg border border-transparent px-2 py-2 text-sm text-gray-700 transition hover:bg-gray-50 hover:text-black"
               >
                 <Globe className="w-4 h-4" />
                 {langLabel}
@@ -722,9 +726,7 @@ function AdminLayoutInner({ children }: { children: ReactNode }) {
                         setOpenLang(false);
                       }}
                       className={`block w-full text-left px-3 py-2 text-sm hover:bg-gray-50 ${
-                        l === lang
-                          ? "font-semibold text-gray-900"
-                          : "text-gray-700"
+                        l === lang ? "font-semibold text-gray-900" : "text-gray-700"
                       }`}
                     >
                       {getLanguageLabel(l)}
@@ -736,10 +738,12 @@ function AdminLayoutInner({ children }: { children: ReactNode }) {
 
             <button
               onClick={handleLogout}
-              className="bg-red-500 hover:bg-red-600 text-white text-sm px-3 py-1.5 rounded flex items-center gap-1"
+              className="rounded-lg bg-red-500 px-3 py-2 text-sm font-medium text-white transition hover:bg-red-600 whitespace-nowrap"
             >
-              <LogOut className="w-4 h-4" />
-              {t("adminCommon.common.logout")}
+              <div className="flex items-center gap-1">
+                <LogOut className="w-4 h-4" />
+                {t("adminCommon.common.logout")}
+              </div>
             </button>
           </div>
 
