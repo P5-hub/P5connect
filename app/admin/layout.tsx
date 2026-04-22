@@ -626,6 +626,9 @@ function AdminLayoutInner({ children }: { children: ReactNode }) {
   const actionBtn =
   "rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-700 transition whitespace-nowrap hover:bg-gray-50 hover:border-gray-300";
 
+  const mobileActionBtn =
+  "w-full inline-flex items-center justify-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-50 hover:border-gray-300";
+
   return (
     <div className="min-h-screen flex flex-col bg-gray-50">
       <header className="bg-white shadow-md fixed top-0 left-0 right-0 z-50 border-b">
@@ -855,16 +858,18 @@ function AdminLayoutInner({ children }: { children: ReactNode }) {
                   <button
                     type="button"
                     onClick={() => handleImpersonate(selectedDealerId)}
-                    className="w-full bg-blue-600 hover:bg-blue-700 text-white text-sm px-3 py-2 rounded"
+                    className={`${mobileActionBtn} hover:bg-blue-50 hover:border-blue-200 hover:text-blue-700`}
                   >
+                    <UserRound className="w-4 h-4" />
                     {t("nav.openAsDealer")}
                   </button>
 
                   <button
                     type="button"
                     onClick={handleOpenDealerCrm}
-                    className="w-full bg-indigo-600 hover:bg-indigo-700 text-white text-sm px-3 py-2 rounded"
+                    className={`${mobileActionBtn} hover:bg-indigo-50 hover:border-indigo-200 hover:text-indigo-700`}
                   >
+                    <IdCard className="w-4 h-4" />
                     {t("nav.dealerFile")}
                   </button>
                 </div>
@@ -873,16 +878,18 @@ function AdminLayoutInner({ children }: { children: ReactNode }) {
               {currentRole === "superadmin" && (
                 <button
                   onClick={openCreateAdminModal}
-                  className="w-full bg-indigo-600 hover:bg-indigo-700 text-white text-sm px-3 py-2 rounded flex items-center justify-center gap-2"
+                  className={`${mobileActionBtn} hover:bg-indigo-50 hover:border-indigo-200 hover:text-indigo-700`}
                 >
+                  <ShieldPlus className="w-4 h-4" />
                   {t("nav.createAdmin")}
                 </button>
               )}
 
               <button
                 onClick={openUserModal}
-                className="w-full bg-yellow-500 hover:bg-yellow-600 text-white text-sm px-3 py-2 rounded flex items-center justify-center gap-2"
+                className={`${mobileActionBtn} hover:bg-amber-50 hover:border-amber-200 hover:text-amber-700`}
               >
+                <KeyRound className="w-4 h-4" />
                 {t("adminAccount.button")}
               </button>
 
