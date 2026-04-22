@@ -6,6 +6,7 @@ export async function POST(req: NextRequest) {
 
     const rawDealerId = body?.dealer_id ?? body?.dealerId;
     const dealerId = Number(rawDealerId);
+
     const dealerName =
       typeof body?.dealer_name === "string"
         ? body.dealer_name

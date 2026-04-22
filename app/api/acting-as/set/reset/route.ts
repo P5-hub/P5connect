@@ -1,23 +1,23 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 
-export async function POST(req: NextRequest) {
-  try {
-    const { dealerId } = await req.json();
+export async function POST() {
+  const res = NextResponse.json({ ok: true });
 
-    if (!dealerId) {
-      return NextResponse.json({ error: "dealerId fehlt" }, { status: 400 });
-    }
+  res.cookies.set("acting_dealer_id", "", {
+    path: "/",
+    httpOnly: false,
+    sameSite: "lax",
+    secure: process.env.NODE_ENV === "production",
+    maxAge: 0,
+  });
 
-    const res = NextResponse.json({ ok: true });
+  res.cookies.set("acting_dealer_name", "", {
+    path: "/",
+    httpOnly: false,
+    sameSite: "lax",
+    secure: process.env.NODE_ENV === "production",
+    maxAge: 0,
+  });
 
-    res.cookies.set("acting_dealer_id", String(dealerId), {
-      httpOnly: true,
-      path: "/",
-      sameSite: "lax",
-    });
-
-    return res;
-  } catch (err) {
-    return NextResponse.json({ error: "Fehler beim Setzen" }, { status: 500 });
-  }
+  return res;
 }

@@ -106,7 +106,6 @@ function AdminLayoutInner({ children }: { children: ReactNode }) {
     }
   );
 
-    
   const [currentAdminEmail, setCurrentAdminEmail] = useState<string | null>(
     null
   );
@@ -304,7 +303,7 @@ function AdminLayoutInner({ children }: { children: ReactNode }) {
       setModalLoading(false);
     }
   };
-  
+
   const handleGeneratePassword = async () => {
     const pwd = generateRandomPassword(12);
     setModalNewPassword(pwd);
@@ -569,6 +568,10 @@ function AdminLayoutInner({ children }: { children: ReactNode }) {
       return;
     }
 
+    const selectedDealer = dealers.find(
+      (d) => String(d.dealer_id) === String(dealerId)
+    );
+
     try {
       const res = await fetch("/api/acting-as/set", {
         method: "POST",
@@ -577,6 +580,7 @@ function AdminLayoutInner({ children }: { children: ReactNode }) {
         },
         body: JSON.stringify({
           dealer_id: Number(dealerId),
+          dealer_name: selectedDealer?.name || "",
         }),
       });
 
@@ -590,8 +594,10 @@ function AdminLayoutInner({ children }: { children: ReactNode }) {
         return;
       }
 
-      window.open("/bestellung", "_blank");
+      sessionStorage.setItem("admin_return_path", pathname);
+
       setMobileMenuOpen(false);
+      router.push("/bestellung");
     } catch {
       showToast("error", "Händlermodus konnte nicht gestartet werden.");
     }
@@ -1095,7 +1101,8 @@ function AdminLayoutInner({ children }: { children: ReactNode }) {
                   placeholder="nur bei neuem User nötig"
                 />
                 <p className="text-xs text-gray-500 mt-1">
-                  Wenn der User bereits in Supabase Auth existiert, kann das Feld leer bleiben.
+                  Wenn der User bereits in Supabase Auth existiert, kann das
+                  Feld leer bleiben.
                 </p>
               </div>
 
