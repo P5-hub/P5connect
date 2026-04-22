@@ -392,32 +392,103 @@ export default function RecentActivityPanel({
     const route = pdfRoutes[formType];
     if (!route) return;
 
-    const res = await fetch(`${route}?id=${id}`);
-    const blob = await res.blob();
-    const a = document.createElement("a");
-    a.href = URL.createObjectURL(blob);
-    a.download = `${formType}_${id}.pdf`;
-    a.click();
-    URL.revokeObjectURL(a.href);
+    try {
+      setDownloading(true);
+
+      const res = await fetch(`${route}?id=${encodeURIComponent(id)}`);
+
+      if (!res.ok) {
+        const errorText = await res.text();
+        console.error("❌ PDF Route Fehler:", {
+          status: res.status,
+          statusText: res.statusText,
+          errorText,
+        });
+        alert(`PDF konnte nicht geladen werden: ${errorText || res.statusText}`);
+        return;
+      }
+
+      const contentType = res.headers.get("content-type") || "";
+
+      if (!contentType.includes("application/pdf")) {
+        const responseText = await res.text();
+        console.error("❌ Keine PDF-Antwort:", {
+          contentType,
+          responseText,
+        });
+        alert("Die Route hat keine gültige PDF-Datei zurückgegeben.");
+        return;
+      }
+
+      const blob = await res.blob();
+
+      if (blob.size === 0) {
+        console.error("❌ Leere PDF-Datei erhalten");
+        alert("Die PDF-Datei ist leer.");
+        return;
+      }
+
+      const objectUrl = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = objectUrl;
+      a.download = `${formType}_${id}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+
+      setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
+    } catch (error) {
+      console.error("❌ PDF Download Fehler:", error);
+      alert("Beim PDF-Download ist ein Fehler aufgetreten.");
+    } finally {
+      setDownloading(false);
+    }
   }
 
   async function downloadExcel() {
     setDownloading(true);
 
-    const res = await fetch("/api/exports/orders", {
-      method: "POST",
-      body: JSON.stringify({ dealerId, last: excelLast, type: formType }),
-      headers: { "Content-Type": "application/json" },
-    });
+    try {
+      const res = await fetch("/api/exports/orders", {
+        method: "POST",
+        body: JSON.stringify({ dealerId, last: excelLast, type: formType }),
+        headers: { "Content-Type": "application/json" },
+      });
 
-    const blob = await res.blob();
-    const a = document.createElement("a");
-    a.href = URL.createObjectURL(blob);
-    a.download = `${formType}_verlauf.xlsx`;
-    a.click();
-    URL.revokeObjectURL(a.href);
+      if (!res.ok) {
+        const errorText = await res.text();
+        console.error("❌ Excel Export Fehler:", {
+          status: res.status,
+          statusText: res.statusText,
+          errorText,
+        });
+        alert(`Excel konnte nicht geladen werden: ${errorText || res.statusText}`);
+        return;
+      }
 
-    setDownloading(false);
+      const blob = await res.blob();
+
+      if (blob.size === 0) {
+        console.error("❌ Leere Excel-Datei erhalten");
+        alert("Die Excel-Datei ist leer.");
+        return;
+      }
+
+      const objectUrl = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = objectUrl;
+      a.download = `${formType}_verlauf.xlsx`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+
+      setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
+    } catch (error) {
+      console.error("❌ Excel Download Fehler:", error);
+      alert("Beim Excel-Download ist ein Fehler aufgetreten.");
+    } finally {
+      setDownloading(false);
+    }
   }
 
   const visible = useMemo(() => rows.slice(0, limit), [rows, limit]);
