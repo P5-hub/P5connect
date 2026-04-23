@@ -1199,6 +1199,9 @@ export const translationsByLang = {
       dashboard: "connect Dashboard",
       dashboardTitle: "connect Dashboard",
       backToDashboard: "Torna alla dashboard",
+      openAsDealer: "Apri come rivenditore",
+      dealerFile: "Scheda rivenditore",
+      createAdmin: "Crea admin",
     },
 
     passwordForgot: "Password dimenticata?",
@@ -1212,10 +1215,7 @@ export const translationsByLang = {
       email: "E-mail",
       phone: "Telefono",
       loading: "⏳ Caricamento dati del rivenditore...",
-      notfound: "❌ Rivenditore non trovato",
-    openAsDealer: "Apri come rivenditore",
-    dealerFile: "Scheda rivenditore",
-    createAdmin: "Crea admin",
+      notfound: "❌ Rivenditore non trovato",    
     },
 
     project: projectIt,

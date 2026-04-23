@@ -55,6 +55,17 @@ type CreateAdminApiResponse = {
   auth_user_id?: string;
 };
 
+type SetTempPasswordApiResponse = {
+  success?: boolean;
+  error?: string;
+  message?: string;
+  dealer?: {
+    dealer_id: number;
+    login_nr?: string | null;
+    store_name?: string | null;
+  };
+};
+
 function generateRandomPassword(length: number = 12): string {
   const chars =
     "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789!@$%&*?";
@@ -135,6 +146,13 @@ function AdminLayoutInner({ children }: { children: ReactNode }) {
   const [createAdminSuccess, setCreateAdminSuccess] = useState<string | null>(
     null
   );
+
+  const [isTempPasswordModalOpen, setIsTempPasswordModalOpen] = useState(false);
+  const [tempPasswordValue, setTempPasswordValue] = useState("");
+  const [tempPasswordLoading, setTempPasswordLoading] = useState(false);
+  const [tempPasswordError, setTempPasswordError] = useState<string | null>(null);
+  const [tempPasswordSuccess, setTempPasswordSuccess] = useState<string | null>(null);
+  const [showTempPassword, setShowTempPassword] = useState(false);
 
   const [toast, setToast] = useState<{
     type: "success" | "error";
@@ -402,7 +420,128 @@ function AdminLayoutInner({ children }: { children: ReactNode }) {
       setCreateAdminLoading(false);
     }
   };
+  const openTempPasswordModal = () => {
+    if (!selectedDealerId) {
+      showToast("error", t("adminUsers.tempPassword.selectDealerFirst"));
+      return;
+    }
 
+    setTempPasswordValue(generateRandomPassword(12));
+    setTempPasswordError(null);
+    setTempPasswordSuccess(null);
+    setShowTempPassword(false);
+    setIsTempPasswordModalOpen(true);
+    setMobileMenuOpen(false);
+  };
+
+  const closeTempPasswordModal = () => {
+    if (tempPasswordLoading) return;
+    setIsTempPasswordModalOpen(false);
+  };
+
+  const handleGenerateTempPassword = async () => {
+    const pwd = generateRandomPassword(12);
+    setTempPasswordValue(pwd);
+
+    try {
+      if (navigator && "clipboard" in navigator) {
+        await navigator.clipboard.writeText(pwd);
+        showToast("success", t("adminUsers.tempPassword.generatedCopied"));
+      } else {
+        showToast("success", t("adminUsers.tempPassword.generated"));
+      }
+    } catch {
+      showToast("success", t("adminUsers.tempPassword.generated"));
+    }
+  };
+
+  const handleCopyTempPassword = async () => {
+    if (!tempPasswordValue) return;
+
+    try {
+      await navigator.clipboard.writeText(tempPasswordValue);
+      showToast("success", t("adminUsers.tempPassword.copied"));
+    } catch {
+      showToast("error", t("adminUsers.tempPassword.copyFailed"));
+    }
+  };
+
+  const handleSetTempPassword = async () => {
+    setTempPasswordError(null);
+    setTempPasswordSuccess(null);
+
+    if (!selectedDealerId) {
+      const msg = t("adminUsers.tempPassword.selectDealerFirst");
+      setTempPasswordError(msg);
+      showToast("error", msg);
+      return;
+    }
+
+    const password = tempPasswordValue.trim();
+
+    if (!password || password.length < 8) {
+      const msg = t("adminUsers.tempPassword.minLength");
+      setTempPasswordError(msg);
+      showToast("error", msg);
+      return;
+    }
+
+    const confirmed = window.confirm(
+      t("adminUsers.tempPassword.confirm", {
+        dealer: selectedDealer?.name || "",
+      })
+    );
+
+    if (!confirmed) return;
+
+    try {
+      setTempPasswordLoading(true);
+
+      const res = await fetch("/api/admin/set-temp-password", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          dealerId: Number(selectedDealerId),
+          password,
+        }),
+      });
+
+      const data = (await res.json()) as SetTempPasswordApiResponse;
+
+      if (!res.ok || !data.success) {
+        const msg =
+          data?.error || t("adminUsers.tempPassword.failed");
+        setTempPasswordError(msg);
+        showToast("error", msg);
+        return;
+      }
+
+      const msg = data?.message || t("adminUsers.tempPassword.success");
+      setTempPasswordSuccess(msg);
+      showToast("success", msg);
+      setTimeout(() => {
+        setIsTempPasswordModalOpen(false);
+        setTempPasswordSuccess(null);
+        setTempPasswordValue("");
+        setShowTempPassword(false);
+      }, 1200);
+
+      try {
+        await navigator.clipboard.writeText(password);
+        showToast("success", t("adminUsers.tempPassword.successCopied"));
+      } catch {
+        // kein Abbruch nötig
+      }
+    } catch {
+      const msg = t("adminUsers.tempPassword.serverError");
+      setTempPasswordError(msg);
+      showToast("error", msg);
+    } finally {
+      setTempPasswordLoading(false);
+    }
+  };
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
       if (langRef.current && !langRef.current.contains(e.target as Node)) {
@@ -503,6 +642,13 @@ function AdminLayoutInner({ children }: { children: ReactNode }) {
       );
     });
   }, [dealers, searchTerm]);
+
+  const selectedDealer = useMemo(() => {
+    return (
+      dealers.find((d) => String(d.dealer_id) === String(selectedDealerId)) ||
+      null
+    );
+  }, [dealers, selectedDealerId]);
 
   const navItems: {
     href: string;
@@ -693,6 +839,16 @@ function AdminLayoutInner({ children }: { children: ReactNode }) {
                 {t("nav.dealerFile")}
               </button>
 
+              {(currentRole === "admin" || currentRole === "superadmin") && (
+                <button
+                  type="button"
+                  onClick={openTempPasswordModal}
+                  className={`${actionBtn} hover:bg-amber-50 hover:border-amber-200 hover:text-amber-700`}
+                >
+                  {t("adminUsers.tempPassword.button")}
+                </button>
+              )}
+
               {currentRole === "superadmin" && (
                 <button
                   onClick={openCreateAdminModal}
@@ -872,6 +1028,17 @@ function AdminLayoutInner({ children }: { children: ReactNode }) {
                     <IdCard className="w-4 h-4" />
                     {t("nav.dealerFile")}
                   </button>
+
+                {(currentRole === "admin" || currentRole === "superadmin") && (
+                  <button
+                    type="button"
+                    onClick={openTempPasswordModal}
+                    className={`${mobileActionBtn} hover:bg-amber-50 hover:border-amber-200 hover:text-amber-700`}
+                  >
+                    <KeyRound className="w-4 h-4" />
+                    {t("adminUsers.tempPassword.button")}
+                  </button>
+                )}
                 </div>
               </div>
 
@@ -1068,6 +1235,110 @@ function AdminLayoutInner({ children }: { children: ReactNode }) {
         </div>
       )}
 
+      {isTempPasswordModalOpen && (
+        <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/40 p-3">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-md p-6">
+            <h2 className="text-lg font-semibold mb-4">
+              {t("adminUsers.tempPassword.modalTitle")}
+            </h2>
+
+            <div className="space-y-3">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  {t("adminUsers.tempPassword.dealer")}
+                </label>
+                <div className="rounded-md border bg-gray-50 px-3 py-2 text-sm text-gray-800">
+                  {selectedDealer
+                    ? `${selectedDealer.name || t("adminUsers.tempPassword.unnamedDealer")}${
+                        selectedDealer.email ? ` (${selectedDealer.email})` : ""
+                      }${
+                        selectedDealer.login_nr
+                          ? ` – Login ${selectedDealer.login_nr}`
+                          : ""
+                      }`
+                    : t("adminUsers.tempPassword.noDealerSelected")}
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  {t("adminUsers.tempPassword.password")}
+                </label>
+
+                <div className="flex gap-2 items-center">
+                  <input
+                    type={showTempPassword ? "text" : "password"}
+                    value={tempPasswordValue}
+                    onChange={(e) => setTempPasswordValue(e.target.value)}
+                    className="w-full border rounded-md px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-amber-500"
+                    placeholder={t("adminUsers.tempPassword.password")}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowTempPassword((s) => !s)}
+                    className="px-2 py-1 text-xs border rounded text-gray-600 hover:bg-gray-50"
+                  >
+                    {showTempPassword
+                      ? t("adminUsers.tempPassword.hide")
+                      : t("adminUsers.tempPassword.show")}
+                  </button>
+                </div>
+
+                <div className="flex gap-2 mt-2">
+                  <button
+                    type="button"
+                    onClick={handleGenerateTempPassword}
+                    className="px-2 py-1 text-xs border rounded text-amber-700 border-amber-300 hover:bg-amber-50"
+                  >
+                    {t("adminUsers.tempPassword.generate")}
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={handleCopyTempPassword}
+                    className="px-2 py-1 text-xs border rounded text-gray-700 border-gray-300 hover:bg-gray-50"
+                  >
+                    {t("adminUsers.tempPassword.copy")}
+                  </button>
+                </div>
+
+                <p className="text-xs text-gray-500 mt-2">
+                  {t("adminUsers.tempPassword.hint")},                  
+                </p>
+              </div>
+
+              {tempPasswordError && (
+                <p className="text-sm text-red-600">{tempPasswordError}</p>
+              )}
+
+              {tempPasswordSuccess && (
+                <p className="text-sm text-green-600">{tempPasswordSuccess}</p>
+              )}
+            </div>
+
+            <div className="flex justify-end gap-3 mt-6">
+              <button
+                onClick={closeTempPasswordModal}
+                disabled={tempPasswordLoading}
+                className="px-3 py-1.5 text-sm rounded border border-gray-300 text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+              >
+                {t("adminUsers.tempPassword.cancel")}
+              </button>
+
+              <button
+                onClick={handleSetTempPassword}
+                disabled={tempPasswordLoading}
+                className="px-3 py-1.5 text-sm rounded bg-amber-600 text-white hover:bg-amber-700 disabled:opacity-50"
+              >
+                {tempPasswordLoading
+                  ? t("adminUsers.tempPassword.saving")
+                  : t("adminUsers.tempPassword.save")}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {isCreateAdminModalOpen && (
         <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/40 p-3">
           <div className="bg-white rounded-lg shadow-xl w-full max-w-md p-6">
@@ -1131,7 +1402,7 @@ function AdminLayoutInner({ children }: { children: ReactNode }) {
                 disabled={createAdminLoading}
                 className="px-3 py-1.5 text-sm rounded border border-gray-300 text-gray-700 hover:bg-gray-50 disabled:opacity-50"
               >
-                Abbrechen
+                {t("adminUsers.tempPassword.cancel")}
               </button>
 
               <button
