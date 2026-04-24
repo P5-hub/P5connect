@@ -218,42 +218,59 @@ const getEmptyCampaignUsage = (): CampaignUsageSummary => ({
   total: 0,
 });
 
-const buildStandardOverflowItem = (
+const buildMesseOverflowItem = (
   item: CartItem,
   overflowQty: number
 ): any => {
-  const normalPrice = getEkNormal(item);
+  const resolved = resolveCampaignPricingForItem(item, "messe");
 
   return {
     ...item,
     quantity: overflowQty,
-    price: normalPrice,
-    pricing_mode: "standard",
-    order_mode: "standard",
+    price: resolved.final_unit_price,
+
+    pricing_mode: "messe",
+    order_mode: "messe",
     is_display_item: false,
-    campaign_id: null,
-    campaign_name: null,
-    campaign_name_snapshot: null,
-    display_price_netto: null,
-    messe_price_netto: null,
+
+    campaign_id: (item as any).campaign_id,
+    campaign_name: (item as any).campaign_name,
+    campaign_name_snapshot: (item as any).campaign_name_snapshot,
+
     display_discount_vs_hrp_percent: null,
+
+    upe_brutto: resolved.upe_brutto,
+    dealer_invoice_price: resolved.dealer_invoice_price,
+    vrg_amount: resolved.vrg_amount,
+    mwst_rate: resolved.mwst_rate,
+    upe_netto_excl_vrg: resolved.upe_netto_excl_vrg,
+    display_factor_percent: resolved.display_factor_percent,
+    display_price_netto: resolved.display_price_netto,
+    messe_price_netto: resolved.messe_price_netto,
+
     pricing_snapshot: {
-      ...(item as any).pricing_snapshot,
-      source: "standard",
-      campaign_id: null,
-      campaign_name: null,
-      order_mode: "standard",
-      pricing_mode: "standard",
-      final_unit_price: normalPrice,
+      ...((item as any).pricing_snapshot ?? {}),
+      source: "campaign",
+      campaign_id: (item as any).campaign_id ?? null,
+      campaign_name: (item as any).campaign_name ?? null,
+      order_mode: "messe",
+      pricing_mode: "messe",
+      upe_brutto: resolved.upe_brutto,
+      vrg_amount: resolved.vrg_amount,
+      mwst_rate: resolved.mwst_rate,
+      upe_netto_excl_vrg: resolved.upe_netto_excl_vrg,
+      display_factor_percent: resolved.display_factor_percent,
+      display_price_netto: resolved.display_price_netto,
+      messe_price_netto: resolved.messe_price_netto,
+      final_unit_price: resolved.final_unit_price,
+      display_discount_vs_hrp_percent: null,
       calculated_at: new Date().toISOString(),
     },
-    max_qty_per_dealer: null,
-    max_display_qty_per_dealer: null,
-    max_messe_qty_per_dealer: null,
-    max_total_qty_per_dealer: null,
+
     overflow_from_campaign: true,
+    overflow_from_display: true,
     price_manual_override: false,
-    price_manual_override_value: null,
+    price_manual_override_value: null,    
   };
 };
 
@@ -615,14 +632,21 @@ function ProductCard({
     (targetQty: number) => {
       const existingOverflowIndex = cart.findIndex((cartItem, cartIndex) => {
         if (cartIndex === index) return false;
-        if (
-          Number((cartItem as any).product_id) !==
-          Number((item as any).product_id)
-        )
-          return false;
-        if ((cartItem as any).campaign_id) return false;
-        if (!(cartItem as any).overflow_from_campaign) return false;
-        return true;
+
+        const sameProduct =
+          Number((cartItem as any).product_id) === Number((item as any).product_id);
+
+        const sameCampaign =
+          Number((cartItem as any).campaign_id) === Number((item as any).campaign_id);
+
+        const isMesseOverflow =
+          (cartItem as any).overflow_from_display === true ||
+          (
+            (cartItem as any).overflow_from_campaign === true &&
+            String((cartItem as any).pricing_mode).toLowerCase() === "messe"
+          );
+
+        return sameProduct && sameCampaign && isMesseOverflow;
       });
 
       if (targetQty <= 0) {
@@ -633,41 +657,51 @@ function ProductCard({
       }
 
       if (existingOverflowIndex >= 0) {
-        const normalPrice = getEkNormal(item);
+        const resolved = resolveCampaignPricingForItem(item, "messe");
 
         updateItem("bestellung", existingOverflowIndex, {
           quantity: targetQty,
-          price: normalPrice,
-          pricing_mode: "standard",
-          order_mode: "standard",
+          price: resolved.final_unit_price,
+
+          pricing_mode: "messe",
+          order_mode: "messe",
           is_display_item: false,
+
+          campaign_id: (item as any).campaign_id,
+          campaign_name: (item as any).campaign_name,
+          campaign_name_snapshot: (item as any).campaign_name_snapshot,
+          upe_brutto: resolved.upe_brutto,
+          dealer_invoice_price: resolved.dealer_invoice_price,
+          vrg_amount: resolved.vrg_amount,
+          mwst_rate: resolved.mwst_rate,
+          upe_netto_excl_vrg: resolved.upe_netto_excl_vrg,
+          display_factor_percent: resolved.display_factor_percent,
+          display_price_netto: resolved.display_price_netto,
+          messe_price_netto: resolved.messe_price_netto,
+          display_discount_vs_hrp_percent: null,
+
           overflow_from_campaign: true,
-          campaign_id: null,
-          campaign_name: null,
-          campaign_name_snapshot: null,
-          display_price_netto: null,
-          messe_price_netto: null,
-          max_qty_per_dealer: null,
-          max_display_qty_per_dealer: null,
-          max_messe_qty_per_dealer: null,
-          max_total_qty_per_dealer: null,
+          overflow_from_display: true,
+
           price_manual_override: false,
           price_manual_override_value: null,
+
           pricing_snapshot: {
             ...((item as any).pricing_snapshot ?? {}),
-            source: "standard",
-            campaign_id: null,
-            campaign_name: null,
-            order_mode: "standard",
-            pricing_mode: "standard",
-            final_unit_price: normalPrice,
+            source: "campaign",
+            campaign_id: (item as any).campaign_id ?? null,
+            campaign_name: (item as any).campaign_name ?? null,
+            order_mode: "messe",
+            pricing_mode: "messe",
+            final_unit_price: resolved.final_unit_price,
             calculated_at: new Date().toISOString(),
           },
         });
+
         return;
       }
 
-      addItem("bestellung", buildStandardOverflowItem(item, targetQty));
+      addItem("bestellung", buildMesseOverflowItem(item, targetQty));
     },
     [cart, index, item, addItem, updateItem, removeFromCart]
   );
@@ -765,17 +799,24 @@ function ProductCard({
         quantity: nextQty,
       });
 
-      const existingOverflowIndex = cart.findIndex((cartItem, cartIndex) => {
-        if (cartIndex === index) return false;
-        if (
-          Number((cartItem as any).product_id) !==
-          Number((item as any).product_id)
-        )
-          return false;
-        if ((cartItem as any).campaign_id) return false;
-        if (!(cartItem as any).overflow_from_campaign) return false;
-        return true;
-      });
+    const existingOverflowIndex = cart.findIndex((cartItem, cartIndex) => {
+      if (cartIndex === index) return false;
+
+      if (
+        Number((cartItem as any).product_id) !== Number((item as any).product_id)
+      ) {
+        return false;
+      }
+
+      if (Number((cartItem as any).campaign_id) !== Number((item as any).campaign_id)) {
+        return false;
+      }
+
+      if ((cartItem as any).pricing_mode !== "messe") return false;
+      if (!(cartItem as any).overflow_from_display) return false;
+
+      return true;
+    });
 
       if (existingOverflowIndex >= 0) {
         removeFromCart(existingOverflowIndex);
@@ -891,11 +932,15 @@ function ProductCard({
                 </span>
               )}
 
-            {(item as any).overflow_from_campaign && (
+            {(item as any).overflow_from_display ? (
+              <span className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-[11px] font-medium text-slate-600">
+                {tr("bestellung.cartSheet.product.messePrice", "Messepreis")}
+              </span>
+            ) : (item as any).overflow_from_campaign ? (
               <span className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-[11px] font-medium text-slate-600">
                 {tr("bestellung.cartSheet.product.normalPrice", "Normalpreis")}
               </span>
-            )}
+            ) : null}
           </div>
 
           <p className="mt-1 text-xs text-slate-500">
@@ -926,11 +971,12 @@ function ProductCard({
             className="h-10 text-center text-sm"
           />
 
-          {campaignLimitInfoLines.map((line, idx) => (
-            <p key={idx} className={`mt-1 text-[11px] ${line.color}`}>
-              {line.text}
-            </p>
-          ))}
+          {!(item as any).overflow_from_display &&
+            campaignLimitInfoLines.map((line, idx) => (
+              <p key={idx} className={`mt-1 text-[11px] ${line.color}`}>
+                {line.text}
+              </p>
+            ))}
 
           {isCampaignItem &&
             allowedCampaignQtyForThisRow != null &&
@@ -1156,29 +1202,24 @@ function ProductCard({
                           summaryOtherRows.display
                       );
 
-                      toast.error(
-                        tr(
-                          "bestellung.toast.displayLimitReachedTitle",
-                          "Display-Limit erreicht"
-                        ),
-                        {
-                          description: tr(
-                            "bestellung.toast.displayLimitReachedText",
-                            "Für {product} sind maximal {max} Display-Stück gültig. Bereits bestellt: {ordered}. Noch frei für diese Position: {free}.",
-                            {
-                              product:
-                                item.product_name ||
-                                (item as any).sony_article ||
-                                tr("bestellung.cartSheet.product.unknown", "dieses Produkt"),
-                              max: maxDisplayQtyPerDealer,
-                              ordered: persistedSummary.display,
-                              free: stillFree,
-                            }
-                          ),
-                          duration: TOAST_DURATION,
-                        }
-                      );
-                      return;
+                      const overflowQty = clampMinZero(currentQty - stillFree);
+
+                      if (stillFree > 0) {
+                        updateItem("bestellung", index, {
+                          quantity: stillFree,
+                        });
+                      }
+
+                      upsertOverflowRow(overflowQty);
+
+                      toast.warning("Display-Limit erreicht", {
+                        description: `${stillFree} Stück bleiben Display. ${overflowQty} Stück wurden als Messeposition übernommen.`,
+                        duration: TOAST_DURATION,
+                      });
+
+                      if (stillFree <= 0) {
+                        return;
+                      }
                     }
 
                     if (

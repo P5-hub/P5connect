@@ -79,6 +79,7 @@ type AddMode = "standard" | "campaign";
 
 type ProductLike = {
   product_id: number;
+  quantity?: number;
   product_name?: string | null;
   sony_article?: string | null;
   ean?: string | null;
@@ -90,7 +91,6 @@ type ProductLike = {
   price_on_invoice?: number | null;
   vrg?: number | null;
 
-  // 🔧 Manual price override
   price?: number;
   price_manual_override?: boolean;
   price_manual_override_value?: number | null;
@@ -831,6 +831,7 @@ export default function BestellungForm() {
 
     const canUseCampaign = Boolean(activeCampaign && campaignRow);
     const useCampaign = requestedMode === "campaign" && canUseCampaign;
+    const requestedQty = Math.max(1, Number(product.quantity ?? 1));
 
     const orderMode: "standard" | "messe" | "monatsaktion" =
       useCampaign && activeCampaign?.campaign_type === "messe" ? "messe" : "standard";
@@ -885,7 +886,7 @@ export default function BestellungForm() {
       useCampaign &&
       maxQtyPerDealer != null &&
       maxQtyPerDealer > 0 &&
-      currentQtyInCart >= maxQtyPerDealer
+      currentQtyInCart + requestedQty > maxQtyPerDealer
     ) {
       toast.error(t("bestellung.toast.maxCampaignQtyTitle"), {
         description: t("bestellung.toast.maxCampaignQtyText", {
@@ -937,7 +938,7 @@ export default function BestellungForm() {
 
     addItem("bestellung", {
       ...product,
-      quantity: 1,
+      quantity: requestedQty,
       price: safeNum(finalUnitPrice > 0 ? finalUnitPrice : 0),
       price_manual_override: manualOverride,
       price_manual_override_value: manualPrice,
