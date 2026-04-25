@@ -808,24 +808,51 @@ export default function CampaignReportsPage() {
       ) : (
         <>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
-            <StatCard title="Umsatz approved" value={formatCurrency(totalRevenue)} />
-            <StatCard title="Menge approved" value={formatInteger(totalQty)} />
+
+            {/* ===================== */}
+            {/* 💰 UMSATZ BLOCK */}
+            {/* ===================== */}
+            <StatCard title="Total Umsatz" value={formatCurrency(totalRevenue)} />
+
+            <StatCard title="Display Umsatz" value={formatCurrency(displayRevenue)} />
+
+            <StatCard title="Messe Umsatz" value={formatCurrency(messeRevenue)} />
+
+            <StatCard title="Standard Umsatz" value={formatCurrency(standardRevenue)} />
+
+
+            {/* ===================== */}
+            {/* 👥 HÄNDLER PERFORMANCE */}
+            {/* ===================== */}
             <StatCard title="Aktive Händler" value={formatInteger(activeDealerCount)} />
+
             <StatCard
               title="Handlungsbedarf"
               value={formatInteger(needsActionDealerCount)}
               subtitle="noch keine approved Bestellung"
             />
-            <StatCard title="Conversion Rate" value={`${conversionRate.toFixed(1)}%`} />
+
             <StatCard
-              title="Ø Umsatz aktiv"
+              title="Teilnahmequote"
+              value={`${conversionRate.toFixed(1)}%`}
+              subtitle={`${activeDealerCount} von ${dealerCampaignRows.length} aktiv`}
+            />
+
+            <StatCard
+              title="Ø Umsatz / aktiver Händler"
               value={formatCurrency(avgRevenuePerActiveDealer)}
             />
-            <StatCard title="Standard Umsatz" value={formatCurrency(standardRevenue)} />
-            <StatCard title="Messe Umsatz" value={formatCurrency(messeRevenue)} />
-            <StatCard title="Display Umsatz" value={formatCurrency(displayRevenue)} />
+
+
+            {/* ===================== */}
+            {/* ⚙️ PROZESS / QUALITÄT */}
+            {/* ===================== */}
+            <StatCard title="Menge approved" value={formatInteger(totalQty)} />
+
             <StatCard title="Pending Positionen" value={formatInteger(pendingRows.length)} />
+
             <StatCard title="Rejected Positionen" value={formatInteger(rejectedRows.length)} />
+
             <StatCard
               title="Approval Quote"
               value={
