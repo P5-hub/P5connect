@@ -693,6 +693,18 @@ function AdminLayoutInner({ children }: { children: ReactNode }) {
       color: "text-teal-600",
     },
     {
+      href: "/admin/dealers",
+      key: null,
+      label: "Händler",
+      color: "text-indigo-600",
+    },
+    {
+      href: "/admin/contacts",
+      key: null,
+      label: "Kontakte",
+      color: "text-purple-600",
+    },
+    {
       href: "/admin/reports",
       key: null,
       label: t("adminCommon.reports"),
