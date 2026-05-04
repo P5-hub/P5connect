@@ -114,6 +114,27 @@ function toNumber(value: any) {
   return Number.isFinite(num) ? num : 0;
 }
 
+function isTodayInDateRange(start?: any, end?: any) {
+  const todayStr = new Date().toISOString().slice(0, 10);
+
+  const startStr = start ? String(start).slice(0, 10) : null;
+  const endStr = end ? String(end).slice(0, 10) : null;
+
+  if (startStr && todayStr < startStr) return false;
+  if (endStr && todayStr > endStr) return false;
+
+  return true;
+}
+
+function getActiveTvSofortrabatt(item: any) {
+  return isTodayInDateRange(
+    item?.sofortrabatt_start_date,
+    item?.sofortrabatt_end_date
+  )
+    ? Number(item?.sofortrabatt_amount || 0)
+    : 0;
+}
+
 export default function CartSofortrabatt() {
   const dealer = useDealer();
   const theme = useTheme();
@@ -212,13 +233,19 @@ export default function CartSofortrabatt() {
     const soundbarPrice = toNumber(salesPrices.soundbar);
     const subPrice = toNumber(salesPrices.subwoofer);
 
+    const tvDiscount = tvItem ? getActiveTvSofortrabatt(tvItem) : 0;
+
     const soundbarDiscount = soundbarItem
       ? Number((soundbarPrice * 0.3).toFixed(2))
       : 0;
-    const subDiscount = subItem ? Number((subPrice * 0.5).toFixed(2)) : 0;
+
+    const subDiscount = subItem
+      ? Number((subPrice * 0.5).toFixed(2))
+      : 0;
 
     return {
-      total: Number((soundbarDiscount + subDiscount).toFixed(2)),
+      total: Number((tvDiscount + soundbarDiscount + subDiscount).toFixed(2)),
+      tvDiscount,
       soundbarDiscount,
       subDiscount,
     };
@@ -460,8 +487,9 @@ export default function CartSofortrabatt() {
                         )}
 
                         {role === "tv" && (
-                          <p className="text-xs text-gray-500">
-                            {t("sofortrabatt.cart.tvHint")}
+                          <p className={`${theme.color}`}>
+                            TV-Sofortrabatt:{" "}
+                            {getActiveTvSofortrabatt(item).toFixed(2)} CHF
                           </p>
                         )}
                       </div>

@@ -620,6 +620,11 @@ function AdminLayoutInner({ children }: { children: ReactNode }) {
         { event: "*", schema: "public", table: "submissions" },
         () => loadPendingCounts()
       )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "sofortrabatt_claims" },
+        () => loadPendingCounts()
+      )
       .subscribe();
 
     return () => {
