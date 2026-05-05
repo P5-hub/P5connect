@@ -2785,7 +2785,7 @@ export default function CartBestellung() {
       <SheetContent
         side="right"
         className="
-          flex flex-col pt-20
+          flex h-[100dvh] max-h-[100dvh] flex-col overflow-hidden pt-20
           w-full
           sm:max-w-none
           sm:w-[780px]
@@ -2955,8 +2955,8 @@ export default function CartBestellung() {
             </SheetClose>
           </div>
         ) : (
-          <div className="mt-3 grid min-h-0 flex-1 grid-cols-1 gap-4 px-4 lg:grid-cols-2">
-            <div className="order-2 min-h-0 space-y-4 overflow-y-auto pr-1 lg:order-1">
+          <div className="mt-3 flex-1 overflow-y-auto px-4 pb-6 lg:grid lg:min-h-0 lg:grid-cols-2 lg:gap-4 lg:overflow-hidden">
+            <div className="order-2 mt-4 space-y-4 pb-6 lg:order-1 lg:mt-0 lg:min-h-0 lg:overflow-y-auto lg:pr-1">
               {hasNormalProducts && (
                 <SectionCard
                   title={tr("bestellung.cartSheet.distributor.title", "Haupt-Distributor")}
@@ -3378,7 +3378,7 @@ export default function CartBestellung() {
             </div>
 
             <div className="order-1 flex min-h-0 flex-col lg:order-2">
-              <div className="flex-1 overflow-y-auto pr-1 overscroll-contain">
+              <div className="flex-1 overflow-visible lg:overflow-y-auto lg:pr-1 lg:overscroll-contain">
                 <ProductList
                   cart={cart}
                   distis={distis}
@@ -3391,7 +3391,7 @@ export default function CartBestellung() {
                 />
 
                 {cart.length > 0 && (
-                  <div className="sticky bottom-0 -mx-2 bg-white/95 px-2 py-3 backdrop-blur sm:mx-0 sm:px-0">
+                  <div className="mt-4 -mx-2 bg-white/95 px-2 py-3 backdrop-blur sm:mx-0 sm:px-0 lg:sticky lg:bottom-0">
                     <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
                       <div className="mb-3 flex items-center gap-2">
                         <Package className="h-4 w-4 text-slate-500" />
