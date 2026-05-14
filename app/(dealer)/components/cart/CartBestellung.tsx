@@ -2605,6 +2605,17 @@ export default function CartBestellung() {
             bonus_relevant:
               typeof i.bonus_relevant === "boolean" ? i.bonus_relevant : true,
             pricing_snapshot: i.pricing_snapshot ?? null,
+            has_group_price:
+              typeof i.has_group_price === "boolean"
+                ? i.has_group_price
+                : typeof i.has_group_override === "boolean"
+                ? i.has_group_override
+                : null,
+
+            pricing_group_code: i.pricing_group_code ?? null,
+            pricing_group_name: i.pricing_group_name ?? null,
+            toppreise_allowed:
+              typeof i.toppreise_allowed === "boolean" ? i.toppreise_allowed : true,
             lowest_price_brutto: brutto,
             lowest_price_netto: netto,
             lowest_price_source: !isLockedCampaignPrice

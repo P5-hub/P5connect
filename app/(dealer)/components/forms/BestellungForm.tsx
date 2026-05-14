@@ -80,12 +80,14 @@ type AddMode = "standard" | "campaign";
 type ProductLike = {
   product_id: number;
   quantity?: number;
+
   product_name?: string | null;
   sony_article?: string | null;
   ean?: string | null;
   brand?: string | null;
   gruppe?: string | null;
   category?: string | null;
+
   retail_price?: number | null;
   dealer_invoice_price?: number | null;
   price_on_invoice?: number | null;
@@ -94,6 +96,15 @@ type ProductLike = {
   price?: number;
   price_manual_override?: boolean;
   price_manual_override_value?: number | null;
+
+  has_group_price?: boolean | null;
+  has_group_override?: boolean | null;
+  pricing_group_code?: string | null;
+  pricing_group_name?: string | null;
+  toppreise_allowed?: boolean | null;
+
+  matched_group_codes?: string[];
+  matched_group_names?: string[];
 };
 
 type DealerPricingGroup = {
@@ -998,9 +1009,26 @@ export default function BestellungForm() {
           ? safeNum(pricing.display_discount_vs_hrp_percent)
           : null,
 
-      matched_group_codes: useCampaign ? campaignRow?.matched_group_codes || [] : [],
-      matched_group_names: useCampaign ? campaignRow?.matched_group_names || [] : [],
-      has_group_override: useCampaign ? campaignRow?.has_group_override || false : false,
+      matched_group_codes: useCampaign
+        ? campaignRow?.matched_group_codes || []
+        : product.pricing_group_code
+        ? [product.pricing_group_code]
+        : [],
+
+      matched_group_names: useCampaign
+        ? campaignRow?.matched_group_names || []
+        : product.pricing_group_name
+        ? [product.pricing_group_name]
+        : [],
+
+      has_group_override: useCampaign
+        ? campaignRow?.has_group_override || false
+        : !!product.has_group_price,
+
+      has_group_price: !useCampaign ? !!product.has_group_price : false,
+      pricing_group_code: !useCampaign ? product.pricing_group_code ?? null : null,
+      pricing_group_name: !useCampaign ? product.pricing_group_name ?? null : null,
+      toppreise_allowed: product.toppreise_allowed ?? true,
 
       pricing_snapshot: {
         source: useCampaign ? "campaign" : "standard",
@@ -1023,9 +1051,26 @@ export default function BestellungForm() {
           useCampaign && pricing.display_discount_vs_hrp_percent != null
             ? safeNum(pricing.display_discount_vs_hrp_percent)
             : null,
-        matched_group_codes: useCampaign ? campaignRow?.matched_group_codes || [] : [],
-        matched_group_names: useCampaign ? campaignRow?.matched_group_names || [] : [],
-        has_group_override: useCampaign ? campaignRow?.has_group_override || false : false,
+        matched_group_codes: useCampaign
+          ? campaignRow?.matched_group_codes || []
+          : product.pricing_group_code
+          ? [product.pricing_group_code]
+          : [],
+
+        matched_group_names: useCampaign
+          ? campaignRow?.matched_group_names || []
+          : product.pricing_group_name
+          ? [product.pricing_group_name]
+          : [],
+
+        has_group_override: useCampaign
+          ? campaignRow?.has_group_override || false
+          : !!product.has_group_price,
+
+        has_group_price: !useCampaign ? !!product.has_group_price : false,
+        pricing_group_code: !useCampaign ? product.pricing_group_code ?? null : null,
+        pricing_group_name: !useCampaign ? product.pricing_group_name ?? null : null,
+        toppreise_allowed: product.toppreise_allowed ?? true,
         calculated_at: new Date().toISOString(),
       },
     });

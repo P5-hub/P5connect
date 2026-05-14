@@ -26,7 +26,7 @@ import {
 import { ChevronsUpDown } from "lucide-react";
 import Papa from "papaparse";
 import { useI18n } from "@/lib/i18n/I18nProvider";
-
+import { useDealer } from "@/app/(dealer)/DealerContext";
 import ProductCardSupportCost from "@/app/(dealer)/components/ProductCardSupportCost";
 
 /* --------------------------------------------------------------------
@@ -69,6 +69,9 @@ export default function ProductList<T extends { product: Product }>({
 }: ProductListProps<T>) {
   const { t } = useI18n();
   const supabase = createClient();
+
+  const dealer = useDealer();
+  const effectiveDealerId = dealer?.dealer_id ?? null;
 
   const effectiveSupportType = supportType ?? "sellout";
 
@@ -124,19 +127,45 @@ export default function ProductList<T extends { product: Product }>({
     const load = async () => {
       setLoading(true);
 
-      let query = supabase.from("products").select(`
-        product_id,
-        ean,
-        product_name,
-        sony_article,
-        brand,
-        gruppe,
-        category,
-        retail_price,
-        dealer_invoice_price,
-        active_sofortrabatt,
-        ph2
-      `);
+      if (!effectiveDealerId) {
+        setProducts([]);
+        setLoading(false);
+        return;
+      }
+
+      let query = supabase
+        .from("v_dealer_standard_prices")
+        .select(`
+          dealer_id,
+          product_id,
+          ean,
+          product_name,
+          sony_article,
+          model,
+          brand,
+          gruppe,
+          category,
+          ph2,
+          active_sofortrabatt,
+          retail_price,
+          vrg,
+
+          effective_dealer_invoice_price,
+          effective_price_on_invoice,
+
+          standard_dealer_invoice_price,
+          standard_price_on_invoice,
+
+          group_dealer_invoice_price,
+          group_price_on_invoice,
+
+          has_group_price,
+          pricing_group_code,
+          pricing_group_name,
+
+          toppreise_allowed
+        `)
+        .eq("dealer_id", effectiveDealerId);
 
       if (sofortrabattOnly) {
         query = query.eq("active_sofortrabatt", true);
@@ -153,7 +182,14 @@ export default function ProductList<T extends { product: Product }>({
       setProducts(
         (data ?? []).map((p: any) => ({
           ...p,
+
           name: p.product_name || p.sony_article || "Unbekannt",
+
+          dealer_invoice_price: p.effective_dealer_invoice_price,
+          price_on_invoice: p.effective_price_on_invoice,
+
+          product_price: p.effective_dealer_invoice_price,
+          ek_normal: p.effective_dealer_invoice_price,
         }))
       );
 
@@ -161,7 +197,12 @@ export default function ProductList<T extends { product: Product }>({
     };
 
     load();
-  }, [effectiveSupportType, sofortrabattOnly, supabase]);
+  }, [
+    effectiveSupportType,
+    sofortrabattOnly,
+    supabase,
+    effectiveDealerId,
+  ]);
 
   /* ====================================================================
      CSV IMPORT

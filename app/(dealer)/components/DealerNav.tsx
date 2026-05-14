@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useState, useMemo, useEffect, useRef } from "react";
-import { Globe, ShoppingCart, Menu, X } from "lucide-react";
+import { Globe, ShoppingCart, Menu, X, Download } from "lucide-react";
 
 import { useI18n } from "@/lib/i18n/I18nProvider";
 import { createClient } from "@/utils/supabase/client";
@@ -26,6 +26,18 @@ export default function DealerNav() {
 
   const [langOpen, setLangOpen] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
+
+  const [downloadOpen, setDownloadOpen] = useState(false);
+
+  const [hasCampaignPrices, setHasCampaignPrices] = useState(false);
+
+  const downloadStandardPriceList = (format: "csv" | "xlsx") => {
+    window.location.href = `/api/price-lists/standard?format=${format}`;
+  };
+
+  const downloadCampaignPriceList = (format: "csv" | "xlsx") => {
+    window.location.href = `/api/price-lists/campaign?format=${format}`;
+  };
 
   const { state, openCart } = useCart();
   const bestellungCount = state.bestellung.length;
@@ -81,6 +93,24 @@ export default function DealerNav() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
+  useEffect(() => {
+    async function checkCampaignPrices() {
+      try {
+        const res = await fetch("/api/price-lists/campaign?format=csv", {
+          method: "GET",
+        });
+
+        setHasCampaignPrices(res.ok);
+      } catch {
+        setHasCampaignPrices(false);
+      }
+    }
+
+    if (pathname.startsWith("/bestellung")) {
+      checkCampaignPrices();
+    }
+  }, [pathname]);
+
   const isActive = (href: string) => pathname.startsWith(href);
 
   const goPassword = () => {
@@ -130,6 +160,66 @@ export default function DealerNav() {
 
           {/* RIGHT (DESKTOP) */}
           <div className="hidden md:flex items-center gap-4">
+            {/* Preislisten */}
+            {pathname.startsWith("/bestellung") && (
+              <div className="relative">
+                <button
+                  onClick={() => setDownloadOpen((o) => !o)}
+                  className="flex items-center gap-1 text-sm text-gray-800 hover:text-black"
+                >
+                  <Download className="w-4 h-4" />
+                  Preisliste
+                </button>
+
+                {downloadOpen && (
+                  <div className="absolute right-0 mt-2 w-52 bg-white border rounded shadow-md z-50">
+
+                    {/* STANDARD */}
+                    <div className="px-3 py-2 text-xs font-semibold text-gray-500 border-b">
+                      Standard
+                    </div>
+
+                    <button
+                      onClick={() => downloadStandardPriceList("xlsx")}
+                      className="block w-full text-left px-3 py-2 text-sm hover:bg-gray-50"
+                    >
+                      Standard Excel
+                    </button>
+
+                    <button
+                      onClick={() => downloadStandardPriceList("csv")}
+                      className="block w-full text-left px-3 py-2 text-sm hover:bg-gray-50"
+                    >
+                      Standard CSV
+                    </button>
+
+                    {/* KAMPAGNE */}
+                    {hasCampaignPrices && (
+                      <>
+                        <div className="px-3 py-2 text-xs font-semibold text-gray-500 border-t border-b">
+                          Kampagne
+                        </div>
+
+                        <button
+                          onClick={() => downloadCampaignPriceList("xlsx")}
+                          className="block w-full text-left px-3 py-2 text-sm hover:bg-gray-50"
+                        >
+                          Kampagne Excel
+                        </button>
+
+                        <button
+                          onClick={() => downloadCampaignPriceList("csv")}
+                          className="block w-full text-left px-3 py-2 text-sm hover:bg-gray-50"
+                        >
+                          Kampagne CSV
+                        </button>
+                      </>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+
             {/* Cart */}
             <button onClick={() => openCart("bestellung")} className="relative">
               <ShoppingCart className="w-6 h-6 text-gray-800 hover:text-black" />
@@ -267,6 +357,71 @@ export default function DealerNav() {
                   ))}
                 </div>
               </div>
+
+              {/* Preislisten */}
+              {pathname.startsWith("/bestellung") && (
+                <div className="rounded border p-3">
+                  <div className="flex items-center gap-2 text-sm font-medium text-gray-800 mb-2">
+                    <Download className="w-4 h-4" />
+                    Preislisten
+                  </div>
+
+                  <div className="flex flex-col gap-2">
+                    <div className="text-xs font-semibold text-gray-500">
+                      Standard
+                    </div>
+
+                    <button
+                      onClick={() => {
+                        setMobileOpen(false);
+                        downloadStandardPriceList("xlsx");
+                      }}
+                      className="px-3 py-2 rounded text-sm border text-left hover:bg-gray-50"
+                    >
+                      Standard Excel
+                    </button>
+
+                    <button
+                      onClick={() => {
+                        setMobileOpen(false);
+                        downloadStandardPriceList("csv");
+                      }}
+                      className="px-3 py-2 rounded text-sm border text-left hover:bg-gray-50"
+                    >
+                      Standard CSV
+                    </button>
+
+                    {hasCampaignPrices && (
+                      <>
+                        <div className="mt-2 border-t pt-2 text-xs font-semibold text-gray-500">
+                          Kampagne
+                        </div>
+
+                        <button
+                          onClick={() => {
+                            setMobileOpen(false);
+                            downloadCampaignPriceList("xlsx");
+                          }}
+                          className="px-3 py-2 rounded text-sm border text-left hover:bg-gray-50"
+                        >
+                          Kampagne Excel
+                        </button>
+
+                        <button
+                          onClick={() => {
+                            setMobileOpen(false);
+                            downloadCampaignPriceList("csv");
+                          }}
+                          className="px-3 py-2 rounded text-sm border text-left hover:bg-gray-50"
+                        >
+                          Kampagne CSV
+                        </button>
+                      </>
+                    )}
+                  </div>
+                </div>
+              )}
+
 
               {/* Sprache */}
               <div className="rounded border p-3">
