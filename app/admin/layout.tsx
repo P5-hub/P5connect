@@ -19,6 +19,7 @@ import {
   IdCard,
   ShieldPlus,
   KeyRound,
+  Upload,
 } from "lucide-react";
 
 import PendingIndicator from "@/components/admin/PendingIndicator";
@@ -702,6 +703,12 @@ function AdminLayoutInner({ children }: { children: ReactNode }) {
       key: null,
       label: "Händler",
       color: "text-indigo-600",
+    },
+    {
+      href: "/admin/pricing-import",
+      key: null,
+      label: "Preis-Import",
+      color: "text-emerald-600",
     },
     {
       href: "/admin/contacts",
