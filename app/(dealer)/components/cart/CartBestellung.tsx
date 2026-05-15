@@ -85,7 +85,7 @@ type TranslateFn = (
 ) => string;
 
 const TOAST_DURATION = 4000;
-
+const ELECTRONIC_PARTNER_CODE = "ep";
 const toQtyInt = (v: any) =>
   Number.isFinite(+v) ? Math.max(0, Math.round(+v)) : 0;
 
@@ -143,27 +143,14 @@ const getEkNormal = (item: CartItem) =>
       0
   );
 
-const pickPreferred = (item: CartItem, allowed: string[]) => {
+const pickPreferred = (_item: CartItem, allowed: string[]) => {
   if (!allowed || allowed.length === 0) return "";
-  const ph2 = ((item as any).ph2 ?? "").toLowerCase();
 
-  if (ph2.includes("tv") || ph2.includes("tme")) {
-    return allowed.find((a) => a.toLowerCase().includes("ep")) || allowed[0];
-  }
-
-  if (ph2.includes("ht") || ph2.includes("soundbar")) {
-    return allowed.find((a) => a.toLowerCase().includes("ep")) || allowed[0];
-  }
-
-  if (ph2.includes("dim")) {
-    return allowed.find((a) => a.toLowerCase().includes("engel")) || allowed[0];
-  }
-
-  if (ph2.includes("pds") || ph2.includes("pa")) {
-    return allowed.find((a) => a.toLowerCase().includes("semi")) || allowed[0];
-  }
-
-  return allowed[0];
+  return (
+    allowed.find((a) => a.toLowerCase() === ELECTRONIC_PARTNER_CODE) ||
+    allowed.find((a) => a.toLowerCase().includes("ep")) ||
+    ELECTRONIC_PARTNER_CODE
+  );
 };
 
 const getCartItemMode = (item: any): "display" | "messe" | "standard" => {
@@ -1480,18 +1467,11 @@ function ProductCard({
             </SelectTrigger>
 
             <SelectContent>
-              {distis
-                .filter((d) =>
-                  allowed.some(
-                    (code: string) =>
-                      code.toLowerCase() === d.code.toLowerCase()
-                  )
-                )
-                .map((d) => (
-                  <SelectItem key={d.code} value={d.code} className="text-sm">
-                    {d.name}
-                  </SelectItem>
-                ))}
+              {distis.map((d) => (
+                <SelectItem key={d.code} value={d.code} className="text-sm">
+                  {d.name}
+                </SelectItem>
+              ))}
             </SelectContent>
           </Select>
         </div>

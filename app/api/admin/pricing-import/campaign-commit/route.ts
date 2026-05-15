@@ -197,6 +197,12 @@ export async function POST(req: NextRequest) {
       return normalized;
     });
 
+    const cleanedRows = normalizedRows.filter((row) => {
+      return Object.values(row).some((value) => {
+        return value !== null && String(value).trim() !== "";
+      });
+    });
+
     const { data: products, error: productsError } = await supabaseAdmin
       .from("products")
       .select("product_id, ean, sony_article, product_name, active")
@@ -233,7 +239,7 @@ export async function POST(req: NextRequest) {
     let errorRows = 0;
     const now = new Date().toISOString();
 
-    for (const row of normalizedRows) {
+    for (const row of cleanedRows) {
       const ean = normalizeEan(
         pick(row, ["ean", "ean_code", "ean_nummer"])
       );
@@ -371,6 +377,65 @@ export async function POST(req: NextRequest) {
     const insertedRows = validRows.length - updatedRows;
 
     if (!dry_run && validRows.length > 0) {
+      const { data: existingCampaignProducts, error: existingCampaignProductsError } =
+        await supabaseAdmin
+          .from("campaign_products")
+          .select("product_id")
+          .eq("campaign_id", campaign_id)
+          .in("product_id", productIds);
+
+      if (existingCampaignProductsError) {
+        return NextResponse.json(
+          {
+            error: `Bestehende Kampagnenprodukte konnten nicht geprüft werden: ${existingCampaignProductsError.message}`,
+          },
+          { status: 500 }
+        );
+      }
+
+      const existingCampaignProductIds = new Set(
+        (existingCampaignProducts || []).map((row: any) => Number(row.product_id))
+      );
+
+      const missingCampaignProducts = validRows
+        .filter((row) => !existingCampaignProductIds.has(row.product_id))
+        .map((row) => ({
+          campaign_id,
+          product_id: row.product_id,
+          active: true,
+          pricing_mode:
+            row.messe_price_netto !== null &&
+            (row.display_price_netto !== null ||
+              row.display_discount_percent !== null)
+              ? "mixed"
+              : row.messe_price_netto !== null
+                ? "messe"
+                : "display",
+          messe_price_netto: row.messe_price_netto,
+          display_price_netto: row.display_price_netto,
+          display_discount_percent: row.display_discount_percent,
+          bonus_relevant: true,
+          notes: row.note,
+          updated_at: now,
+        }));
+
+      if (missingCampaignProducts.length > 0) {
+        const { error: insertCampaignProductsError } = await supabaseAdmin
+          .from("campaign_products")
+          .insert(missingCampaignProducts);
+
+        if (insertCampaignProductsError) {
+          return NextResponse.json(
+            {
+              error: `Fehlende Kampagnenprodukte konnten nicht angelegt werden: ${insertCampaignProductsError.message}`,
+            },
+            { status: 500 }
+          );
+        }
+      }
+    }
+    
+    if (!dry_run && validRows.length > 0) {
       const { error: upsertError } = await supabaseAdmin
         .from("campaign_product_group_prices")
         .upsert(validRows, {
@@ -392,7 +457,7 @@ export async function POST(req: NextRequest) {
         pricing_group_id,
         file_name: file.name,
         dry_run,
-        total_rows: normalizedRows.length,
+        total_rows: cleanedRows.length,
         matched_rows: validRows.length,
         inserted_rows: dry_run ? 0 : insertedRows,
         updated_rows: dry_run ? 0 : updatedRows,
@@ -419,7 +484,7 @@ export async function POST(req: NextRequest) {
       campaign,
       pricing_group: pricingGroup,
       file_name: file.name,
-      total_rows: normalizedRows.length,
+      total_rows: cleanedRows.length,
       matched_rows: validRows.length,
       inserted_rows: dry_run ? 0 : insertedRows,
       updated_rows: dry_run ? 0 : updatedRows,
