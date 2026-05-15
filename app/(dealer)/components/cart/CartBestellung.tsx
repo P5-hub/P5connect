@@ -887,11 +887,11 @@ function ProductCard({
   };
 
   return (
-    <div className="mb-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-      <div className="mb-3 flex items-start justify-between gap-3">
+    <div className="mb-4 rounded-2xl border border-slate-300 bg-white p-4 shadow-md">
+      <div className="mb-3 flex items-start justify-between gap-3 border-b border-slate-100 pb-3">
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
-            <p className="truncate text-sm font-semibold text-slate-900">
+            <p className="truncate text-[15px] font-bold text-slate-900">
               {item.product_name ||
                 (item as any).sony_article ||
                 tr("bestellung.cartSheet.product.unknown", "Unbekannt")}
@@ -918,7 +918,19 @@ function ProductCard({
                   )}
                 </span>
               )}
-
+              {showSavings && (
+                <span className="inline-flex items-center gap-1 rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-[11px] font-medium text-emerald-700">
+                  <Tag className="h-3 w-3" />
+                  {tr(
+                    "bestellung.cartSheet.product.saved",
+                    "{amount} CHF gespart ({percent}%)",
+                    {
+                      amount: formatNumberCH(savedCHF, 2, 2),
+                      percent: savedPercent,
+                    }
+                  )}
+                </span>
+              )}
             {(item as any).overflow_from_display ? (
               <span className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-[11px] font-medium text-slate-600">
                 {tr("bestellung.cartSheet.product.messePrice", "Messepreis")}
@@ -1023,19 +1035,6 @@ function ProductCard({
           </span>
         </p>
 
-          {showSavings && (
-            <div className="mt-2 inline-flex items-center gap-1 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-medium text-emerald-700">
-              <Tag className="h-3.5 w-3.5" />
-              {tr(
-                "bestellung.cartSheet.product.saved",
-                "{amount} CHF gespart ({percent}%)",
-                {
-                  amount: formatNumberCH(savedCHF, 2, 2),
-                  percent: savedPercent,
-                }
-              )}
-            </div>
-          )}
         </div>
       </div>
 
@@ -2946,7 +2945,7 @@ export default function CartBestellung() {
             </SheetClose>
           </div>
         ) : (
-          <div className="mt-3 flex-1 overflow-y-auto px-4 pb-6 lg:grid lg:min-h-0 lg:grid-cols-2 lg:gap-4 lg:overflow-hidden">
+          <div className="mt-3 flex-1 overflow-y-auto px-4 pb-6 lg:grid lg:min-h-0 lg:grid-cols-[40%_60%] lg:gap-5 lg:overflow-hidden">
             <div className="order-2 mt-4 space-y-4 pb-6 lg:order-1 lg:mt-0 lg:min-h-0 lg:overflow-y-auto lg:pr-1">
               {hasNormalProducts && (
                 <SectionCard
