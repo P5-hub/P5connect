@@ -30,6 +30,8 @@ type SupportItem = {
 type SupportMeta = {
   support_typ: string | null;
   betrag: number | null;
+  smart_nr: string | null;
+  gutschrift_nr: string | null;
 };
 
 type SubmissionLog = {
@@ -163,7 +165,7 @@ export default function SupportDetailPage() {
 
       const { data: metaData, error: metaErr } = await supabase
         .from("support_details")
-        .select("support_typ, betrag")
+        .select("support_typ, betrag, smart_nr, gutschrift_nr")
         .eq("submission_id", numericId)
         .maybeSingle();
 
@@ -171,8 +173,8 @@ export default function SupportDetailPage() {
         console.error("metaErr:", metaErr);
       }
 
-      if (metaData) {
-        setMeta(metaData as SupportMeta);
+      if (metaData && !("error" in metaData)) {
+        setMeta(metaData as unknown as SupportMeta);
       } else {
         setMeta(null);
       }
@@ -313,6 +315,7 @@ export default function SupportDetailPage() {
       {meta && (
         <div className="rounded-md border bg-teal-50 p-3 text-sm">
           <strong>{t("verlauf.support.meta.type")}:</strong> {meta.support_typ}
+
           {meta.betrag != null && (
             <>
               <br />
@@ -321,6 +324,20 @@ export default function SupportDetailPage() {
                 style: "currency",
                 currency: "CHF",
               })}
+            </>
+          )}
+
+          {header.status === "approved" && meta.smart_nr && (
+            <>
+              <br />
+              <strong>Smart Nr.:</strong> {meta.smart_nr}
+            </>
+          )}
+
+          {header.status === "approved" && meta.gutschrift_nr && (
+            <>
+              <br />
+              <strong>Gutschriftsnummer:</strong> {meta.gutschrift_nr}
             </>
           )}
         </div>

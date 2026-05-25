@@ -21,6 +21,9 @@ type Produkt = {
 type SupportDetails = {
   support_typ?: string;
   betrag?: number;
+  smart_nr?: string | null;
+  gutschrift_nr?: string | null;
+  admin_note?: string | null;
 };
 
 type SubmissionLog = {
@@ -158,6 +161,7 @@ export default function SupportDetailPage() {
   const [loading, setLoading] = useState(true);
   const [savingDecision, setSavingDecision] = useState(false);
   const [filesLoading, setFilesLoading] = useState(false);
+  const [savingAdminDetails, setSavingAdminDetails] = useState(false);
 
   const [editableItems, setEditableItems] = useState<Produkt[]>([]);
   const [originalItems, setOriginalItems] = useState<Produkt[]>([]);
@@ -778,7 +782,7 @@ export default function SupportDetailPage() {
 
         const { data: supportDetails, error: detailsError } = await supabase
           .from("support_details")
-          .select("support_typ, betrag")
+          .select("support_typ, betrag, smart_nr, gutschrift_nr, admin_note")
           .eq("submission_id", id)
           .maybeSingle();
 
@@ -933,7 +937,48 @@ export default function SupportDetailPage() {
     (sum, p) => sum + (Number(p.preis) || 0) * (Number(p.menge) || 1),
     0
   );
+  const saveAdminSupportDetails = async () => {
+    if (!data?.submission?.submission_id) return;
 
+    try {
+      setSavingAdminDetails(true);
+
+      const { error } = await supabase
+        .from("support_details")
+        .update({
+          betrag: Number(editableSupportDetails?.betrag || 0),
+          smart_nr: editableSupportDetails?.smart_nr || null,
+          gutschrift_nr: editableSupportDetails?.gutschrift_nr || null,
+          admin_note: editableSupportDetails?.admin_note || null,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("submission_id", data.submission.submission_id);
+
+      if (error) {
+        console.error("saveAdminSupportDetailsError:", error);
+        toast.error("Admin-Angaben konnten nicht gespeichert werden.");
+        return;
+      }
+
+      setOriginalSupportDetails(editableSupportDetails);
+
+      setData((prev) =>
+        prev
+          ? {
+              ...prev,
+              supportDetails: editableSupportDetails ?? undefined,
+            }
+          : prev
+      );
+
+      toast.success("Admin-Angaben gespeichert.");
+    } catch (err) {
+      console.error("saveAdminSupportDetails catch:", err);
+      toast.error("Admin-Angaben konnten nicht gespeichert werden.");
+    } finally {
+      setSavingAdminDetails(false);
+    }
+  };
   const insertSubmissionLog = async ({
     action,
     oldStatus,
@@ -1281,7 +1326,81 @@ export default function SupportDetailPage() {
               <strong>{uiText.comment}</strong> {submission.kommentar}
             </div>
           )}
+          {editableSupportDetails && (
+            <div className="rounded-xl border bg-gray-50 p-4 space-y-4">
+              <h3 className="text-sm font-semibold text-gray-800">
+                Admin-Angaben
+              </h3>
 
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                <div>
+                  <label className="text-gray-500 block mb-1">
+                    Smart Nr.
+                  </label>
+                  <input
+                    type="text"
+                    value={editableSupportDetails.smart_nr ?? ""}
+                    onChange={(e) =>
+                      setEditableSupportDetails((prev) => ({
+                        ...(prev ?? {}),
+                        smart_nr: e.target.value,
+                      }))
+                    }
+                    className="w-full rounded border px-3 py-2"
+                    placeholder="z.B. SMART-123456"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-gray-500 block mb-1">
+                    Gutschriftsnummer
+                  </label>
+                  <input
+                    type="text"
+                    value={editableSupportDetails.gutschrift_nr ?? ""}
+                    onChange={(e) =>
+                      setEditableSupportDetails((prev) => ({
+                        ...(prev ?? {}),
+                        gutschrift_nr: e.target.value,
+                      }))
+                    }
+                    className="w-full rounded border px-3 py-2"
+                    placeholder="z.B. GS-2026-001"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="text-gray-500 block mb-1 text-sm">
+                  Interne Admin-Notiz
+                </label>
+                <textarea
+                  rows={3}
+                  value={editableSupportDetails.admin_note ?? ""}
+                  onChange={(e) =>
+                    setEditableSupportDetails((prev) => ({
+                      ...(prev ?? {}),
+                      admin_note: e.target.value,
+                    }))
+                  }
+                  className="w-full rounded border px-3 py-2 text-sm"
+                  placeholder="Interne Notiz zum Support-Fall"
+                />
+              </div>
+
+              <Button
+                type="button"
+                variant="outline"
+                disabled={savingAdminDetails}
+                onClick={saveAdminSupportDetails}
+                className={`${theme.border} ${theme.color}`}
+              >
+                {savingAdminDetails
+                  ? "Speichert..."
+                  : "Admin-Angaben speichern"}
+              </Button>
+            </div>
+          )}
           {showNonSelloutBox && editableSupportDetails && (
             <div className="rounded-xl border border-blue-200 bg-blue-50/60 p-4">
               <h3 className="text-sm font-semibold text-blue-800 mb-3">

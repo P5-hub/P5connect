@@ -11,6 +11,8 @@ type TSupportDetail = {
   submission_id: number;
   support_typ: string | null;
   betrag: number | string | null;
+  smart_nr?: string | null;
+  gutschrift_nr?: string | null;
   created_at: string | null;
   updated_at?: string | null;
 };
@@ -103,6 +105,8 @@ async function loadSupportData(
       submission_id,
       support_typ,
       betrag,
+      smart_nr,
+      gutschrift_nr,
       created_at,
       updated_at
     `)
@@ -111,7 +115,7 @@ async function loadSupportData(
 
   if (detailsError) throw detailsError;
 
-  const details = (detailsData ?? []) as TSupportDetail[];
+  const details = (detailsData ?? []) as unknown as TSupportDetail[];
 
   let claim: TSupportClaim = null;
 
@@ -220,6 +224,13 @@ function renderSupportPDFBuffer(args: {
           doc.text(`Support-ID: ${safeText(detail.support_id)}`);
           doc.text(`Typ: ${safeText(detail.support_typ)}`);
           doc.text(`Betrag: CHF ${toCHF(betrag)}`);
+          if (detail.smart_nr) {
+          doc.text(`Smart Nr.: ${safeText(detail.smart_nr)}`);
+        }
+
+        if (detail.gutschrift_nr) {
+          doc.text(`Gutschriftsnummer: ${safeText(detail.gutschrift_nr)}`);
+        }
           doc.text(`Erfasst: ${formatDate(detail.created_at)}`);
           doc.moveDown(0.4);
         }
