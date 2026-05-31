@@ -31,12 +31,10 @@ function getRole(item: any): "tv" | "soundbar" | "sub" | null {
   const category = normalizeText(item?.category);
   const ph2 = String(item?.ph2 || "").trim().toUpperCase();
 
-  // ZUERST: Soundbar
   if (category === "soundbar" || category.includes("soundbar")) {
     return "soundbar";
   }
 
-  // DANACH: Sub / Rear Speaker
   if (
     category === "subwoofer" ||
     category.includes("subwoofer") ||
@@ -47,7 +45,6 @@ function getRole(item: any): "tv" | "soundbar" | "sub" | null {
     return "sub";
   }
 
-  // TV nur noch klar über PH2 oder TV-Kategorie
   if (
     ph2 === "TME" ||
     category === "lcd" ||
@@ -127,12 +124,21 @@ function isTodayInDateRange(start?: any, end?: any) {
 }
 
 function getActiveTvSofortrabatt(item: any) {
-  return isTodayInDateRange(
-    item?.sofortrabatt_start_date,
-    item?.sofortrabatt_end_date
-  )
-    ? Number(item?.sofortrabatt_amount || 0)
-    : 0;
+  const start = item?.sofortrabatt_classic_start_date;
+  const end = item?.sofortrabatt_classic_end_date;
+
+  if (!isTodayInDateRange(start, end)) return 0;
+
+  return Number(item?.sofortrabatt_amount || 0);
+}
+
+function cleanSerial(value: any) {
+  return String(value || "").trim().toUpperCase();
+}
+
+function isValidSevenDigitSerial(value: any) {
+  const serial = cleanSerial(value);
+  return /^\d{7}$/.test(serial);
 }
 
 export default function CartSofortrabatt() {
@@ -163,17 +169,25 @@ export default function CartSofortrabatt() {
     subwoofer: "",
   };
 
+  const serials = orderDetails?.sofortrabatt_serials ?? {
+    tv: "",
+    soundbar: "",
+    subwoofer: "",
+  };
+  const removeItemAndSerial = (index: number, item: any) => {
+    const role = getRole(item);
+
+    removeItem("sofortrabatt", index);
+
+    if (role === "tv") updateSerial("tv", "");
+    if (role === "soundbar") updateSerial("soundbar", "");
+    if (role === "sub") updateSerial("subwoofer", "");
+  };
   const tvItem = items.find((i: any) => getRole(i) === "tv");
   const soundbarItem = items.find((i: any) => getRole(i) === "soundbar");
   const subItem = items.find((i: any) => getRole(i) === "sub");
 
   const tvInches = tvItem ? parseTvInches(tvItem) : 0;
-
-  console.log("SOFORTRABATT ITEMS:", items);
-  console.log("TV ITEM FOUND:", tvItem);
-  console.log("SOUNDBAR ITEM FOUND:", soundbarItem);
-  console.log("SUB ITEM FOUND:", subItem);
-  console.log("TV INCHES:", tvInches);
 
   const addFiles = (fileList: FileList | null) => {
     if (!fileList) return;
@@ -205,9 +219,35 @@ export default function CartSofortrabatt() {
     }));
   };
 
+  const updateSerial = (
+    field: "tv" | "soundbar" | "subwoofer",
+    value: string
+  ) => {
+    setOrderDetails((prev: any) => ({
+      ...prev,
+      sofortrabatt_serials: {
+        ...(prev?.sofortrabatt_serials ?? {
+          tv: "",
+          soundbar: "",
+          subwoofer: "",
+        }),
+        [field]: cleanSerial(value),
+      },
+    }));
+  };
+
   const getClassicRabattForItem = (item: any) => {
     const isTV = getRole(item) === "tv";
     if (!isTV) return 0;
+
+    if (
+      !isTodayInDateRange(
+        item?.sofortrabatt_classic_start_date,
+        item?.sofortrabatt_classic_end_date
+      )
+    ) {
+      return 0;
+    }
 
     if (rabattLevel === 1) return Number(item.sofortrabatt_amount || 0);
     if (rabattLevel === 2) return Number(item.sofortrabatt_double_amount || 0);
@@ -225,6 +265,7 @@ export default function CartSofortrabatt() {
 
       return {
         total: Number(total.toFixed(2)),
+        tvDiscount: total,
         soundbarDiscount: 0,
         subDiscount: 0,
       };
@@ -249,10 +290,16 @@ export default function CartSofortrabatt() {
       soundbarDiscount,
       subDiscount,
     };
-  }, [promoType, items, rabattLevel, salesPrices, soundbarItem, subItem]);
+  }, [promoType, items, rabattLevel, salesPrices, soundbarItem, subItem, tvItem]);
 
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
+
+  const serialsValid =
+    !!tvItem &&
+    isValidSevenDigitSerial(serials.tv) &&
+    (!soundbarItem || isValidSevenDigitSerial(serials.soundbar)) &&
+    (!subItem || isValidSevenDigitSerial(serials.subwoofer));
 
   const percentPromoValid =
     promoType !== "tv55_soundbar_percent" ||
@@ -266,11 +313,32 @@ export default function CartSofortrabatt() {
     rabattLevel > 0 &&
     files.length > 0 &&
     !!dealer?.dealer_id &&
-    percentPromoValid;
+    percentPromoValid &&
+    serialsValid;
 
   const handleSubmit = async () => {
     if (!dealer?.dealer_id) {
       toast.error(t("sofortrabatt.toast.noDealer"));
+      return;
+    }
+
+    if (!tvItem) {
+      toast.error(t("sofortrabatt.toast.tvMissing"));
+      return;
+    }
+
+    if (!isValidSevenDigitSerial(serials.tv)) {
+      toast.error("Bitte eine gültige 7-stellige TV-Seriennummer eingeben");
+      return;
+    }
+
+    if (soundbarItem && !isValidSevenDigitSerial(serials.soundbar)) {
+      toast.error("Bitte eine gültige 7-stellige Soundbar-Seriennummer eingeben");
+      return;
+    }
+
+    if (subItem && !isValidSevenDigitSerial(serials.subwoofer)) {
+      toast.error("Bitte eine gültige 7-stellige Subwoofer-Seriennummer eingeben");
       return;
     }
 
@@ -280,11 +348,6 @@ export default function CartSofortrabatt() {
     }
 
     if (promoType === "tv55_soundbar_percent") {
-      if (!tvItem) {
-        toast.error(t("sofortrabatt.toast.tvMissing"));
-        return;
-      }
-
       if (tvInches < 55) {
         toast.error(t("sofortrabatt.toast.only55"));
         return;
@@ -321,6 +384,14 @@ export default function CartSofortrabatt() {
           subwoofer: toNumber(salesPrices.subwoofer),
         })
       );
+      formData.append(
+        "serials",
+        JSON.stringify({
+          tv: cleanSerial(serials.tv),
+          soundbar: cleanSerial(serials.soundbar),
+          subwoofer: cleanSerial(serials.subwoofer),
+        })
+      );
 
       files.forEach((file: File) => {
         formData.append("files", file);
@@ -348,15 +419,20 @@ export default function CartSofortrabatt() {
           soundbar: "",
           subwoofer: "",
         },
+        sofortrabatt_serials: {
+          tv: "",
+          soundbar: "",
+          subwoofer: "",
+        },
       }));
 
       setSuccess(true);
       toast.success(t("sofortrabatt.toast.success"));
     } catch (err: any) {
       toast.error(err.message || t("sofortrabatt.toast.error"));
+    } finally {
+      setLoading(false);
     }
-
-    setLoading(false);
   };
 
   return (
@@ -423,40 +499,97 @@ export default function CartSofortrabatt() {
                         </p>
                         <p className="text-xs text-gray-500">EAN: {item.ean}</p>
                         <p className="text-xs text-gray-400">
-                          Rolle: {role || "unbekannt"} | Kategorie: {item.category || "-"} | PH2: {item.ph2 || "-"}
+                          Rolle: {role || "unbekannt"} | Kategorie:{" "}
+                          {item.category || "-"} | PH2: {item.ph2 || "-"}
                         </p>
                       </div>
 
                       <button
-                        onClick={() => removeItem("sofortrabatt", index)}
+                        onClick={() => removeItemAndSerial(index, item)}
                         className="text-red-500"
                       >
                         ✕
                       </button>
                     </div>
 
+                    {role === "tv" && (
+                      <div className="mt-3 space-y-2">
+                        <label className="block text-sm font-medium">
+                          TV Seriennummer
+                        </label>
+                        <Input
+                          inputMode="numeric"
+                          maxLength={7}
+                          placeholder="7-stellige Seriennummer"
+                          value={serials.tv}
+                          onChange={(e) => updateSerial("tv", e.target.value)}
+                        />
+
+                        {!isValidSevenDigitSerial(serials.tv) && serials.tv && (
+                          <p className="text-xs text-red-500">
+                            Seriennummer muss genau 7 Ziffern haben.
+                          </p>
+                        )}
+                      </div>
+                    )}
+
                     {promoType === "classic_fixed" ? (
-                      <p className={`mt-2 ${theme.color}`}>
-                        {t("sofortrabatt.cart.total").replace("Gesamt-Rabatt", "Rabatt")}:{" "}
-                        {getClassicRabattForItem(item)} CHF
+                      <p className={`mt-3 ${theme.color}`}>
+                        {t("sofortrabatt.cart.total").replace(
+                          "Gesamt-Rabatt",
+                          "Rabatt"
+                        )}
+                        : {getClassicRabattForItem(item).toFixed(2)} CHF
                       </p>
                     ) : (
-                      <div className="mt-2 text-sm space-y-1">
+                      <div className="mt-3 text-sm space-y-3">
+                        {role === "tv" && (
+                          <p className={`${theme.color}`}>
+                            TV-Sofortrabatt:{" "}
+                            {getActiveTvSofortrabatt(item).toFixed(2)} CHF
+                          </p>
+                        )}
+
                         {role === "soundbar" && (
                           <>
-                            <label className="block text-sm font-medium">
-                              {t("sofortrabatt.cart.salesPriceSoundbar")}
-                            </label>
-                            <Input
-                              type="number"
-                              step="0.01"
-                              min="0"
-                              value={salesPrices.soundbar}
-                              onChange={(e) =>
-                                updateSalesPrice("soundbar", e.target.value)
-                              }
-                              placeholder="z. B. 799.00"
-                            />
+                            <div className="space-y-2">
+                              <label className="block text-sm font-medium">
+                                {t("sofortrabatt.cart.salesPriceSoundbar")}
+                              </label>
+                              <Input
+                                type="number"
+                                step="0.01"
+                                min="0"
+                                value={salesPrices.soundbar}
+                                onChange={(e) =>
+                                  updateSalesPrice("soundbar", e.target.value)
+                                }
+                                placeholder="z. B. 799.00"
+                              />
+                            </div>
+
+                            <div className="space-y-2">
+                              <label className="block text-sm font-medium">
+                                Soundbar Seriennummer
+                              </label>
+                              <Input
+                                inputMode="numeric"
+                                maxLength={7}
+                                placeholder="7-stellige Seriennummer"
+                                value={serials.soundbar}
+                                onChange={(e) =>
+                                  updateSerial("soundbar", e.target.value)
+                                }
+                              />
+
+                              {!isValidSevenDigitSerial(serials.soundbar) &&
+                                serials.soundbar && (
+                                  <p className="text-xs text-red-500">
+                                    Seriennummer muss genau 7 Ziffern haben.
+                                  </p>
+                                )}
+                            </div>
+
                             <p className={`${theme.color}`}>
                               {t("sofortrabatt.cart.discount30")}:{" "}
                               {rabattSummary.soundbarDiscount.toFixed(2)} CHF
@@ -466,31 +599,49 @@ export default function CartSofortrabatt() {
 
                         {role === "sub" && (
                           <>
-                            <label className="block text-sm font-medium">
-                              {t("sofortrabatt.cart.salesPriceAccessory")}
-                            </label>
-                            <Input
-                              type="number"
-                              step="0.01"
-                              min="0"
-                              value={salesPrices.subwoofer}
-                              onChange={(e) =>
-                                updateSalesPrice("subwoofer", e.target.value)
-                              }
-                              placeholder="z. B. 499.00"
-                            />
+                            <div className="space-y-2">
+                              <label className="block text-sm font-medium">
+                                {t("sofortrabatt.cart.salesPriceAccessory")}
+                              </label>
+                              <Input
+                                type="number"
+                                step="0.01"
+                                min="0"
+                                value={salesPrices.subwoofer}
+                                onChange={(e) =>
+                                  updateSalesPrice("subwoofer", e.target.value)
+                                }
+                                placeholder="z. B. 499.00"
+                              />
+                            </div>
+
+                            <div className="space-y-2">
+                              <label className="block text-sm font-medium">
+                                Subwoofer Seriennummer
+                              </label>
+                              <Input
+                                inputMode="numeric"
+                                maxLength={7}
+                                placeholder="7-stellige Seriennummer"
+                                value={serials.subwoofer}
+                                onChange={(e) =>
+                                  updateSerial("subwoofer", e.target.value)
+                                }
+                              />
+
+                              {!isValidSevenDigitSerial(serials.subwoofer) &&
+                                serials.subwoofer && (
+                                  <p className="text-xs text-red-500">
+                                    Seriennummer muss genau 7 Ziffern haben.
+                                  </p>
+                                )}
+                            </div>
+
                             <p className={`${theme.color}`}>
                               {t("sofortrabatt.cart.discount50")}:{" "}
                               {rabattSummary.subDiscount.toFixed(2)} CHF
                             </p>
                           </>
-                        )}
-
-                        {role === "tv" && (
-                          <p className={`${theme.color}`}>
-                            TV-Sofortrabatt:{" "}
-                            {getActiveTvSofortrabatt(item).toFixed(2)} CHF
-                          </p>
                         )}
                       </div>
                     )}
@@ -535,7 +686,9 @@ export default function CartSofortrabatt() {
             <div className="border-t pt-4 space-y-3">
               <p>
                 {t("sofortrabatt.cart.total")}:{" "}
-                <b className={theme.color}>{rabattSummary.total.toFixed(2)} CHF</b>
+                <b className={theme.color}>
+                  {rabattSummary.total.toFixed(2)} CHF
+                </b>
               </p>
 
               {promoType === "tv55_soundbar_percent" && (
@@ -551,6 +704,12 @@ export default function CartSofortrabatt() {
                     </p>
                   )}
                 </div>
+              )}
+
+              {!serialsValid && (
+                <p className="text-xs text-red-500">
+                  Bitte alle erforderlichen Seriennummern 7-stellig erfassen.
+                </p>
               )}
 
               <Button

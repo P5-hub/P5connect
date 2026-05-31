@@ -33,6 +33,10 @@ type SofortrabattProduct = {
   tv_size_inch?: number | null;
   sales_price?: number | null;
   calculated_discount?: number | null;
+  sofortrabatt_classic_start_date?: string | null;
+  sofortrabatt_classic_end_date?: string | null;
+  sofortrabatt_percent_start_date?: string | null;
+  sofortrabatt_percent_end_date?: string | null;
 };
 
 type SubmissionRecord = {
@@ -49,6 +53,9 @@ type SubmissionRecord = {
   rabatt_betrag?: number | null;
   products?: any;
   invoice_file_url?: any;
+  tv_serial_number?: string | null;
+  soundbar_serial_number?: string | null;
+  subwoofer_serial_number?: string | null;
 };
 
 type ProjectFile = {
@@ -250,10 +257,13 @@ export default function UniversalDetailPage({
           kommentar: anyData.comment,
           rabatt_level: anyData.rabatt_level,
           rabatt_betrag: anyData.rabatt_betrag,
+          tv_serial_number: anyData.tv_serial_number,
+          soundbar_serial_number: anyData.soundbar_serial_number,
+          subwoofer_serial_number: anyData.subwoofer_serial_number,
           products: anyData.products,
           dealers: dealer,
           project_id: null,
-          invoice_file_url: anyData.invoice_file_url,
+          invoice_file_url: anyData.invoice_file_url,          
         });
 
         setProjectFiles([]);
@@ -893,7 +903,17 @@ export default function UniversalDetailPage({
                   <p>
                     <strong>{t("adminUniversalDetail.labels.discountAmount")}:</strong> CHF {(Number(record.rabatt_betrag) || 0).toFixed(2)}
                   </p>
+                  <p>
+                    <strong>TV Seriennummer:</strong> {record.tv_serial_number || "-"}
+                  </p>
 
+                  <p>
+                    <strong>Soundbar Seriennummer:</strong> {record.soundbar_serial_number || "-"}
+                  </p>
+
+                  <p>
+                    <strong>Subwoofer Seriennummer:</strong> {record.subwoofer_serial_number || "-"}
+                  </p>
                   <p>
                     <strong>{t("adminUniversalDetail.labels.promotion")}:</strong>{" "}
                     {isPercentPromo
@@ -921,6 +941,7 @@ export default function UniversalDetailPage({
                             <th className="text-right p-2">{t("adminUniversalDetail.labels.tvSize")}</th>
                             <th className="text-right p-2">{t("adminUniversalDetail.labels.salesPrice")}</th>
                             <th className="text-right p-2">{t("adminUniversalDetail.labels.discount")}</th>
+                            <th className="text-left p-2">Promo-Laufzeit</th>
                           </tr>
                         </thead>
                         <tbody>
@@ -942,6 +963,15 @@ export default function UniversalDetailPage({
                                 {typeof p.calculated_discount === "number"
                                   ? `CHF ${p.calculated_discount.toFixed(2)}`
                                   : "-"}
+                              </td>
+                              <td className="p-2">
+                                {isPercentPromo
+                                  ? `${p.sofortrabatt_percent_start_date || "-"} bis ${
+                                      p.sofortrabatt_percent_end_date || "-"
+                                    }`
+                                  : `${p.sofortrabatt_classic_start_date || "-"} bis ${
+                                      p.sofortrabatt_classic_end_date || "-"
+                                    }`}
                               </td>
                             </tr>
                           ))}

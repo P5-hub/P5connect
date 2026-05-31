@@ -156,6 +156,10 @@
         ean: i.ean,
         category: i.category || i.gruppe,
         qty: 1,
+        sofortrabatt_classic_start_date: i.sofortrabatt_classic_start_date || null,
+        sofortrabatt_classic_end_date: i.sofortrabatt_classic_end_date || null,
+        sofortrabatt_percent_start_date: i.sofortrabatt_percent_start_date || null,
+        sofortrabatt_percent_end_date: i.sofortrabatt_percent_end_date || null,
       })),
     };
   }
@@ -268,6 +272,10 @@
               : role === "sub"
               ? subDiscount
               : 0,
+          sofortrabatt_classic_start_date: i.sofortrabatt_classic_start_date || null,
+          sofortrabatt_classic_end_date: i.sofortrabatt_classic_end_date || null,
+          sofortrabatt_percent_start_date: i.sofortrabatt_percent_start_date || null,
+          sofortrabatt_percent_end_date: i.sofortrabatt_percent_end_date || null,
         };
       }),
     };
@@ -314,6 +322,7 @@
         formData.get("promo_type") || "classic_fixed"
       ) as PromoType;
       const salesPricesRaw = formData.get("sales_prices");
+      const serialsRaw = formData.get("serials");
 
       const filesRaw = formData.getAll("files") as unknown[];
 
@@ -332,6 +341,10 @@
       const salesPrices = salesPricesRaw
         ? JSON.parse(String(salesPricesRaw))
         : {};
+      const serials = serialsRaw
+        ? JSON.parse(String(serialsRaw))
+        : {};
+
 
       const files = filesRaw
         .filter((f) => f && typeof f !== "string")
@@ -384,6 +397,9 @@
             status: "pending",
             products: enrichedProducts,
             comment: detailComment,
+            tv_serial_number: serials.tv || null,
+            soundbar_serial_number: serials.soundbar || null,
+            subwoofer_serial_number: serials.subwoofer || null,
           },
         ]);
 

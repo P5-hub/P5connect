@@ -53,6 +53,11 @@ export type OrderDetails = {
     soundbar: string | number;
     subwoofer: string | number;
   };
+  sofortrabatt_serials?: {
+    tv: string;
+    soundbar: string;
+    subwoofer: string;
+  };
 };
 
 // ✅ Support Meta (global, synchron Form <-> Cart)
