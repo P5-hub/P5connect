@@ -1,5 +1,5 @@
 export const sofortrabatt = {
-     page: {
+    page: {
       title: "Sofortrabatt beantragen",
       heading: "Sofortrabatt beantragen",
     },
@@ -49,11 +49,22 @@ export const sofortrabatt = {
       selected: "Gewählter TV",
       eligible: "Für neue Promo geeignet",
       notEligible: "Nicht für neue Promo geeignet",
+      reset: "Reset",
+      searchPlaceholder: "TV suchen nach Modell oder EAN",
+      promoValid: "Für die gewählte Promotion zugelassen",
+      promoInvalid: "Nicht für die gewählte Promotion zugelassen",
+      validity: "Promo gültig",
+      product: "Produkt",
+      role: "Rolle",
+      category: "Kategorie",
+        unknown: "unbekannt",
     },
 
     soundbar: {
       optional: "Optional: Soundbar",
       required: "Soundbar auswählen (Pflicht)",
+      search: "Soundbar suchen",
+      noneFound: "Keine passenden Soundbars gefunden.",
     },
 
     accessory: {
@@ -62,6 +73,8 @@ export const sofortrabatt = {
       none: "Für diese Soundbar ist kein zusätzliches Zubehör kompatibel.",
       subwoofer: "Subwoofer",
       rearSpeaker: "Rear Speaker",
+      search: "Zubehör suchen",
+      validity: "Promo gültig",
     },
 
     hints: {
@@ -76,7 +89,7 @@ export const sofortrabatt = {
     cart: {
       title: "Sofortrabatt beantragen",
       success: "🎉 Antrag erfolgreich gesendet",
-      close: "Schließen",
+      close: "Schliessen",
       promotion: "Promotion",
       classicPromo: "Klassische Fixbetrag-Promo",
       percentPromo: "Neue 30% / 50%-Promo",
@@ -94,8 +107,31 @@ export const sofortrabatt = {
       soundbarMandatory: "Für diese Promo ist eine Soundbar Pflicht",
       submit: "Sofortrabatt absenden",
       sending: "Wird gesendet…",
-    },
+      validity: "Gültigkeit",
+      validFrom: "Gültig ab",
+      validUntil: "Gültig bis",
+      validRange: "Gültig",
 
+      tvSerialNumber: "TV Seriennummer",
+      soundbarSerialNumber: "Soundbar Seriennummer",
+      subwooferSerialNumber: "Subwoofer Seriennummer",
+
+      serialPlaceholder: "7-stellige Seriennummer",
+
+      tvDiscount: "TV Sofortrabatt",
+
+      classicValidity: "Promo-Laufzeit",
+      percentValidity: "Promo-Laufzeit",
+      serialMustBeSevenDigits: "Seriennummer muss genau 7 Ziffern haben.",
+      requiredSerials: "Bitte alle erforderlichen Seriennummern 7-stellig erfassen.",
+    },
+    form: {
+      productsLoadError:
+        "Produkte konnten nicht geladen werden",
+
+      loadingProducts:
+        "Produkte werden geladen…",
+    },
     toast: {
       noDealer: "Kein Händler gefunden",
       uploadInvoice: "Bitte Rechnung hochladen",
@@ -107,5 +143,13 @@ export const sofortrabatt = {
       needSoundbar: "Für die neue Promo ist eine Soundbar erforderlich",
       success: "Sofortrabatt erfolgreich eingereicht",
       error: "Fehler beim Absenden",
+      invalidTvSerial:
+        "Bitte eine gültige 7-stellige TV-Seriennummer eingeben",
+      invalidSoundbarSerial:
+        "Bitte eine gültige 7-stellige Soundbar-Seriennummer eingeben",
+      invalidSubwooferSerial:
+        "Bitte eine gültige 7-stellige Subwoofer-Seriennummer eingeben",
+      duplicateSerial:
+        "Diese Seriennummer wurde bereits für einen Sofortrabatt verwendet",
     },
 } as const;

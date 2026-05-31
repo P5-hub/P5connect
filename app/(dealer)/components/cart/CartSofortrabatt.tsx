@@ -328,17 +328,17 @@ export default function CartSofortrabatt() {
     }
 
     if (!isValidSevenDigitSerial(serials.tv)) {
-      toast.error("Bitte eine gültige 7-stellige TV-Seriennummer eingeben");
+      toast.error(t("sofortrabatt.toast.invalidTvSerial"));
       return;
     }
 
     if (soundbarItem && !isValidSevenDigitSerial(serials.soundbar)) {
-      toast.error("Bitte eine gültige 7-stellige Soundbar-Seriennummer eingeben");
+      toast.error(t("sofortrabatt.toast.invalidSoundbarSerial"));
       return;
     }
 
     if (subItem && !isValidSevenDigitSerial(serials.subwoofer)) {
-      toast.error("Bitte eine gültige 7-stellige Subwoofer-Seriennummer eingeben");
+      toast.error(t("sofortrabatt.toast.invalidSubwooferSerial"));
       return;
     }
 
@@ -495,7 +495,8 @@ export default function CartSofortrabatt() {
                     <div className="flex justify-between">
                       <div>
                         <p className="font-semibold">
-                          {item.product_name || item.sony_article || "Produkt"}
+                          {item.product_name || item.sony_article || t("sofortrabatt.cart.product")}
+                          {t("sofortrabatt.cart.role")}: {role || t("sofortrabatt.cart.unknown")} | {t("sofortrabatt.cart.category")}:{" "}
                         </p>
                         <p className="text-xs text-gray-500">EAN: {item.ean}</p>
                         <p className="text-xs text-gray-400">
@@ -515,19 +516,19 @@ export default function CartSofortrabatt() {
                     {role === "tv" && (
                       <div className="mt-3 space-y-2">
                         <label className="block text-sm font-medium">
-                          TV Seriennummer
+                          {t("sofortrabatt.cart.tvSerialNumber")}
                         </label>
                         <Input
                           inputMode="numeric"
                           maxLength={7}
-                          placeholder="7-stellige Seriennummer"
+                          placeholder={t("sofortrabatt.cart.serialPlaceholder")}
                           value={serials.tv}
                           onChange={(e) => updateSerial("tv", e.target.value)}
                         />
 
                         {!isValidSevenDigitSerial(serials.tv) && serials.tv && (
                           <p className="text-xs text-red-500">
-                            Seriennummer muss genau 7 Ziffern haben.
+                            {t("sofortrabatt.cart.serialMustBeSevenDigits")}
                           </p>
                         )}
                       </div>
@@ -545,7 +546,7 @@ export default function CartSofortrabatt() {
                       <div className="mt-3 text-sm space-y-3">
                         {role === "tv" && (
                           <p className={`${theme.color}`}>
-                            TV-Sofortrabatt:{" "}
+                            {t("sofortrabatt.cart.tvDiscount")}:{" "}
                             {getActiveTvSofortrabatt(item).toFixed(2)} CHF
                           </p>
                         )}
@@ -570,12 +571,12 @@ export default function CartSofortrabatt() {
 
                             <div className="space-y-2">
                               <label className="block text-sm font-medium">
-                                Soundbar Seriennummer
+                                {t("sofortrabatt.cart.soundbarSerialNumber")}
                               </label>
                               <Input
                                 inputMode="numeric"
                                 maxLength={7}
-                                placeholder="7-stellige Seriennummer"
+                                placeholder={t("sofortrabatt.cart.serialPlaceholder")}
                                 value={serials.soundbar}
                                 onChange={(e) =>
                                   updateSerial("soundbar", e.target.value)
@@ -585,7 +586,7 @@ export default function CartSofortrabatt() {
                               {!isValidSevenDigitSerial(serials.soundbar) &&
                                 serials.soundbar && (
                                   <p className="text-xs text-red-500">
-                                    Seriennummer muss genau 7 Ziffern haben.
+                                    {t("sofortrabatt.cart.serialMustBeSevenDigits")}
                                   </p>
                                 )}
                             </div>
@@ -617,12 +618,12 @@ export default function CartSofortrabatt() {
 
                             <div className="space-y-2">
                               <label className="block text-sm font-medium">
-                                Subwoofer Seriennummer
+                                {t("sofortrabatt.cart.subwooferSerialNumber")}
                               </label>
                               <Input
                                 inputMode="numeric"
                                 maxLength={7}
-                                placeholder="7-stellige Seriennummer"
+                                placeholder={t("sofortrabatt.cart.serialPlaceholder")}
                                 value={serials.subwoofer}
                                 onChange={(e) =>
                                   updateSerial("subwoofer", e.target.value)
@@ -632,7 +633,7 @@ export default function CartSofortrabatt() {
                               {!isValidSevenDigitSerial(serials.subwoofer) &&
                                 serials.subwoofer && (
                                   <p className="text-xs text-red-500">
-                                    Seriennummer muss genau 7 Ziffern haben.
+                                    {t("sofortrabatt.cart.serialMustBeSevenDigits")}
                                   </p>
                                 )}
                             </div>
@@ -708,7 +709,7 @@ export default function CartSofortrabatt() {
 
               {!serialsValid && (
                 <p className="text-xs text-red-500">
-                  Bitte alle erforderlichen Seriennummern 7-stellig erfassen.
+                  {t("sofortrabatt.cart.requiredSerials")}                  
                 </p>
               )}
 

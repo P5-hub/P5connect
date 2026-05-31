@@ -904,15 +904,15 @@ export default function UniversalDetailPage({
                     <strong>{t("adminUniversalDetail.labels.discountAmount")}:</strong> CHF {(Number(record.rabatt_betrag) || 0).toFixed(2)}
                   </p>
                   <p>
-                    <strong>TV Seriennummer:</strong> {record.tv_serial_number || "-"}
+                    <strong>{t("adminUniversalDetail.labels.tvSerialNumber")}:</strong> {record.tv_serial_number || "-"}
                   </p>
 
                   <p>
-                    <strong>Soundbar Seriennummer:</strong> {record.soundbar_serial_number || "-"}
+                    <strong>{t("adminUniversalDetail.labels.soundbarSerialNumber")}:</strong> {record.soundbar_serial_number || "-"}
                   </p>
 
                   <p>
-                    <strong>Subwoofer Seriennummer:</strong> {record.subwoofer_serial_number || "-"}
+                    <strong>{t("adminUniversalDetail.labels.subwooferSerialNumber")}:</strong> {record.subwoofer_serial_number || "-"}
                   </p>
                   <p>
                     <strong>{t("adminUniversalDetail.labels.promotion")}:</strong>{" "}
@@ -941,7 +941,9 @@ export default function UniversalDetailPage({
                             <th className="text-right p-2">{t("adminUniversalDetail.labels.tvSize")}</th>
                             <th className="text-right p-2">{t("adminUniversalDetail.labels.salesPrice")}</th>
                             <th className="text-right p-2">{t("adminUniversalDetail.labels.discount")}</th>
-                            <th className="text-left p-2">Promo-Laufzeit</th>
+                            <th className="text-left p-2">
+                            {t("adminUniversalDetail.labels.promotionPeriod")}
+                          </th>
                           </tr>
                         </thead>
                         <tbody>

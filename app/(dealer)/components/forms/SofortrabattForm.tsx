@@ -14,9 +14,6 @@ import { getThemeByForm } from "@/lib/theme/ThemeContext";
 type Product = any;
 type PromoType = "classic_fixed" | "tv55_soundbar_percent";
 
-/* ------------------------------------------------------
-   HELPERS
------------------------------------------------------- */
 function normalizeText(value: any) {
   return String(value || "").trim().toLowerCase();
 }
@@ -74,7 +71,11 @@ function formatDateCH(value: any) {
   return date.toLocaleDateString("de-CH");
 }
 
-function getPromotionDateText(product: any, promoType: PromoType) {
+function getPromotionDateText(
+  product: any,
+  promoType: PromoType,
+  t: (key: string) => string
+) {
   const start =
     promoType === "classic_fixed"
       ? formatDateCH(product?.sofortrabatt_classic_start_date)
@@ -85,9 +86,12 @@ function getPromotionDateText(product: any, promoType: PromoType) {
       ? formatDateCH(product?.sofortrabatt_classic_end_date)
       : formatDateCH(product?.sofortrabatt_percent_end_date);
 
-  if (start && end) return `Gültig: ${start} – ${end}`;
-  if (start) return `Gültig ab: ${start}`;
-  if (end) return `Gültig bis: ${end}`;
+  if (start && end) {
+    return `${t("sofortrabatt.cart.validRange")}: ${start} – ${end}`;
+  }
+
+  if (start) return `${t("sofortrabatt.cart.validFrom")}: ${start}`;
+  if (end) return `${t("sofortrabatt.cart.validUntil")}: ${end}`;
 
   return null;
 }
@@ -180,9 +184,6 @@ function sortByLabel(items: Product[]) {
   );
 }
 
-/* ------------------------------------------------------
-   COMPONENT
------------------------------------------------------- */
 export default function SofortrabattForm() {
   const supabase = getSupabaseBrowser();
   const dealer = useDealer();
@@ -281,7 +282,7 @@ export default function SofortrabattForm() {
 
       if (error) {
         console.error("Sofortrabatt products load error:", error);
-        toast.error("Produkte konnten nicht geladen werden");
+        toast.error(t("sofortrabatt.form.productsLoadError"));
         setTvList([]);
         setSoundbarList([]);
         setSubwooferList([]);
@@ -320,7 +321,7 @@ export default function SofortrabattForm() {
     };
 
     loadProducts();
-  }, [supabase, dealerId, promoType]);
+  }, [supabase, dealerId, promoType, t]);
 
   const filteredTvList = useMemo(() => {
     return tvList.filter((tv: any) => {
@@ -639,7 +640,9 @@ export default function SofortrabattForm() {
               className="h-10 rounded-md border px-3 text-sm w-full md:w-[190px] disabled:bg-gray-100"
             >
               <option value="all">{t("sofortrabatt.tv.filterAll")}</option>
-              <option value="55plus">{t("sofortrabatt.tv.filter55Plus")}</option>
+              <option value="55plus">
+                {t("sofortrabatt.tv.filter55Plus")}
+              </option>
             </select>
 
             <Button
@@ -650,13 +653,15 @@ export default function SofortrabattForm() {
                 setAccessorySearch("");
               }}
             >
-              Reset
+              {t("sofortrabatt.tv.reset")}
             </Button>
           </div>
         </div>
 
         {loadingProducts ? (
-          <p className="text-sm text-gray-500">Produkte werden geladen…</p>
+          <p className="text-sm text-gray-500">
+            {t("sofortrabatt.form.loadingProducts")}
+          </p>
         ) : selectedTV && !showTvGrid ? (
           <div className="rounded-xl border bg-gray-50 p-4">
             <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
@@ -668,9 +673,10 @@ export default function SofortrabattForm() {
                 <p className="text-xs text-gray-500">
                   EAN: {selectedTV.ean || "-"} · {parseTvInches(selectedTV)}"
                 </p>
-                {getPromotionDateText(selectedTV, promoType) && (
+
+                {getPromotionDateText(selectedTV, promoType, t) && (
                   <p className="text-xs text-gray-500 mt-1">
-                    {getPromotionDateText(selectedTV, promoType)}
+                    {getPromotionDateText(selectedTV, promoType, t)}
                   </p>
                 )}
               </div>
@@ -706,22 +712,22 @@ export default function SofortrabattForm() {
                     <p className="text-xs text-gray-500 mt-1">{inches}"</p>
                   )}
 
-                  {getPromotionDateText(tv, promoType) && (
+                  {getPromotionDateText(tv, promoType, t) && (
                     <p className="text-xs text-gray-500 mt-1">
-                      {getPromotionDateText(tv, promoType)}
+                      {getPromotionDateText(tv, promoType, t)}
                     </p>
                   )}
 
                   {promoType === "classic_fixed" && (
                     <p className="text-xs mt-2 text-pink-600">
-                      Sofortrabatt:{" "}
+                      {t("sofortrabatt.cart.tvDiscount")}:{" "}
                       {Number(tv.sofortrabatt_amount || 0).toFixed(2)} CHF
                     </p>
                   )}
 
                   {promoType === "tv55_soundbar_percent" && (
                     <p className="text-xs mt-2 text-green-600">
-                      55"+ TV für 30/50 Promotion
+                      {t("sofortrabatt.tv.eligible")}
                     </p>
                   )}
                 </Card>
@@ -751,7 +757,7 @@ export default function SofortrabattForm() {
                 type="text"
                 value={soundbarSearch}
                 onChange={(e) => setSoundbarSearch(e.target.value)}
-                placeholder="Soundbar suchen…"
+                placeholder={t("sofortrabatt.soundbar.search")}
                 className="h-10 rounded-md border px-3 text-sm w-full md:w-[280px]"
               />
             )}
@@ -759,7 +765,7 @@ export default function SofortrabattForm() {
 
           {filteredSoundbarList.length === 0 ? (
             <p className="text-sm text-gray-500">
-              Keine Soundbar für diese Promotion gefunden.
+              {t("sofortrabatt.soundbar.noneFound")}
             </p>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -776,9 +782,9 @@ export default function SofortrabattForm() {
                   <p className="font-semibold">{getProductLabel(sb)}</p>
                   <p className="text-xs text-gray-500">EAN: {sb.ean}</p>
 
-                  {getPromotionDateText(sb, promoType) && (
+                  {getPromotionDateText(sb, promoType, t) && (
                     <p className="text-xs text-gray-500 mt-1">
-                      {getPromotionDateText(sb, promoType)}
+                      {getPromotionDateText(sb, promoType, t)}
                     </p>
                   )}
                 </Card>
@@ -813,7 +819,7 @@ export default function SofortrabattForm() {
               type="text"
               value={accessorySearch}
               onChange={(e) => setAccessorySearch(e.target.value)}
-              placeholder="Zubehör suchen…"
+              placeholder={t("sofortrabatt.accessory.search")}
               className="h-10 rounded-md border px-3 text-sm w-full md:w-[280px]"
             />
           </div>
@@ -841,9 +847,9 @@ export default function SofortrabattForm() {
                   <p className="font-semibold">{getProductLabel(sw)}</p>
                   <p className="text-xs text-gray-500">EAN: {sw.ean}</p>
 
-                  {getPromotionDateText(sw, promoType) && (
+                  {getPromotionDateText(sw, promoType, t) && (
                     <p className="text-xs text-gray-500 mt-1">
-                      {getPromotionDateText(sw, promoType)}
+                      {getPromotionDateText(sw, promoType, t)}
                     </p>
                   )}
 
