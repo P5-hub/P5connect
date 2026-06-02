@@ -16,10 +16,7 @@ export default function ProductCardSonyPro({
 }) {
   const { t } = useI18n();
 
-  const initialPrice =
-    typeof product.dealer_invoice_price === "number"
-      ? product.dealer_invoice_price
-      : 0;
+  const initialPrice = Number(product.dealer_invoice_price ?? 0); 
 
   const [qty, setQty] = useState(1);
   const [price, setPrice] = useState(initialPrice);
@@ -29,7 +26,7 @@ export default function ProductCardSonyPro({
     setPrice(initialPrice);
     setPriceInput(initialPrice.toFixed(2));
     setQty(1);
-  }, [product.product_id]);
+  }, [product.product_id, initialPrice]);
 
   const retailPrice = product.retail_price ?? null;
   const dealerInvoice = product.dealer_invoice_price ?? null;
