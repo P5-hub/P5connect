@@ -377,60 +377,79 @@ export async function POST(req: NextRequest) {
     const insertedRows = validRows.length - updatedRows;
 
     if (!dry_run && validRows.length > 0) {
-      const { data: existingCampaignProducts, error: existingCampaignProductsError } =
-        await supabaseAdmin
+      const campaignProductRows = validRows.map((row) => ({
+        campaign_id,
+        product_id: row.product_id,
+        active: true,
+        pricing_mode:
+          row.messe_price_netto !== null &&
+          (row.display_price_netto !== null ||
+            row.display_discount_percent !== null)
+            ? "mixed"
+            : row.messe_price_netto !== null
+              ? "messe"
+              : "display",
+        messe_price_netto: row.messe_price_netto,
+        display_price_netto: row.display_price_netto,
+        display_discount_percent: row.display_discount_percent,
+        bonus_relevant: true,
+        notes: row.note,
+        updated_at: now,
+      }));
+
+      if (pricingGroup.code === "standard") {
+        const { error: upsertCampaignProductsError } = await supabaseAdmin
           .from("campaign_products")
-          .select("product_id")
-          .eq("campaign_id", campaign_id)
-          .in("product_id", productIds);
+          .upsert(campaignProductRows, {
+            onConflict: "campaign_id,product_id",
+          });
 
-      if (existingCampaignProductsError) {
-        return NextResponse.json(
-          {
-            error: `Bestehende Kampagnenprodukte konnten nicht geprüft werden: ${existingCampaignProductsError.message}`,
-          },
-          { status: 500 }
-        );
-      }
-
-      const existingCampaignProductIds = new Set(
-        (existingCampaignProducts || []).map((row: any) => Number(row.product_id))
-      );
-
-      const missingCampaignProducts = validRows
-        .filter((row) => !existingCampaignProductIds.has(row.product_id))
-        .map((row) => ({
-          campaign_id,
-          product_id: row.product_id,
-          active: true,
-          pricing_mode:
-            row.messe_price_netto !== null &&
-            (row.display_price_netto !== null ||
-              row.display_discount_percent !== null)
-              ? "mixed"
-              : row.messe_price_netto !== null
-                ? "messe"
-                : "display",
-          messe_price_netto: row.messe_price_netto,
-          display_price_netto: row.display_price_netto,
-          display_discount_percent: row.display_discount_percent,
-          bonus_relevant: true,
-          notes: row.note,
-          updated_at: now,
-        }));
-
-      if (missingCampaignProducts.length > 0) {
-        const { error: insertCampaignProductsError } = await supabaseAdmin
-          .from("campaign_products")
-          .insert(missingCampaignProducts);
-
-        if (insertCampaignProductsError) {
+        if (upsertCampaignProductsError) {
           return NextResponse.json(
             {
-              error: `Fehlende Kampagnenprodukte konnten nicht angelegt werden: ${insertCampaignProductsError.message}`,
+              error: `Standard-Kampagnenprodukte konnten nicht aktualisiert werden: ${upsertCampaignProductsError.message}`,
             },
             { status: 500 }
           );
+        }
+      } else {
+        const { data: existingCampaignProducts, error: existingCampaignProductsError } =
+          await supabaseAdmin
+            .from("campaign_products")
+            .select("product_id")
+            .eq("campaign_id", campaign_id)
+            .in("product_id", productIds);
+
+        if (existingCampaignProductsError) {
+          return NextResponse.json(
+            {
+              error: `Bestehende Kampagnenprodukte konnten nicht geprüft werden: ${existingCampaignProductsError.message}`,
+            },
+            { status: 500 }
+          );
+        }
+
+        const existingCampaignProductIds = new Set(
+          (existingCampaignProducts || []).map((row: any) => Number(row.product_id))
+        );
+
+        const missingCampaignProducts = campaignProductRows.filter(
+          (row) => !existingCampaignProductIds.has(row.product_id)
+        );
+
+        if (missingCampaignProducts.length > 0) {
+          const { error: insertCampaignProductsError } = await supabaseAdmin
+            .from("campaign_products")
+            .insert(missingCampaignProducts);
+
+          if (insertCampaignProductsError) {
+            return NextResponse.json(
+              {
+                error: `Fehlende Kampagnenprodukte konnten nicht angelegt werden: ${insertCampaignProductsError.message}`,
+              },
+              { status: 500 }
+            );
+          }
         }
       }
     }
