@@ -33,11 +33,13 @@ type ReportRow = {
   item_id: number;
   product_id: number | null;
   product_name: string | null;
+  ean: string | null;
   sony_article: string | null;
   menge: number | null;
   preis: number | null;
   pricing_mode: string | null;
   is_display_item: boolean | null;
+  invest: number | null;
   submission: {
     submission_id: number;
     campaign_id: number | null;
@@ -231,11 +233,13 @@ export default function CampaignReportsPage() {
             item_id,
             product_id,
             product_name,
+            ean,
             sony_article,
             menge,
             preis,
             pricing_mode,
             is_display_item,
+            invest,
             submission:submission_id (
               submission_id,
               campaign_id,
@@ -599,14 +603,20 @@ export default function CampaignReportsPage() {
   const exportCsv = () => {
     const header = [
       "Kampagne",
+      "Bestell-Nr",
+      "Position-ID",
+      "Dealer ID",
       "Dealer",
-      "Login",
+      "Händler-Nr",
       "KAM",
       "Ort",
       "Produkt",
+      "EAN",
       "Menge",
       "Preis",
       "Umsatz",
+      "Invest",
+      "Total Invest",
       "Pricing Mode",
       "Status",
       "Datum",
@@ -616,18 +626,26 @@ export default function CampaignReportsPage() {
       const qty = Number(row.menge ?? 0);
       const price = Number(row.preis ?? 0);
       const revenue = qty * price;
+      const invest = Number(row.invest ?? 0);
+      const totalInvest = qty * invest;
       const dealer = row.submission?.dealer;
 
       return [
         selectedCampaign?.name ?? "",
+        row.submission?.submission_id ?? "",
+        row.item_id ?? "",
+        row.submission?.dealer_id ?? "",
         dealer?.name ?? "",
         dealer?.login_nr ?? "",
         dealer?.kam ?? "",
         dealer?.city ?? "",
         row.sony_article || row.product_name || "",
+        row.ean ? `="${row.ean}"` : "",
         qty,
         price,
         revenue,
+        row.invest ?? "",
+        totalInvest,
         row.pricing_mode ?? "",
         row.submission?.status ?? "",
         row.submission?.datum || row.submission?.created_at || "",
@@ -637,7 +655,12 @@ export default function CampaignReportsPage() {
     });
 
     const csv = [header.join(";"), ...lines].join("\n");
-    const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+
+    // Wichtig für Excel: UTF-8 BOM, damit Umlaute und Akzente korrekt angezeigt werden
+    const utf8Bom = "\uFEFF";
+    const blob = new Blob([utf8Bom + csv], {
+      type: "text/csv;charset=utf-8",
+    });
 
     const a = document.createElement("a");
     a.href = URL.createObjectURL(blob);
@@ -646,14 +669,13 @@ export default function CampaignReportsPage() {
 
     setTimeout(() => URL.revokeObjectURL(a.href), 3000);
   };
-
   const exportDealerRankingCsv = () => {
     const header = [
       "Kampagne",
       "Rang",
       "Dealer ID",
       "Händler",
-      "Login",
+      "Händler-Nr",
       "KAM",
       "Ort",
       "Status",
@@ -703,7 +725,12 @@ export default function CampaignReportsPage() {
     });
 
     const csv = [header.join(";"), ...lines].join("\n");
-    const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+
+    // Wichtig für Excel: UTF-8 BOM, damit Umlaute und Akzente korrekt angezeigt werden
+    const utf8Bom = "\uFEFF";
+    const blob = new Blob([utf8Bom + csv], {
+      type: "text/csv;charset=utf-8",
+    });
 
     const a = document.createElement("a");
     a.href = URL.createObjectURL(blob);

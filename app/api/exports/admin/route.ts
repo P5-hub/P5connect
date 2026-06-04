@@ -107,7 +107,7 @@ function buildEmptyRow(isVerkauf: boolean) {
     Lieferdatum_gewuenscht: "",
     Project_ID: "",
     Händler: "",
-    Login: "",
+    "Händler-Nr": "",
     Kontaktperson: "",
     Mail: "",
     Strasse: "",
@@ -131,6 +131,7 @@ function buildEmptyRow(isVerkauf: boolean) {
   base.Zwischensumme = "";
   base.Netto_Retail = "";
   base.Invest = "";
+  base.Total_Invest = "";
   base.Marge_Neu = "";
   base.POI_Neu = "";
 
@@ -299,7 +300,7 @@ export async function POST(req: NextRequest) {
         Project_ID: s.project_id ?? "",
 
         Händler: dealerName,
-        Login: dealer.login_nr ?? "",
+        "Händler-Nr": dealer.login_nr ?? "",
         Kontaktperson: dealer.contact_person ?? "",
         Mail: dealer.email ?? "",
         Strasse: dealer.street ?? "",
@@ -330,6 +331,7 @@ export async function POST(req: NextRequest) {
         row.Zwischensumme = 0;
         row.Netto_Retail = "";
         row.Invest = "";
+        row.Total_Invest = "";
         row.Marge_Neu = "";
         row.POI_Neu = "";
 
@@ -348,6 +350,8 @@ export async function POST(req: NextRequest) {
 
         const qty = Number(item.menge ?? 0);
         const price = Number(item.preis ?? 0);
+        const invest = Number(item.invest ?? 0);
+        const totalInvest = qty * invest;
 
         const productName =
           item.product_name ??
@@ -379,6 +383,7 @@ export async function POST(req: NextRequest) {
         row.Zwischensumme = +(qty * price).toFixed(2);
         row.Netto_Retail = item.netto_retail ?? "";
         row.Invest = item.invest ?? "";
+        row.Total_Invest = +totalInvest.toFixed(2);
         row.Marge_Neu = item.marge_neu ?? "";
         row.POI_Neu = item.calc_price_on_invoice ?? "";
 
