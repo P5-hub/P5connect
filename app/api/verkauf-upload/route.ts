@@ -146,6 +146,17 @@ export async function POST(req: NextRequest) {
     // 1️⃣ SUBMISSION SPEICHERN
     // =====================================================
 
+    const stock_total = items.reduce(
+      (sum: number, item: any) =>
+        sum +
+        Number(
+          item.stock_quantity ??
+          item.stockQuantity ??
+          0
+        ),
+      0
+    );
+
     const submissionInsert: SubmissionInsert = {
       dealer_id,
       typ: "verkauf",
@@ -155,6 +166,7 @@ export async function POST(req: NextRequest) {
       week_end,
       sony_share_qty,
       sony_share_revenue,
+      stock_total,
       status: "approved",
       created_at: new Date().toISOString(),
     };
@@ -184,7 +196,25 @@ export async function POST(req: NextRequest) {
       ean: normalizeEAN(item.ean),
       product_name: item.product_name ?? null,
       sony_article: item.sony_article ?? null,
-      menge: Number(item.quantity ?? item.menge ?? 1),
+
+      menge: Number(
+        item.quantity ??
+        item.menge ??
+        0
+      ),
+
+      stock_quantity: Number(
+        item.stock_quantity ??
+        item.stockQuantity ??
+        0
+      ),
+
+      stock_date:
+        item.stock_date ??
+        item.stockDate ??
+        item.date ??
+        new Date().toISOString().slice(0, 10),
+
       preis: item.price ?? item.preis ?? null,
       serial: item.serial ?? item.seriennummer ?? null,
       datum: item.date ?? new Date().toISOString().slice(0, 10),

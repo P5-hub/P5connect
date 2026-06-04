@@ -34,9 +34,6 @@ export default function CartVerkauf() {
   const [loadingSubmit, setLoadingSubmit] = useState(false);
   const [success, setSuccess] = useState(false);
 
-  /* ----------------------------------------------------
-     DEALER AUS URL LADEN
-  ---------------------------------------------------- */
   useEffect(() => {
     const loadDealer = async () => {
       if (!dealerIdFromUrl) {
@@ -63,10 +60,6 @@ export default function CartVerkauf() {
     loadDealer();
   }, [dealerIdFromUrl, supabase, t]);
 
-  /* ----------------------------------------------------
-     Pflichtfelder
-  ---------------------------------------------------- */
-
   const [sonyShareQty, setSonyShareQty] = useState<number>(30);
   const [sonyShareRevenue, setSonyShareRevenue] = useState<number>(30);
 
@@ -78,12 +71,23 @@ export default function CartVerkauf() {
 
     d.setUTCDate(d.getUTCDate() + 4 - (d.getUTCDay() || 7));
     const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
-    return Math.ceil((((d.getTime() - yearStart.getTime()) / 86400000) + 1) / 7);
+
+    return Math.ceil(
+      (((d.getTime() - yearStart.getTime()) / 86400000) + 1) / 7
+    );
   });
 
-  /* ----------------------------------------------------
-     SUBMIT
-  ---------------------------------------------------- */
+  const stockTotal = items.reduce(
+    (sum: number, item: any) =>
+      sum + Number(item.stock_quantity ?? item.stockQuantity ?? 0),
+    0
+  );
+
+  const salesTotal = items.reduce(
+    (sum: number, item: any) =>
+      sum + Number(item.quantity ?? item.menge ?? 0),
+    0
+  );
 
   const submitSales = async () => {
     if (!dealer?.dealer_id) {
@@ -110,6 +114,7 @@ export default function CartVerkauf() {
           calendar_week: calendarWeek,
           sony_share_qty: sonyShareQty,
           sony_share_revenue: sonyShareRevenue,
+          stock_total: stockTotal,
         }),
       });
 
@@ -129,17 +134,13 @@ export default function CartVerkauf() {
     }
   };
 
-  /* ----------------------------------------------------
-     RENDER
-  ---------------------------------------------------- */
-
   if (loadingDealer) {
     return <p className="p-4 text-gray-500">{t("sales.loading.dealer")}</p>;
   }
 
   return (
     <Sheet open={open} onOpenChange={closeCart}>
-      <SheetContent side="right" className="w-full sm:w-[600px] flex flex-col">
+      <SheetContent side="right" className="w-full sm:w-[650px] flex flex-col">
         <SheetHeader>
           <SheetTitle className="flex items-center gap-2">
             <BarChart3 className="w-5 h-5 text-green-600" />
@@ -158,7 +159,8 @@ export default function CartVerkauf() {
                 {t("sales.cart.dealer.customerNo")}: <b>{dealer.login_nr}</b>
               </div>
               <div>
-                {t("sales.cart.dealer.contact")}: <b>{dealer.contact_person}</b>
+                {t("sales.cart.dealer.contact")}:{" "}
+                <b>{dealer.contact_person}</b>
               </div>
               <div>
                 {t("sales.cart.dealer.phone")}: <b>{dealer.phone}</b>
@@ -176,6 +178,81 @@ export default function CartVerkauf() {
             </div>
           </div>
         )}
+
+        <div className="mb-4 border rounded-lg overflow-hidden">
+          <div className="bg-gray-50 px-3 py-2 text-xs font-semibold text-gray-700">
+             {t("sales.cart.reportedProducts")}
+          </div>
+
+          {items.length === 0 ? (
+            <div className="p-3 text-xs text-gray-500">
+              {t("sales.errors.emptyCart")}
+            </div>
+          ) : (
+            <div className="divide-y max-h-[320px] overflow-y-auto">
+              {items.map((item: any, index: number) => {
+                const quantity = Number(item.quantity ?? item.menge ?? 0);
+                const stockQuantity = Number(
+                  item.stock_quantity ?? item.stockQuantity ?? 0
+                );
+                const price = item.price ?? item.preis ?? null;
+
+                return (
+                  <div key={index} className="p-3 text-xs">
+                    <div className="font-semibold text-gray-900">
+                      {item.product_name || item.sony_article || "-"}
+                    </div>
+
+                    <div className="mt-1 grid grid-cols-2 gap-x-4 gap-y-1 text-gray-600">
+                      <div>
+                        {t("sales.cart.item.ean")}: <b>{item.ean || "-"}</b>
+                      </div>
+
+                      <div>
+                        {t("sales.cart.item.sale")}: <b>{quantity}</b>
+                      </div>
+
+                      <div>
+                        {t("sales.cart.item.stock")}: <b>{stockQuantity}</b>
+                      </div>
+
+                      <div>
+                        {t("sales.cart.item.price")}:{" "}
+                        <b>
+                          {price !== null && price !== undefined && price !== ""
+                            ? `CHF ${Number(price).toFixed(2)}`
+                            : "-"}
+                        </b>
+                      </div>
+
+                      <div>
+                        {t("sales.cart.item.serialNumber")}:{" "}
+                        <b>{item.seriennummer || item.serial || "-"}</b>
+                      </div>
+
+                      <div>
+                        {t("sales.cart.item.stockDate")}:{" "}
+                        <b>{item.stock_date || item.stockDate || "-"}</b>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          {items.length > 0 && (
+            <div className="bg-gray-50 px-3 py-2 text-xs text-gray-700 grid grid-cols-2 gap-2">
+              <div>
+                {t("sales.cart.totalSale")}: <b>{salesTotal}</b>
+              </div>
+
+              <div>
+                {t("sales.cart.totalStock")}: <b>{stockTotal}</b>
+              </div>
+            </div>
+          )}
+        </div>
 
         <div className="grid grid-cols-2 gap-4 mb-4">
           <div>

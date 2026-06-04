@@ -17,25 +17,26 @@ export default function ProductCardVerkauf({
 }) {
   const { t } = useI18n();
 
-  const [quantity, setQuantity] = useState(1);
+  const [quantity, setQuantity] = useState(0);
+  const [stockQuantity, setStockQuantity] = useState(0);
   const [price, setPrice] = useState<number | undefined>(undefined);
-  const [seriennummer, setSeriennummer] = useState("");
   const [added, setAdded] = useState(false);
 
   const handleReport = () => {
     onReportSale({
       ...product,
       quantity,
+      stock_quantity: stockQuantity,
+      stock_date: new Date().toISOString().split("T")[0],
       price,
-      seriennummer,
     });
 
     setAdded(true);
     setTimeout(() => setAdded(false), 2000);
 
-    setQuantity(1);
+    setQuantity(0);
+    setStockQuantity(0);
     setPrice(undefined);
-    setSeriennummer("");
   };
 
   return (
@@ -51,7 +52,9 @@ export default function ProductCardVerkauf({
                 product.sony_article ||
                 t("sales.card.unknownModel")}
             </h3>
+
             <p className="text-xs text-gray-500">{product.brand}</p>
+
             <p className="text-xs text-gray-400">
               {t("sales.card.ean")}: {product.ean || "-"}
             </p>
@@ -62,11 +65,30 @@ export default function ProductCardVerkauf({
               <label className="block text-xs text-gray-500 mb-1">
                 {t("sales.card.quantity")}
               </label>
+
               <Input
                 type="number"
-                min={1}
+                min={0}
                 value={quantity}
-                onChange={(e) => setQuantity(parseInt(e.target.value) || 1)}
+                onChange={(e) =>
+                  setQuantity(Math.max(0, Number(e.target.value) || 0))
+                }
+                className="text-center text-sm font-medium"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs text-gray-500 mb-1">
+                {t("sales.card.stock")}
+              </label>
+
+              <Input
+                type="number"
+                min={0}
+                value={stockQuantity}
+                onChange={(e) =>
+                  setStockQuantity(Math.max(0, Number(e.target.value) || 0))
+                }
                 className="text-center text-sm font-medium"
               />
             </div>
@@ -75,26 +97,18 @@ export default function ProductCardVerkauf({
               <label className="block text-xs text-gray-500 mb-1">
                 {t("sales.card.price")}
               </label>
+
               <Input
                 type="number"
                 value={price ?? ""}
                 onChange={(e) =>
-                  setPrice(e.target.value ? parseFloat(e.target.value) : undefined)
+                  setPrice(
+                    e.target.value
+                      ? parseFloat(e.target.value)
+                      : undefined
+                  )
                 }
                 className="text-center text-sm font-medium"
-              />
-            </div>
-
-            <div>
-              <label className="block text-xs text-gray-500 mb-1">
-                {t("sales.card.serialNumber")}
-              </label>
-              <Input
-                type="text"
-                value={seriennummer}
-                onChange={(e) => setSeriennummer(e.target.value)}
-                placeholder={t("sales.card.serialPlaceholder")}
-                className="text-sm font-medium"
               />
             </div>
           </div>

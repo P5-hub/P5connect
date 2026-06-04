@@ -61,6 +61,8 @@ export async function GET(req: NextRequest) {
         "kam_name",
         "anzahl_meldungen",
         "total_stueck",
+        "stock_total",
+        "letzter_lagerstand",
         "sony_umsatz",
         "avg_sony_share",
         "gesamtumsatz",

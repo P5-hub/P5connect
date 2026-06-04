@@ -87,6 +87,7 @@ async function exportSubmissions(
   type: SubmissionType
 ) {
   const supabase = await getSupabaseServer();
+  const isVerkauf = type === "verkauf";
 
   const { data, error } = await supabase
     .from("submissions")
@@ -112,8 +113,13 @@ async function exportSubmissions(
         country
       ),
       submission_items(
+        product_name,
+        ean,
+        sony_article,
         menge,
         preis,
+        stock_quantity,
+        stock_date,
         serial,
         comment,
         products(
@@ -162,7 +168,7 @@ async function exportSubmissions(
     const items = s.submission_items ?? [];
 
     if (items.length === 0) {
-      rows.push({
+      const emptyRow: Record<string, any> = {
         ...header,
         Produkt: "",
         EAN: "",
@@ -170,11 +176,23 @@ async function exportSubmissions(
         Gruppe: "",
         Kategorie: "",
         Menge: 0,
-        Preis: 0,
-        Zwischensumme: 0,
-        Seriennummer: "",
-        Kommentar_Item: "",
-      });
+      };
+
+      if (isVerkauf) {
+        emptyRow.Lagerbestand = "";
+        emptyRow.Lagerdatum = "";
+      }
+
+      emptyRow.Preis = 0;
+      emptyRow.Zwischensumme = 0;
+
+      if (!isVerkauf) {
+        emptyRow.Seriennummer = "";
+      }
+
+      emptyRow.Kommentar_Item = "";
+
+      rows.push(emptyRow);
       return;
     }
 
@@ -183,19 +201,42 @@ async function exportSubmissions(
       const qty = Number(it.menge ?? 0);
       const price = Number(it.preis ?? 0);
 
-      rows.push({
+      const productName =
+        it.product_name ??
+        it.sony_article ??
+        p.product_name ??
+        "";
+
+      const ean =
+        it.ean ??
+        p.ean ??
+        "";
+
+      const row: Record<string, any> = {
         ...header,
-        Produkt: p.product_name ?? "",
-        EAN: p.ean ?? "",
+        Produkt: productName,
+        EAN: ean,
         Brand: p.brand ?? "",
         Gruppe: p.gruppe ?? "",
         Kategorie: p.category ?? "",
         Menge: qty,
-        Preis: price,
-        Zwischensumme: +(qty * price).toFixed(2),
-        Seriennummer: it.serial ?? "",
-        Kommentar_Item: it.comment ?? "",
-      });
+      };
+
+      if (isVerkauf) {
+        row.Lagerbestand = it.stock_quantity ?? "";
+        row.Lagerdatum = it.stock_date ?? "";
+      }
+
+      row.Preis = price;
+      row.Zwischensumme = +(qty * price).toFixed(2);
+
+      if (!isVerkauf) {
+        row.Seriennummer = it.serial ?? "";
+      }
+
+      row.Kommentar_Item = it.comment ?? "";
+
+      rows.push(row);
     });
   });
 

@@ -35,16 +35,17 @@ export async function GET() {
 
     if (error) throw error;
 
-    // Fallback, falls keine Daten vorhanden
     const products = (data ?? []) as ProductRow[];
 
     const header = [
       "EAN",
       "Produktname",
       "Menge",
+      "Lagerbestand",
       "Verkaufspreis",
       "Seriennummer",
       "Datum",
+      "Lagerdatum",
       "Kommentar",
     ];
 
@@ -55,10 +56,20 @@ export async function GET() {
       toCSVRow([
         p.ean ?? "",
         `${p.brand ?? ""} ${p.product_name ?? ""}`.trim(),
-        1,
+
+        0, // Menge verkauft
+        1, // Lagerbestand
+
         p.retail_price ?? "",
-        (p.ean || "").replace(/\D/g, "").slice(-7).padStart(7, "0"),
-        dateStr,
+
+        (p.ean || "")
+          .replace(/\D/g, "")
+          .slice(-7)
+          .padStart(7, "0"),
+
+        dateStr, // Verkaufsdatum
+        dateStr, // Lagerdatum
+
         "",
       ])
     );
@@ -74,9 +85,14 @@ export async function GET() {
     });
   } catch (err: any) {
     console.error("CSV Template Error:", err);
+
     return NextResponse.json(
-      { error: err.message || "Server error" },
-      { status: 500 }
+      {
+        error: err.message || "Server error",
+      },
+      {
+        status: 500,
+      }
     );
   }
 }

@@ -52,6 +52,8 @@ const money = (v: number) =>
     maximumFractionDigits: 2,
   }).format(v);
 
+const todayIsoDate = () => new Date().toISOString().slice(0, 10);
+
 /* -------------------------------------------------------
    UNIFIED CART
 ------------------------------------------------------- */
@@ -177,7 +179,10 @@ export default function UnifiedCart({
 
     date.setUTCDate(date.getUTCDate() + 4 - (date.getUTCDay() || 7));
     const yearStart = new Date(Date.UTC(date.getUTCFullYear(), 0, 1));
-    return Math.ceil((((date.getTime() - yearStart.getTime()) / 86400000) + 1) / 7);
+
+    return Math.ceil(
+      (((date.getTime() - yearStart.getTime()) / 86400000) + 1) / 7
+    );
   };
 
   const [calendarWeekLocal, setCalendarWeekLocal] = useState<number>(
@@ -185,20 +190,27 @@ export default function UnifiedCart({
   );
 
   const [inhouseQtyShareLocal, setInhouseQtyShareLocal] = useState<number>(
-    num(extra?.inhouseQtyShare) || 50
+    num(extra?.inhouseQtyShare ?? extra?.sony_share_qty) || 50
   );
 
-  const [inhouseRevenueShareLocal, setInhouseRevenueShareLocal] = useState<number>(
-    num(extra?.inhouseRevenueShare) || 50
-  );
+  const [inhouseRevenueShareLocal, setInhouseRevenueShareLocal] =
+    useState<number>(
+      num(extra?.inhouseRevenueShare ?? extra?.sony_share_revenue) || 50
+    );
 
   useEffect(() => {
     if (!open) return;
 
+    setSuccess(false);
     setCalendarWeekLocal(num(extra?.calendarWeek) || getIsoCalendarWeek());
-    setInhouseQtyShareLocal(num(extra?.inhouseQtyShare) || 50);
-    setInhouseRevenueShareLocal(num(extra?.inhouseRevenueShare) || 50);
+    setInhouseQtyShareLocal(
+      num(extra?.inhouseQtyShare ?? extra?.sony_share_qty) || 50
+    );
+    setInhouseRevenueShareLocal(
+      num(extra?.inhouseRevenueShare ?? extra?.sony_share_revenue) || 50
+    );
     setConfirmSonyShare(false);
+
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
@@ -214,6 +226,15 @@ export default function UnifiedCart({
 
   const sonyQty = useMemo(
     () => cart.reduce((s, i) => s + num(i.quantity ?? i.menge ?? 0), 0),
+    [cart]
+  );
+
+  const stockTotal = useMemo(
+    () =>
+      cart.reduce(
+        (s, i) => s + num(i.stock_quantity ?? i.stockQuantity ?? 0),
+        0
+      ),
     [cart]
   );
 
@@ -310,6 +331,7 @@ export default function UnifiedCart({
         payload.calendar_week = calendarWeekLocal;
         payload.sony_share_qty = inhouseQtyShareLocal;
         payload.sony_share_revenue = inhouseRevenueShareLocal;
+        payload.stock_total = stockTotal;
       }
 
       if (mode === "support") {
@@ -341,7 +363,7 @@ export default function UnifiedCart({
 
       if (!res.ok) {
         const text = await res.text();
-        throw new Error(text || "Einreichung fehlgeschlagen");
+        throw new Error(text || t("common.errors.submitFailed"));
       }
 
       setSuccess(true);
@@ -393,19 +415,23 @@ export default function UnifiedCart({
         </Button>
       </SheetTrigger>
 
-      <SheetContent side="right" className="w-full sm:w-[600px] flex flex-col">
+      <SheetContent side="right" className="w-full sm:w-[640px] flex flex-col">
         <SheetHeader>
           <SheetTitle className={cfg.color}>{cfg.title}</SheetTitle>
         </SheetHeader>
 
         {loadingDealer ? (
-          <p className="text-sm text-gray-500 mt-2">{t("sales.loading.dealer")}</p>
+          <p className="text-sm text-gray-500 mt-2">
+            {t("sales.loading.dealer")}
+          </p>
         ) : activeDealer ? (
           <div className="mt-2">
             <DealerInfoCompact dealer={activeDealer} />
           </div>
         ) : (
-          <p className="text-sm text-red-500 mt-2">{t("sales.errors.dealerNotFound")}</p>
+          <p className="text-sm text-red-500 mt-2">
+            {t("sales.errors.dealerNotFound")}
+          </p>
         )}
 
         {success ? (
@@ -420,7 +446,9 @@ export default function UnifiedCart({
             {mode === "verkauf" && (
               <div className="mt-4 border rounded-2xl p-4 bg-gray-50 space-y-4">
                 <div className="flex items-center justify-between">
-                  <h3 className="font-semibold text-sm">{t("sales.cart.title")}</h3>
+                  <h3 className="font-semibold text-sm">
+                    {t("sales.cart.title")}
+                  </h3>
                   <span className="text-xs text-gray-500">
                     {t("sales.page.noteForUpload")}
                   </span>
@@ -457,6 +485,7 @@ export default function UnifiedCart({
                         const v = num(e.target.value);
                         setInhouseQtyShareLocal(v);
                         pushExtra("inhouseQtyShare", v);
+                        pushExtra("sony_share_qty", v);
                       }}
                     />
                   </div>
@@ -474,26 +503,45 @@ export default function UnifiedCart({
                         const v = num(e.target.value);
                         setInhouseRevenueShareLocal(v);
                         pushExtra("inhouseRevenueShare", v);
+                        pushExtra("sony_share_revenue", v);
                       }}
                     />
                   </div>
                 </div>
 
-                <div className="border rounded-xl bg-white p-3 text-sm">
+                <div className="border rounded-xl bg-white p-3 text-sm space-y-1">
                   <div className="flex justify-between">
-                    <span className="font-medium">{t("sales.upload.sonyQty")}</span>
+                    <span className="font-medium">
+                      {t("sales.upload.sonyQty")}
+                    </span>
                     <span>{sonyQty}</span>
                   </div>
+
                   <div className="flex justify-between">
-                    <span className="font-medium">{t("sales.upload.totalQty")}</span>
+                    <span className="font-medium">
+                      {t("sales.upload.reportedStock")}
+                    </span>
+                    <span>{stockTotal}</span>
+                  </div>
+
+                  <div className="flex justify-between">
+                    <span className="font-medium">
+                      {t("sales.upload.totalQty")}
+                    </span>
                     <span>{Math.round(totalQty)}</span>
                   </div>
+
                   <div className="flex justify-between">
-                    <span className="font-medium">{t("sales.upload.sonyRevenue")}</span>
+                    <span className="font-medium">
+                      {t("sales.upload.sonyRevenue")}
+                    </span>
                     <span>{money(sonyRevenue)}</span>
                   </div>
+
                   <div className="flex justify-between">
-                    <span className="font-medium">{t("sales.upload.totalRevenue")}</span>
+                    <span className="font-medium">
+                      {t("sales.upload.totalRevenue")}
+                    </span>
                     <span>{money(totalRevenue)}</span>
                   </div>
                 </div>
@@ -523,8 +571,20 @@ export default function UnifiedCart({
                     item.product_name ??
                     item.sony_article ??
                     t("bestellung.common.unknownProduct");
+
                   const ean = item.ean ?? "-";
-                  const serienWert = item.seriennummer ?? item.serial ?? "";
+
+                  const quantityValue =
+                    mode === "verkauf"
+                      ? num(item.quantity ?? item.menge ?? 0)
+                      : num(item.quantity ?? item.menge ?? 1) || 1;
+
+                  const stockValue = num(
+                    item.stock_quantity ?? item.stockQuantity ?? 0
+                  );
+
+                  const stockDateValue =
+                    item.stock_date ?? item.stockDate ?? todayIsoDate();
 
                   return (
                     <div
@@ -538,13 +598,20 @@ export default function UnifiedCart({
                             {t("sales.card.ean")}: {ean}
                           </p>
                         </div>
+
                         <Trash2
                           className="w-4 h-4 text-red-500 cursor-pointer mt-1"
                           onClick={() => removeItem(i)}
                         />
                       </div>
 
-                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                      <div
+                        className={
+                          mode === "verkauf"
+                            ? "grid grid-cols-1 sm:grid-cols-2 gap-3"
+                            : "grid grid-cols-1 sm:grid-cols-3 gap-3"
+                        }
+                      >
                         <div className="space-y-1">
                           <label className="text-xs text-gray-600">
                             {mode === "support"
@@ -553,17 +620,41 @@ export default function UnifiedCart({
                           </label>
                           <Input
                             type="number"
-                            min={1}
-                            value={num(item.quantity ?? 1)}
-                            onChange={(e) =>
+                            min={mode === "verkauf" ? 0 : 1}
+                            value={quantityValue}
+                            onChange={(e) => {
+                              const v = num(e.target.value);
+
                               updateItem(
                                 i,
                                 "quantity",
-                                Math.max(1, num(e.target.value))
-                              )
-                            }
+                                mode === "verkauf"
+                                  ? Math.max(0, v)
+                                  : Math.max(1, v)
+                              );
+                            }}
                           />
                         </div>
+
+                        {mode === "verkauf" && (
+                          <div className="space-y-1">
+                            <label className="text-xs text-gray-600">
+                              {t("sales.upload.fileTable.stockQuantity")}
+                            </label>
+                            <Input
+                              type="number"
+                              min={0}
+                              value={stockValue}
+                              onChange={(e) =>
+                                updateItem(
+                                  i,
+                                  "stock_quantity",
+                                  Math.max(0, num(e.target.value))
+                                )
+                              }
+                            />
+                          </div>
+                        )}
 
                         {mode !== "support" && (
                           <div className="space-y-1">
@@ -576,7 +667,7 @@ export default function UnifiedCart({
                               onChange={(e) =>
                                 updateItem(i, "price", num(e.target.value))
                               }
-                              placeholder="z.B. 499"
+                              placeholder={t("sales.placeholders.price")}
                             />
                           </div>
                         )}
@@ -593,7 +684,7 @@ export default function UnifiedCart({
                               onChange={(e) =>
                                 updateItem(i, "supportbetrag", num(e.target.value))
                               }
-                              placeholder="z.B. 50"
+                              placeholder={t("support.placeholders.amount")}
                             />
                           </div>
                         )}
@@ -601,15 +692,14 @@ export default function UnifiedCart({
                         {mode === "verkauf" && (
                           <div className="space-y-1">
                             <label className="text-xs text-gray-600">
-                              {t("sales.card.serialNumber")}
+                              {t("sales.upload.fileTable.stockDate")}
                             </label>
                             <Input
-                              type="text"
-                              value={serienWert}
-                              onChange={(e) => {
-                                updateItem(i, "seriennummer", e.target.value);
-                              }}
-                              placeholder={t("sales.card.serialPlaceholder")}
+                              type="date"
+                              value={stockDateValue}
+                              onChange={(e) =>
+                                updateItem(i, "stock_date", e.target.value)
+                              }
                             />
                           </div>
                         )}

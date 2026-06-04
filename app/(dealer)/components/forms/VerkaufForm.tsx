@@ -25,13 +25,156 @@ type CsvRow = {
   ean: string;
   product_name: string;
   quantity: number;
+  stock_quantity: number;
   price: number;
-  seriennummer?: string;
   date?: string;
+  stock_date?: string;
   comment?: string;
 };
 
 /* ------------------------------------------------------------------ */
+/* HELPERS */
+/* ------------------------------------------------------------------ */
+
+function getTodayIsoDate(): string {
+  return new Date().toISOString().slice(0, 10);
+}
+
+function num(value: any): number {
+  if (value === null || value === undefined || value === "") return 0;
+
+  if (typeof value === "number") {
+    return Number.isFinite(value) ? value : 0;
+  }
+
+  const cleaned = String(value)
+    .trim()
+    .replace("CHF", "")
+    .replace(/\s/g, "")
+    .replace(",", ".");
+
+  const parsed = Number(cleaned);
+
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function getField(row: any, aliases: string[]): any {
+  if (!row || typeof row !== "object") return undefined;
+
+  for (const alias of aliases) {
+    if (row[alias] !== undefined && row[alias] !== null) {
+      return row[alias];
+    }
+  }
+
+  const keys = Object.keys(row);
+
+  for (const alias of aliases) {
+    const foundKey = keys.find(
+      (key) =>
+        key.trim().toLowerCase() === alias.trim().toLowerCase()
+    );
+
+    if (foundKey && row[foundKey] !== undefined && row[foundKey] !== null) {
+      return row[foundKey];
+    }
+  }
+
+  return undefined;
+}
+
+function normalizeEan(value: any): string {
+  if (value === null || value === undefined || value === "") return "";
+
+  if (typeof value === "number") {
+    return value.toFixed(0);
+  }
+
+  let s = String(value).trim();
+
+  if (s.includes("e") || s.includes("E")) {
+    const n = Number(s);
+    if (Number.isFinite(n)) {
+      return n.toFixed(0);
+    }
+  }
+
+  if (s.endsWith(".0")) {
+    s = s.slice(0, -2);
+  }
+
+  return s;
+}
+
+function normalizeDate(value: any): string {
+  if (value === null || value === undefined || value === "") return "";
+
+  if (value instanceof Date && !isNaN(value.getTime())) {
+    return value.toISOString().slice(0, 10);
+  }
+
+  if (typeof value === "number" && Number.isFinite(value)) {
+    const parsed = XLSX.SSF.parse_date_code(value);
+
+    if (parsed) {
+      const yyyy = String(parsed.y).padStart(4, "0");
+      const mm = String(parsed.m).padStart(2, "0");
+      const dd = String(parsed.d).padStart(2, "0");
+
+      return `${yyyy}-${mm}-${dd}`;
+    }
+  }
+
+  const s = String(value).trim();
+
+  if (!s) return "";
+
+  if (/^\d+(\.\d+)?$/.test(s)) {
+    const parsed = XLSX.SSF.parse_date_code(Number(s));
+
+    if (parsed) {
+      const yyyy = String(parsed.y).padStart(4, "0");
+      const mm = String(parsed.m).padStart(2, "0");
+      const dd = String(parsed.d).padStart(2, "0");
+
+      return `${yyyy}-${mm}-${dd}`;
+    }
+  }
+
+  if (/^\d{4}-\d{2}-\d{2}/.test(s)) {
+    return s.slice(0, 10);
+  }
+
+  if (s.includes(".")) {
+    const parts = s.split(".");
+
+    if (parts.length === 3) {
+      const day = Number(parts[0]);
+      const month = Number(parts[1]);
+      const year = Number(parts[2].slice(0, 4));
+
+      if (
+        Number.isFinite(day) &&
+        Number.isFinite(month) &&
+        Number.isFinite(year)
+      ) {
+        return `${String(year).padStart(4, "0")}-${String(month).padStart(
+          2,
+          "0"
+        )}-${String(day).padStart(2, "0")}`;
+      }
+    }
+  }
+
+  const parsed = new Date(s);
+
+  if (!isNaN(parsed.getTime())) {
+    return parsed.toISOString().slice(0, 10);
+  }
+
+  return s;
+}
+
 function getCurrentIsoCalendarWeek(): number {
   const d = new Date();
   const date = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
@@ -39,15 +182,22 @@ function getCurrentIsoCalendarWeek(): number {
   date.setUTCDate(date.getUTCDate() + 4 - (date.getUTCDay() || 7));
   const yearStart = new Date(Date.UTC(date.getUTCFullYear(), 0, 1));
 
-  return Math.ceil((((date.getTime() - yearStart.getTime()) / 86400000) + 1) / 7);
+  return Math.ceil(
+    (((date.getTime() - yearStart.getTime()) / 86400000) + 1) / 7
+  );
 }
 
 function getLastCalendarWeek(): number {
   const now = new Date();
   const d = new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()));
+
   d.setUTCDate(d.getUTCDate() - ((d.getUTCDay() + 6) % 7) - 7);
+
   const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
-  return Math.ceil((((d.getTime() - yearStart.getTime()) / 86400000) + 1) / 7);
+
+  return Math.ceil(
+    (((d.getTime() - yearStart.getTime()) / 86400000) + 1) / 7
+  );
 }
 
 function getCalendarWeekFromDate(dateStr: string): number | null {
@@ -57,16 +207,19 @@ function getCalendarWeekFromDate(dateStr: string): number | null {
 
   if (dateStr.includes(".")) {
     const parts = dateStr.split(".");
+
     if (parts.length === 3) {
       const day = Number(parts[0]);
       const month = Number(parts[1]) - 1;
       const year = Number(parts[2]);
+
       date = new Date(Date.UTC(year, month, day));
     }
   }
 
   if (!date && dateStr.includes("-")) {
     const parsed = new Date(dateStr);
+
     if (!isNaN(parsed.getTime())) {
       date = new Date(
         Date.UTC(parsed.getFullYear(), parsed.getMonth(), parsed.getDate())
@@ -77,9 +230,17 @@ function getCalendarWeekFromDate(dateStr: string): number | null {
   if (!date || isNaN(date.getTime())) return null;
 
   date.setUTCDate(date.getUTCDate() + 4 - (date.getUTCDay() || 7));
+
   const yearStart = new Date(Date.UTC(date.getUTCFullYear(), 0, 1));
-  return Math.ceil((((date.getTime() - yearStart.getTime()) / 86400000) + 1) / 7);
+
+  return Math.ceil(
+    (((date.getTime() - yearStart.getTime()) / 86400000) + 1) / 7
+  );
 }
+
+/* ------------------------------------------------------------------ */
+/* COMPONENT */
+/* ------------------------------------------------------------------ */
 
 export default function VerkaufForm() {
   const { dealer, loading } = useActiveDealer();
@@ -98,54 +259,134 @@ export default function VerkaufForm() {
   const [confirmSonyShareCsv, setConfirmSonyShareCsv] = useState(false);
 
   /* ------------------------------------------------------------------ */
-  /* CSV PARSER */
+  /* CSV / XLSX PARSER */
   /* ------------------------------------------------------------------ */
 
-  const parseFile = async (file: File) => {
-    const normalize = (data: any[]): CsvRow[] =>
-      data.map((r) => ({
-        ean: String(r.EAN ?? r.ean ?? ""),
-        product_name: String(r.Produktname ?? r.product_name ?? ""),
-        quantity: Number(r.Menge ?? r.quantity ?? 0),
-        price: Number(r.Verkaufspreis ?? r.price ?? 0),
-        seriennummer: r.Seriennummer ?? "",
-        date: r.Datum ?? "",
-        comment: r.Kommentar ?? "",
-      }));
+  const normalizeRows = (data: any[]): CsvRow[] =>
+    data
+      .map((r) => {
+        const rawDate = getField(r, ["Datum", "date", "Verkaufsdatum"]);
+        const rawStockDate = getField(r, [
+          "Lagerdatum",
+          "Stockdatum",
+          "stock_date",
+          "stockDate",
+        ]);
 
+        const date = normalizeDate(rawDate);
+        const stockDate =
+          normalizeDate(rawStockDate) ||
+          date ||
+          getTodayIsoDate();
+
+        return {
+          ean: normalizeEan(getField(r, ["EAN", "ean"])),
+
+          product_name: String(
+            getField(r, [
+              "Produktname",
+              "Produkt",
+              "product_name",
+              "product",
+              "Modell",
+              "Artikel",
+              "sony_article",
+              "SonyArtikel",
+            ]) ?? ""
+          ).trim(),
+
+          quantity: num(
+            getField(r, ["Menge", "quantity", "Anzahl", "Verkauf", "Verkauft"])
+          ),
+
+          stock_quantity: num(
+            getField(r, [
+              "Lagerbestand",
+              "Lager",
+              "Stock",
+              "stock",
+              "stock_quantity",
+              "stockQuantity",
+            ])
+          ),
+
+          price: num(
+            getField(r, [
+              "Verkaufspreis",
+              "Preis",
+              "price",
+              "VK",
+              "Retail",
+              "Zwischensumme",
+            ])
+          ),
+
+          date,
+          stock_date: stockDate,
+
+          comment: String(
+            getField(r, ["Kommentar", "Kommentar_Item", "comment"]) ?? ""
+          ),
+        };
+      })
+      .filter((r) => r.ean || r.product_name);
+
+  const parseFile = async (file: File) => {
     try {
-      if (file.name.endsWith(".csv")) {
+      if (file.name.toLowerCase().endsWith(".csv")) {
         Papa.parse(file, {
           header: true,
           skipEmptyLines: true,
           complete: (res) => {
-            const normalized = normalize(res.data as any[]);
+            const normalized = normalizeRows(res.data as any[]);
+
             setRows(normalized);
             setConfirmSonyShareCsv(false);
 
-            const firstDate = normalized.find((r) => r.date)?.date;
+            const firstDate =
+              normalized.find((r) => r.date)?.date ||
+              normalized.find((r) => r.stock_date)?.stock_date;
+
             const kw = firstDate ? getCalendarWeekFromDate(firstDate) : null;
 
             if (kw) {
               setCalendarWeek(kw);
             }
           },
+          error: () => {
+            toast.error(t("sales.page.fileReadError"));
+          },
         });
-      } else {
-        const buf = await file.arrayBuffer();
-        const wb = XLSX.read(buf);
-        const ws = wb.Sheets[wb.SheetNames[0]];
-        const data = XLSX.utils.sheet_to_json(ws);
-        const normalized = normalize(data as any[]);
-        setRows(normalized);
-        setConfirmSonyShareCsv(false);
 
-        const firstDate = normalized.find((r) => r.date)?.date;
-        const kw = firstDate ? getCalendarWeekFromDate(firstDate) : null;
+        return;
+      }
 
-        if (kw) {
-          setCalendarWeek(kw);
-        }
+      const buf = await file.arrayBuffer();
+      const wb = XLSX.read(buf, {
+        type: "array",
+        cellDates: true,
+      });
+
+      const ws = wb.Sheets[wb.SheetNames[0]];
+
+      const data = XLSX.utils.sheet_to_json(ws, {
+        raw: true,
+        defval: "",
+      });
+
+      const normalized = normalizeRows(data as any[]);
+
+      setRows(normalized);
+      setConfirmSonyShareCsv(false);
+
+      const firstDate =
+        normalized.find((r) => r.date)?.date ||
+        normalized.find((r) => r.stock_date)?.stock_date;
+
+      const kw = firstDate ? getCalendarWeekFromDate(firstDate) : null;
+
+      if (kw) {
+        setCalendarWeek(kw);
       }
     } catch {
       toast.error(t("sales.page.fileReadError"));
@@ -157,12 +398,21 @@ export default function VerkaufForm() {
   /* ------------------------------------------------------------------ */
 
   const sonyQty = useMemo(
-    () => rows.reduce((s, r) => s + r.quantity, 0),
+    () => rows.reduce((s, r) => s + Number(r.quantity || 0), 0),
+    [rows]
+  );
+
+  const stockTotal = useMemo(
+    () => rows.reduce((s, r) => s + Number(r.stock_quantity || 0), 0),
     [rows]
   );
 
   const sonyRevenue = useMemo(
-    () => rows.reduce((s, r) => s + r.quantity * r.price, 0),
+    () =>
+      rows.reduce(
+        (s, r) => s + Number(r.quantity || 0) * Number(r.price || 0),
+        0
+      ),
     [rows]
   );
 
@@ -189,7 +439,9 @@ export default function VerkaufForm() {
 
       const res = await fetch("/api/verkauf/csv", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+        },
         body: JSON.stringify({
           dealer_id: dealer.dealer_id,
           calendar_week: calendarWeek,
@@ -199,6 +451,7 @@ export default function VerkaufForm() {
           sony_revenue: sonyRevenue,
           total_qty: totalQty,
           total_revenue: totalRevenue,
+          stock_total: stockTotal,
           rows,
         }),
       });
@@ -220,9 +473,14 @@ export default function VerkaufForm() {
   };
 
   /* ------------------------------------------------------------------ */
+  /* RENDER */
+  /* ------------------------------------------------------------------ */
 
   if (loading) return <p>{t("sales.loading.dealerData")}</p>;
-  if (!dealer) return <p className="text-red-500">{t("sales.errors.dealerNotFound")}</p>;
+
+  if (!dealer) {
+    return <p className="text-red-500">{t("sales.errors.dealerNotFound")}</p>;
+  }
 
   return (
     <div className="p-4">
@@ -231,7 +489,10 @@ export default function VerkaufForm() {
           <motion.div key="choose">
             <div className="grid md:grid-cols-2 gap-4">
               <div className="border p-5 rounded-xl">
-                <h2 className="font-semibold mb-2">{t("sales.page.manualTitle")}</h2>
+                <h2 className="font-semibold mb-2">
+                  {t("sales.page.manualTitle")}
+                </h2>
+
                 <Button
                   onClick={() => {
                     setCalendarWeek(getCurrentIsoCalendarWeek());
@@ -243,7 +504,10 @@ export default function VerkaufForm() {
               </div>
 
               <div className="border p-5 rounded-xl">
-                <h2 className="font-semibold mb-2">{t("sales.page.uploadTitle")}</h2>
+                <h2 className="font-semibold mb-2">
+                  {t("sales.page.uploadTitle")}
+                </h2>
+
                 <div className="flex gap-2">
                   <Button
                     variant="outline"
@@ -252,6 +516,7 @@ export default function VerkaufForm() {
                       const b = await r.blob();
                       const url = URL.createObjectURL(b);
                       const a = document.createElement("a");
+
                       a.href = url;
                       a.download = "verkauf_template.csv";
                       a.click();
@@ -273,7 +538,8 @@ export default function VerkaufForm() {
         {step === "manual" && (
           <motion.div key="manual">
             <Button variant="outline" onClick={() => setStep("choose")}>
-              <ArrowLeft className="w-4 h-4 mr-2" /> {t("sales.page.back")}
+              <ArrowLeft className="w-4 h-4 mr-2" />
+              {t("sales.page.back")}
             </Button>
 
             <ProductList
@@ -304,7 +570,8 @@ export default function VerkaufForm() {
         {step === "upload" && (
           <motion.div key="upload">
             <Button variant="outline" onClick={() => setStep("choose")}>
-              <ArrowLeft className="w-4 h-4 mr-2" /> {t("sales.page.back")}
+              <ArrowLeft className="w-4 h-4 mr-2" />
+              {t("sales.page.back")}
             </Button>
 
             <div className="mt-6 space-y-4">
@@ -318,22 +585,47 @@ export default function VerkaufForm() {
                 <>
                   <table className="w-full border text-sm">
                     <thead>
-                      <tr>
-                        <th>{t("sales.upload.fileTable.ean")}</th>
-                        <th>{t("sales.upload.fileTable.product")}</th>
-                        <th>{t("sales.upload.fileTable.quantity")}</th>
-                        <th>{t("sales.upload.fileTable.price")}</th>
-                        <th>{t("sales.upload.fileTable.date")}</th>
+                      <tr className="text-left">
+                        <th className="text-left px-2 py-1">
+                          {t("sales.upload.fileTable.ean")}
+                        </th>
+                        <th className="text-left px-2 py-1">
+                          {t("sales.upload.fileTable.product")}
+                        </th>
+                        <th className="text-left px-2 py-1">
+                          {t("sales.upload.fileTable.quantity")}
+                        </th>
+                        <th className="text-left px-2 py-1">
+                          {t("sales.upload.fileTable.stockQuantity")}
+                        </th>
+                        <th className="text-left px-2 py-1">
+                          {t("sales.upload.fileTable.price")}
+                        </th>
+                        <th className="text-left px-2 py-1">
+                          {t("sales.upload.fileTable.date")}
+                        </th>
+                        <th className="text-left px-2 py-1">
+                          {t("sales.upload.fileTable.stockDate")}
+                        </th>
                       </tr>
                     </thead>
+
                     <tbody>
                       {rows.map((r, i) => (
                         <tr key={i}>
-                          <td>{r.ean}</td>
-                          <td>{r.product_name}</td>
-                          <td>{r.quantity}</td>
-                          <td>{r.price}</td>
-                          <td>{r.date}</td>
+                          <td className="text-left px-2 py-1">{r.ean}</td>
+                          <td className="text-left px-2 py-1">
+                            {r.product_name}
+                          </td>
+                          <td className="text-left px-2 py-1">{r.quantity}</td>
+                          <td className="text-left px-2 py-1">
+                            {r.stock_quantity}
+                          </td>
+                          <td className="text-left px-2 py-1">{r.price}</td>
+                          <td className="text-left px-2 py-1">{r.date}</td>
+                          <td className="text-left px-2 py-1">
+                            {r.stock_date}
+                          </td>
                         </tr>
                       ))}
                     </tbody>
@@ -344,6 +636,7 @@ export default function VerkaufForm() {
                       <label className="text-sm font-medium">
                         {t("sales.upload.calendarWeek")}
                       </label>
+
                       <Input
                         type="number"
                         min={1}
@@ -357,12 +650,15 @@ export default function VerkaufForm() {
                       <label className="text-sm font-medium">
                         {t("sales.upload.sonyShareQty")}
                       </label>
+
                       <Input
                         type="number"
                         min={0}
                         max={100}
                         value={inhouseQtyShare}
-                        onChange={(e) => setInhouseQtyShare(Number(e.target.value))}
+                        onChange={(e) =>
+                          setInhouseQtyShare(Number(e.target.value))
+                        }
                       />
                     </div>
 
@@ -370,6 +666,7 @@ export default function VerkaufForm() {
                       <label className="text-sm font-medium">
                         {t("sales.upload.sonyShareRevenue")}
                       </label>
+
                       <Input
                         type="number"
                         min={0}
@@ -386,14 +683,21 @@ export default function VerkaufForm() {
                     <p>
                       {t("sales.upload.sonyQty")}: {sonyQty}
                     </p>
+
+                    <p>{t("sales.upload.reportedStock")}: {stockTotal}</p>
+
                     <p>
                       {t("sales.upload.totalQty")}: {Math.round(totalQty)}
                     </p>
+
                     <p>
-                      {t("sales.upload.sonyRevenue")}: CHF {sonyRevenue.toFixed(2)}
+                      {t("sales.upload.sonyRevenue")}: CHF{" "}
+                      {sonyRevenue.toFixed(2)}
                     </p>
+
                     <p>
-                      {t("sales.upload.totalRevenue")}: CHF {totalRevenue.toFixed(2)}
+                      {t("sales.upload.totalRevenue")}: CHF{" "}
+                      {totalRevenue.toFixed(2)}
                     </p>
                   </div>
 
@@ -402,9 +706,12 @@ export default function VerkaufForm() {
                       <input
                         type="checkbox"
                         checked={confirmSonyShareCsv}
-                        onChange={(e) => setConfirmSonyShareCsv(e.target.checked)}
+                        onChange={(e) =>
+                          setConfirmSonyShareCsv(e.target.checked)
+                        }
                         className="mt-0.5"
                       />
+
                       <span>{t("sales.upload.confirmSonyShare")}</span>
                     </label>
                   </div>

@@ -32,8 +32,17 @@ type Product = {
 type SubmissionItem = {
   item_id: number | null;
   product_id: number | null;
+
+  product_name: string | null;
+  ean: string | null;
+  sony_article: string | null;
+
   menge: number | null;
   preis: number | null;
+
+  stock_quantity: number | null;
+  stock_date: string | null;
+
   invest: number | null;
   netto_retail: number | null;
   marge_alt: number | null;
@@ -85,6 +94,56 @@ const emptyProduct: Product = {
 };
 
 // -----------------------
+// 🧾 Excel Empty Row Helper
+// -----------------------
+function buildEmptyRow(isVerkauf: boolean) {
+  const base: Record<string, any> = {
+    ID: "",
+    Datum: "",
+    Typ: "",
+    Status: "",
+    Kommentar: "",
+    Bestellweg: "",
+    Lieferdatum_gewuenscht: "",
+    Project_ID: "",
+    Händler: "",
+    Login: "",
+    Kontaktperson: "",
+    Mail: "",
+    Strasse: "",
+    PLZ: "",
+    Ort: "",
+    Land: "",
+    Produkt: "",
+    EAN: "",
+    Brand: "",
+    Gruppe: "",
+    Kategorie: "",
+    Menge: "",
+  };
+
+  if (isVerkauf) {
+    base.Lagerbestand = "";
+    base.Lagerdatum = "";
+  }
+
+  base.Preis = "";
+  base.Zwischensumme = "";
+  base.Netto_Retail = "";
+  base.Invest = "";
+  base.Marge_Neu = "";
+  base.POI_Neu = "";
+
+  if (!isVerkauf) {
+    base.Seriennummer = "";
+  }
+
+  base.Kommentar_Item = "";
+
+  return base;
+}
+
+// -----------------------
 // 📤 POST Handler
 // -----------------------
 export async function POST(req: NextRequest) {
@@ -92,8 +151,10 @@ export async function POST(req: NextRequest) {
     const { type, from, to, search } = await req.json();
     const supabase = await getSupabaseServer();
 
-    const searchKey =
-      typeof search === "string" ? search.trim() : "";
+    const exportType = typeof type === "string" ? type : "";
+    const isVerkauf = exportType === "verkauf";
+
+    const searchKey = typeof search === "string" ? search.trim() : "";
 
     // ------------------------------------------
     // 1) Header-Filter (identisch zur UI)
@@ -101,11 +162,12 @@ export async function POST(req: NextRequest) {
     let headerQuery = supabase
       .from("v_submission_history_header")
       .select("submission_id, source, created_at, display_id")
-      .eq("typ", type);
+      .eq("typ", exportType);
 
     if (from) {
       headerQuery = headerQuery.gte("created_at", `${from}T00:00:00`);
     }
+
     if (to) {
       headerQuery = headerQuery.lte("created_at", `${to}T23:59:59`);
     }
@@ -119,6 +181,7 @@ export async function POST(req: NextRequest) {
     headerQuery = headerQuery.order("created_at", { ascending: false });
 
     const { data: headerRows, error: headerError } = await headerQuery;
+
     if (headerError) throw headerError;
 
     // ------------------------------------------
@@ -133,42 +196,9 @@ export async function POST(req: NextRequest) {
     // 3) Leerer Export → leere Excel-Struktur
     // ------------------------------------------
     if (submissionIds.length === 0) {
-      const ws = XLSX.utils.json_to_sheet([
-        {
-          ID: "",
-          Datum: "",
-          Typ: "",
-          Status: "",
-          Kommentar: "",
-          Bestellweg: "",
-          Lieferdatum_gewuenscht: "",
-          Project_ID: "",
-          Händler: "",
-          Login: "",
-          Kontaktperson: "",
-          Mail: "",
-          Strasse: "",
-          PLZ: "",
-          Ort: "",
-          Land: "",
-          Produkt: "",
-          EAN: "",
-          Brand: "",
-          Gruppe: "",
-          Kategorie: "",
-          Menge: "",
-          Preis: "",
-          Zwischensumme: "",
-          Netto_Retail: "",
-          Invest: "",
-          Marge_Neu: "",
-          POI_Neu: "",
-          Seriennummer: "",
-          Kommentar_Item: "",
-        },
-      ]);
-
+      const ws = XLSX.utils.json_to_sheet([buildEmptyRow(isVerkauf)]);
       const wb = XLSX.utils.book_new();
+
       XLSX.utils.book_append_sheet(wb, ws, "Export");
 
       const buffer = Buffer.from(
@@ -180,7 +210,7 @@ export async function POST(req: NextRequest) {
         headers: {
           "Content-Type":
             "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-          "Content-Disposition": `attachment; filename="${type}_export.xlsx"`,
+          "Content-Disposition": `attachment; filename="${exportType}_export.xlsx"`,
         },
       });
     }
@@ -215,8 +245,13 @@ export async function POST(req: NextRequest) {
         submission_items(
           item_id,
           product_id,
+          product_name,
+          ean,
+          sony_article,
           menge,
           preis,
+          stock_quantity,
+          stock_date,
           invest,
           netto_retail,
           marge_alt,
@@ -249,6 +284,7 @@ export async function POST(req: NextRequest) {
 
     for (const s of submissions) {
       const dealer = s.dealers ?? emptyDealer;
+
       const dealerName =
         dealer.store_name || dealer.name || `Händler ${s.dealer_id ?? "-"}`;
 
@@ -275,7 +311,7 @@ export async function POST(req: NextRequest) {
       const items = s.submission_items ?? [];
 
       if (items.length === 0) {
-        rows.push({
+        const row: Record<string, any> = {
           ...header,
           Produkt: "",
           EAN: "",
@@ -283,40 +319,76 @@ export async function POST(req: NextRequest) {
           Gruppe: "",
           Kategorie: "",
           Menge: 0,
-          Preis: 0,
-          Zwischensumme: 0,
-          Netto_Retail: "",
-          Invest: "",
-          Marge_Neu: "",
-          POI_Neu: "",
-          Seriennummer: "",
-          Kommentar_Item: "",
-        });
+        };
+
+        if (isVerkauf) {
+          row.Lagerbestand = "";
+          row.Lagerdatum = "";
+        }
+
+        row.Preis = 0;
+        row.Zwischensumme = 0;
+        row.Netto_Retail = "";
+        row.Invest = "";
+        row.Marge_Neu = "";
+        row.POI_Neu = "";
+
+        if (!isVerkauf) {
+          row.Seriennummer = "";
+        }
+
+        row.Kommentar_Item = "";
+
+        rows.push(row);
         continue;
       }
 
       for (const item of items) {
         const p = item.products ?? emptyProduct;
+
         const qty = Number(item.menge ?? 0);
         const price = Number(item.preis ?? 0);
 
-        rows.push({
+        const productName =
+          item.product_name ??
+          item.sony_article ??
+          p.product_name ??
+          "";
+
+        const ean =
+          item.ean ??
+          p.ean ??
+          "";
+
+        const row: Record<string, any> = {
           ...header,
-          Produkt: p.product_name ?? "",
-          EAN: p.ean ?? "",
+          Produkt: productName,
+          EAN: ean,
           Brand: p.brand ?? "",
           Gruppe: p.gruppe ?? "",
           Kategorie: p.category ?? "",
           Menge: qty,
-          Preis: price,
-          Zwischensumme: +(qty * price).toFixed(2),
-          Netto_Retail: item.netto_retail ?? "",
-          Invest: item.invest ?? "",
-          Marge_Neu: item.marge_neu ?? "",
-          POI_Neu: item.calc_price_on_invoice ?? "",
-          Seriennummer: item.serial ?? "",
-          Kommentar_Item: item.comment ?? "",
-        });
+        };
+
+        if (isVerkauf) {
+          row.Lagerbestand = item.stock_quantity ?? "";
+          row.Lagerdatum = item.stock_date ?? "";
+        }
+
+        row.Preis = price;
+        row.Zwischensumme = +(qty * price).toFixed(2);
+        row.Netto_Retail = item.netto_retail ?? "";
+        row.Invest = item.invest ?? "";
+        row.Marge_Neu = item.marge_neu ?? "";
+        row.POI_Neu = item.calc_price_on_invoice ?? "";
+
+        if (!isVerkauf) {
+          row.Seriennummer = item.serial ?? "";
+        }
+
+        row.Kommentar_Item = item.comment ?? "";
+
+        rows.push(row);
       }
     }
 
@@ -325,6 +397,7 @@ export async function POST(req: NextRequest) {
     // ------------------------------------------
     const ws = XLSX.utils.json_to_sheet(rows);
     const wb = XLSX.utils.book_new();
+
     XLSX.utils.book_append_sheet(wb, ws, "Export");
 
     const buffer = Buffer.from(
@@ -336,11 +409,12 @@ export async function POST(req: NextRequest) {
       headers: {
         "Content-Type":
           "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        "Content-Disposition": `attachment; filename="${type}_export.xlsx"`,
+        "Content-Disposition": `attachment; filename="${exportType}_export.xlsx"`,
       },
     });
   } catch (e: any) {
     console.error("❌ Excel Export Error:", e);
+
     return NextResponse.json(
       { error: e?.message ?? "Export failed" },
       { status: 500 }
