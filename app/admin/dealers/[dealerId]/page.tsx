@@ -714,8 +714,20 @@ export default function AdminDealerDetailPage() {
       setAllTags(sortTags((tagsRes.data ?? []) as DealerTag[]));
       setAssignedTagIds(((assignmentsRes.data ?? []) as DealerTagAssignmentRow[]).map((x) => Number(x.tag_id)));
       setTasks((tasksRes.data ?? []) as DealerTask[]);
-      setDealerUsers((dealerUsersRes.data ?? []) as DealerUser[]);
-      setDealerUserTagAssignments((dealerUserTagAssignmentsRes.data ?? []) as DealerUserTagAssignment[]);
+      const dealerUserRows = (dealerUsersRes.data ?? []) as DealerUser[];
+
+      const dealerUserIds = new Set(
+        dealerUserRows.map((user) => Number(user.id)).filter(Boolean)
+      );
+
+      const filteredDealerUserTagAssignments = (
+        (dealerUserTagAssignmentsRes.data ?? []) as DealerUserTagAssignment[]
+      ).filter((assignment) =>
+        dealerUserIds.has(Number(assignment.dealer_user_id))
+      );
+
+      setDealerUsers(dealerUserRows);
+      setDealerUserTagAssignments(filteredDealerUserTagAssignments);
       setVisits((visitsRes.data ?? []) as VisitReport[]);
       setDisplayItems((displayItemsRes.data ?? []) as DealerDisplayItem[]);
     } catch (error) {
@@ -724,25 +736,6 @@ export default function AdminDealerDetailPage() {
     } finally { setLoading(false); }
   }, [dealerId, supabase]);
 
-  const syncDisplayItemsFromOrders = useCallback(async () => {
-    if (!dealerId || Number.isNaN(dealerId)) return;
-    try {
-      const { data: displayOrderItems, error } = await supabase.from("submission_items").select(`item_id,product_id,product_name,sony_article,menge,pricing_mode,is_display_item,submission:submission_id (submission_id,dealer_id)`).or("pricing_mode.eq.display,is_display_item.eq.true");
-      if (error) { console.error("Fehler beim Laden Display-Bestellungen:", error); return; }
-      const rows = (displayOrderItems || []).filter((row: any) => Number((Array.isArray(row.submission) ? row.submission[0] : row.submission)?.dealer_id) === Number(dealerId));
-      if (!rows.length) return;
-      const sourceIds = rows.map((row: any) => Number(row.item_id)).filter(Boolean);
-      const { data: existingItems, error: existingError } = await supabase.from("dealer_display_items").select("source_submission_item_id").eq("dealer_id", dealerId).in("source_submission_item_id", sourceIds);
-      if (existingError) { console.error("Fehler beim Laden bestehender Display-Tracker-Einträge:", existingError); return; }
-      const existingIds = new Set((existingItems || []).map((item: any) => item.source_submission_item_id).filter(Boolean).map((id: any) => Number(id)));
-      const { data: userData } = await supabase.auth.getUser();
-      const currentUser = userData?.user?.email ?? "admin";
-      const inserts = rows.filter((row: any) => !existingIds.has(Number(row.item_id))).map((row: any) => ({ dealer_id: dealerId, source_submission_item_id: Number(row.item_id), product_id: row.product_id ?? null, product_name_snapshot: row.sony_article || row.product_name || `Artikel #${row.item_id}`, ordered_as_display: true, ordered_qty: row.menge ?? 1, is_displayed: null, status: "ordered", display_checked_at: null, display_checked_by: null, removed_at: null, removed_by: null, note: null, created_by: currentUser }));
-      if (!inserts.length) return;
-      const { error: insertError } = await supabase.from("dealer_display_items").upsert(inserts, { onConflict: "source_submission_item_id", ignoreDuplicates: true });
-      if (insertError) console.error("Fehler beim Sync der Display-Tracker-Einträge:", insertError);
-    } catch (error) { console.error("Unbekannter Fehler beim Display-Sync:", error); }
-  }, [dealerId, supabase]);
 
   const loadAutoKpis = useCallback(async () => {
     if (!dealerId || Number.isNaN(dealerId)) return;
@@ -761,7 +754,9 @@ export default function AdminDealerDetailPage() {
       const prevYearRows = rows.filter((row) => isDateWithin(row.submission_created_at || row.submission_datum, prevYearStart, prevYearEnd));
       const currentSonyRevenue = currentRows.reduce((sum, row) => sum + Number(row.menge ?? 0) * Number(row.preis ?? 0), 0);
       const prevSonyRevenue = prevYearRows.reduce((sum, row) => sum + Number(row.menge ?? 0) * Number(row.preis ?? 0), 0);
-      const currentDisplayOrders = currentRows.filter((row) => row.pricing_mode === "display" || row.is_display_item === true).length;
+      const currentDisplayOrders = currentRows.filter(
+        (row) => row.pricing_mode === "display" && row.is_display_item === true
+      ).length;
       const productMap = new Map<string, TopProduct>();
       for (const row of currentRows) {
         const label = row.sony_article || row.product_name || (row.product_id ? `Produkt #${row.product_id}` : `Item #${row.item_id}`);
@@ -779,7 +774,9 @@ export default function AdminDealerDetailPage() {
     finally { setLoadingAutoKpis(false); }
   }, [dealerId, periodMode, supabase]);
 
-  useEffect(() => { const run = async () => { await syncDisplayItemsFromOrders(); await loadData(); }; run(); }, [loadData, syncDisplayItemsFromOrders]);
+  useEffect(() => {
+  loadData();
+}, [loadData]);
   useEffect(() => { loadAutoKpis(); }, [loadAutoKpis]);
 
   const groupedTags = useMemo<Record<DealerTagCategory, DealerTag[]>>(() => ({

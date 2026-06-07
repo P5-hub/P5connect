@@ -771,11 +771,13 @@ export default function AdminDealersPage() {
         <StatCard title="Händler angezeigt" value={formatInteger(filteredRows.length)} />
         <StatCard title="Sony Umsatz" value={formatCurrency(totalRevenue)} />
         <StatCard title="Offene Tasks" value={formatInteger(openTasksTotal)} />
-        <StatCard
-          title="Displays"
-          value={formatInteger(activeDisplayTotal)}
-          subtitle={`${formatInteger(displayOpenTotal)} offen / ungeprüft`}
-        />
+        <Link href="/admin/dealers/displays" className="block rounded-2xl transition hover:-translate-y-0.5 hover:shadow-md">
+          <StatCard
+            title="Displays"
+            value={formatInteger(activeDisplayTotal)}
+            subtitle={`${formatInteger(displayOpenTotal)} offen / ungeprüft`}
+          />
+        </Link>
       </div>
 
       <Card className="rounded-2xl border border-gray-200 p-5">
