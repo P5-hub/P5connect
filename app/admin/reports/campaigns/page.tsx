@@ -352,15 +352,6 @@ export default function CampaignReportsPage() {
     ).size;
   }, [approvedRows]);
 
-  const displayRevenue = useMemo(() => {
-    return approvedRows
-      .filter((row) => row.pricing_mode === "display" || row.is_display_item === true)
-      .reduce(
-        (sum, row) => sum + Number(row.menge ?? 0) * Number(row.preis ?? 0),
-        0
-      );
-  }, [approvedRows]);
-
   const messeRevenue = useMemo(() => {
     return approvedRows
       .filter((row) => row.pricing_mode === "messe")
@@ -370,7 +361,32 @@ export default function CampaignReportsPage() {
       );
   }, [approvedRows]);
 
-  const standardRevenue = totalRevenue - displayRevenue - messeRevenue;
+  const displayRevenue = useMemo(() => {
+    return approvedRows
+      .filter(
+        (row) =>
+          row.pricing_mode !== "messe" &&
+          (row.pricing_mode === "display" || row.is_display_item === true)
+      )
+      .reduce(
+        (sum, row) => sum + Number(row.menge ?? 0) * Number(row.preis ?? 0),
+        0
+      );
+  }, [approvedRows]);
+
+  const standardRevenue = useMemo(() => {
+    return approvedRows
+      .filter(
+        (row) =>
+          row.pricing_mode !== "messe" &&
+          row.pricing_mode !== "display" &&
+          row.is_display_item !== true
+      )
+      .reduce(
+        (sum, row) => sum + Number(row.menge ?? 0) * Number(row.preis ?? 0),
+        0
+      );
+  }, [approvedRows]);
 
   const topProducts = useMemo(() => {
     const map = new Map<string, { label: string; qty: number; revenue: number }>();
