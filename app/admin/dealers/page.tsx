@@ -760,6 +760,13 @@ export default function AdminDealersPage() {
             Neuer Händler
           </Button>
 
+          <Link href="/admin/dealers/visits">
+            <Button type="button" variant="outline">
+              <Clock3 className="mr-2 h-4 w-4" />
+              Besuchsberichte
+            </Button>
+          </Link>
+
           <Button type="button" variant="outline" onClick={loadData}>
             <RefreshCcw className="mr-2 h-4 w-4" />
             Aktualisieren
