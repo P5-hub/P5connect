@@ -118,7 +118,7 @@ export function buildDealerOrderEmailHTML(params: {
       <strong>${t.ansprechperson}:</strong> ${meta.dealerName ?? "-"}<br/>
       <strong>${t.email}:</strong> ${meta.dealerEmail ?? "-"}<br/>
       <strong>${t.telefon}:</strong> ${meta.dealerPhone ?? "-"}<br/>
-      <strong>${t.kundennr}:</strong> ${meta.dealerLoginNr ?? "-"}<br/><br/>
+      <strong>${t.kundennr}:</strong> ${meta.customerNumber || "-"}<br/><br/>
 
       <strong>${t.kam}:</strong> ${meta.kamName ?? "-"}<br/>
       <strong>${t.kam_email}:</strong> ${meta.kamSonyEmail ?? "-"}

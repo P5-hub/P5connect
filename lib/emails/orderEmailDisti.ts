@@ -74,7 +74,7 @@ export function buildDistiOrderEmailHTML(params: {
       <strong>Ansprechperson:</strong> ${meta.dealerName ?? "-"}<br/>
       <strong>E-Mail:</strong> ${meta.dealerEmail ?? "-"}<br/>
       <strong>Telefon:</strong> ${meta.dealerPhone ?? "-"}<br/>
-      <strong>Kunden-Nr.:</strong> ${meta.dealerLoginNr ?? "-"}
+      <strong>Kunden-Nr.:</strong> ${meta.customerNumber || "-"}
     </div>
   `;
 

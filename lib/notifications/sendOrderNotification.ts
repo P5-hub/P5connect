@@ -35,6 +35,38 @@ function debugOrderMail(stage: string, preview: boolean, meta: any, recipients: 
   console.log("--------------------------------------------------");
 }
 
+// ---------------------------------------------------
+// HELPERS
+// ---------------------------------------------------
+
+function cleanText(value: unknown): string | null {
+  if (value === null || value === undefined) return null;
+
+  if (typeof value !== "string") {
+    const converted = String(value).replace(/\r?\n|\r/g, "").trim();
+    return converted.length ? converted : null;
+  }
+
+  const cleaned = value.replace(/\r?\n|\r/g, "").trim();
+  return cleaned.length ? cleaned : null;
+}
+
+function cleanLanguage(value: unknown): "de_CH" | "fr_CH" | "it_CH" {
+  const lang = cleanText(value);
+
+  if (lang === "fr_CH" || lang === "fr") return "fr_CH";
+  if (lang === "it_CH" || lang === "it") return "it_CH";
+  if (lang === "de_CH" || lang === "de") return "de_CH";
+
+  return "de_CH";
+}
+
+function cleanNumber(value: unknown): number | null {
+  if (value === null || value === undefined) return null;
+
+  const n = Number(value);
+  return Number.isFinite(n) ? n : null;
+}
 
 // ---------------------------------------------------
 // TYPES
@@ -72,7 +104,7 @@ export type OrderNotificationResult =
     };
 
 // ---------------------------------------------------
-// DashboardRow (unchanged)
+// DashboardRow
 // ---------------------------------------------------
 
 type DashboardRow = {
@@ -93,7 +125,7 @@ type DashboardRow = {
   dealer_email: string | null;
   mail_dealer: string | null;
 
-  dealer_language: "de_CH" | "fr_CH" | "it_CH" | null;
+  dealer_language: "de_CH" | "fr_CH" | "it_CH" | string | null;
   dealer_city: string | null;
   dealer_street: string | null;
   dealer_zip: string | null;
@@ -141,11 +173,9 @@ type DashboardRow = {
   delivery_zip: string | null;
   delivery_city: string | null;
   delivery_country: string | null;
-    // ✅ NEU
   delivery_phone: string | null;
   delivery_email: string | null;
 
-  // ✅ optional
   customer_phone: string | null;
 };
 
@@ -175,103 +205,117 @@ export async function sendOrderNotification(opts: {
   // SAFE cast
   const order = rows[0] as unknown as DashboardRow;
 
+  const lang = cleanLanguage(order.dealer_language);
+  const txt = orderMailTexts[stage]?.[lang] ?? orderMailTexts[stage]?.de_CH;
+
+  if (!txt) {
+    console.error("❌ Missing order mail text:", {
+      stage,
+      rawLanguage: order.dealer_language,
+      cleanedLanguage: lang,
+    });
+
+    return { ok: false, error: "mail_text_not_found" };
+  }
+
   // Items
-  const items = rows.map((r) => ({
-    menge: r.menge ?? null,
-    preis: r.preis ?? null,
-    invest: r.invest ?? r.calc_price_on_invoice ?? null,
-    calc_price_on_invoice: r.calc_price_on_invoice ?? null,
-    lowest_price_brutto: r.lowest_price_brutto ?? null,
-    lowest_price_source: r.lowest_price_source ?? null,
-    lowest_price_source_custom: r.lowest_price_source_custom ?? null,
+  const items = rows.map((r: any) => ({
+    menge: cleanNumber(r.menge),
+    preis: cleanNumber(r.preis),
+    invest: cleanNumber(r.invest ?? r.calc_price_on_invoice),
+    calc_price_on_invoice: cleanNumber(r.calc_price_on_invoice),
+    lowest_price_brutto: cleanNumber(r.lowest_price_brutto),
+    lowest_price_source: cleanText(r.lowest_price_source),
+    lowest_price_source_custom: cleanText(r.lowest_price_source_custom),
 
     products: {
-      product_name: r.product_name,
-      ean: r.ean,
-      brand: r.brand,
-      gruppe: r.gruppe,
-      category: r.category,
-      retail_price: r.retail_price,
-      vrg: r.vrg,
-      dealer_invoice_price: r.dealer_invoice_price,
-      support_on_invoice: r.support_on_invoice,
-      tactical_support: r.tactical_support,
-      suisa: r.suisa,
+      product_name: cleanText(r.product_name),
+      ean: cleanText(r.ean),
+      brand: cleanText(r.brand),
+      gruppe: cleanText(r.gruppe),
+      category: cleanText(r.category),
+      retail_price: cleanNumber(r.retail_price),
+      vrg: cleanNumber(r.vrg),
+      dealer_invoice_price: cleanNumber(r.dealer_invoice_price),
+      support_on_invoice: cleanNumber(r.support_on_invoice),
+      tactical_support: cleanNumber(r.tactical_support),
+      suisa: cleanNumber(r.suisa),
     },
   }));
 
   // Meta
   const meta = {
     submissionId,
-    createdAt: order.created_at,
-    status: order.status,
-    typ: order.typ,
-    bestellweg: order.bestellweg,
-    orderNumber: order.order_number,
+    createdAt: cleanText(order.created_at),
+    status: cleanText(order.status),
+    typ: cleanText(order.typ),
+    bestellweg: cleanText(order.bestellweg),
+    orderNumber: cleanText(order.order_number),
 
     // ✅ Referenz ist bereits korrekt
-    dealerReference: order.dealer_reference,
+    dealerReference: cleanText(order.dealer_reference),
 
-    customerNumber: order.dealer_login_nr,
-    dealerCompany: order.dealer_name,
-    dealerName: order.dealer_contact_person,
-    dealerEmail: order.dealer_email ?? order.mail_dealer,
-    dealerPhone: order.dealer_phone,
+    customerNumber: cleanText(order.dealer_login_nr),
+    dealerCompany: cleanText(order.dealer_name),
+    dealerName: cleanText(order.dealer_contact_person),
+    dealerEmail: cleanText(order.dealer_email) ?? cleanText(order.mail_dealer),
+    dealerPhone: cleanText(order.dealer_phone),
 
     // ✅ optional, falls dein Template orderFacts(meta.customerPhone) nutzt
-    customerPhone: order.customer_phone ?? order.dealer_phone,
+    customerPhone: cleanText(order.customer_phone) ?? cleanText(order.dealer_phone),
 
-    dealerStreet: order.dealer_street,
-    dealerZip: order.dealer_zip,
-    dealerCity: order.dealer_city,
-    dealerCountry: order.dealer_country,
-    dealerLanguage: order.dealer_language ?? "de_CH",
+    dealerStreet: cleanText(order.dealer_street),
+    dealerZip: cleanText(order.dealer_zip),
+    dealerCity: cleanText(order.dealer_city),
+    dealerCountry: cleanText(order.dealer_country),
+    dealerLanguage: lang,
 
-    kamName: order.kam_name,
-    kamEmail: order.kam_email,
-    kamEmail2: order.kam_email_2,
-    kamSonyEmail: order.kam_email_sony,
-    mailBG: order.mail_bg,
-    mailBG2: order.mail_bg2,
+    kamName: cleanText(order.kam_name),
+    kamEmail: cleanText(order.kam_email),
+    kamEmail2: cleanText(order.kam_email_2),
+    kamSonyEmail: cleanText(order.kam_email_sony),
+    mailBG: cleanText(order.mail_bg),
+    mailBG2: cleanText(order.mail_bg2),
 
-    distributorId: order.distributor_id,
-    distributorName: order.distributor_name,
-    distributorCode: order.distributor_code,
-    distributorEmail: order.distributor_email,
+    distributorId: cleanText(order.distributor_id),
+    distributorName: cleanText(order.distributor_name),
+    distributorCode: cleanText(order.distributor_code),
+    distributorEmail: cleanText(order.distributor_email),
 
-    deliveryName: order.delivery_name,
-    deliveryStreet: order.delivery_street,
-    deliveryZip: order.delivery_zip,
-    deliveryCity: order.delivery_city,
-    deliveryCountry: order.delivery_country,
+    deliveryName: cleanText(order.delivery_name),
+    deliveryStreet: cleanText(order.delivery_street),
+    deliveryZip: cleanText(order.delivery_zip),
+    deliveryCity: cleanText(order.delivery_city),
+    deliveryCountry: cleanText(order.delivery_country),
 
-    // ✅ NEU: Lieferkontakt
-    deliveryPhone: order.delivery_phone,
-    deliveryEmail: order.delivery_email,
+    // ✅ Lieferkontakt
+    deliveryPhone: cleanText(order.delivery_phone),
+    deliveryEmail: cleanText(order.delivery_email),
 
-
-    orderComment: order.order_comment,
-    requested_delivery: order.requested_delivery,
-    requested_delivery_date: order.requested_delivery_date,
+    orderComment: cleanText(order.order_comment),
+    requested_delivery: cleanText(order.requested_delivery),
+    requested_delivery_date: cleanText(order.requested_delivery_date),
   };
-
-
-  const lang = (order.dealer_language as "de_CH" | "fr_CH" | "it_CH") ?? "de_CH";
-  const txt = orderMailTexts[stage][lang];
 
   // Build HTML
   const dealerHtml = buildDealerOrderEmailHTML({ meta, items, text: txt });
   const distiHtml = buildDistiOrderEmailHTML({ meta, items });
 
   // Recipients
-  const dealerRecipients = cleanEmails([order.dealer_email, order.mail_dealer]);
-  const sonyKamRecipients = cleanEmails([order.kam_email_sony]);
+  const dealerRecipients = cleanEmails([
+    cleanText(order.dealer_email),
+    cleanText(order.mail_dealer),
+  ]);
+
+  const sonyKamRecipients = cleanEmails([
+    cleanText(order.kam_email_sony),
+  ]);
 
   const distiRecipients = cleanEmails([
-    order.distributor_email,
-    order.kam_email_sony,
-    order.kam_email,
-    order.kam_email_2,
+    cleanText(order.distributor_email),
+    cleanText(order.kam_email_sony),
+    cleanText(order.kam_email),
+    cleanText(order.kam_email_2),
   ]);
 
   // ---------------------------------------------------
@@ -280,7 +324,8 @@ export async function sendOrderNotification(opts: {
 
   if (stage === "placed") {
     const recipients = cleanEmails([...dealerRecipients, ...sonyKamRecipients]);
-    const subject = txt.subject;
+    const subject = cleanText(txt.subject) ?? "Neue Bestellung";
+
     debugOrderMail(stage, preview, meta, {
       dealerRecipients,
       sonyKamRecipients,
@@ -312,17 +357,21 @@ export async function sendOrderNotification(opts: {
   // ---------------------------------------------------
   // STAGE: CONFIRMED
   // ---------------------------------------------------
+
   if (stage === "confirmed") {
-    const dealerSubject = txt.subject;
-    const distiSubject = `Neue Bestellung von ${order.dealer_name ?? "P5-Partner"}`;
+    const dealerSubject = cleanText(txt.subject) ?? "Bestellung bestätigt";
+    const distiSubject = `Neue Bestellung von ${meta.dealerCompany ?? "P5-Partner"}`;
+
     const dealerTo = dealerRecipients.length ? dealerRecipients : ["test@p5connect.ch"];
     const distiTo = distiRecipients.length ? distiRecipients : ["test@p5connect.ch"];
+
     debugOrderMail(stage, preview, meta, {
       dealerRecipients,
       distiRecipients,
       finalDealerTo: dealerTo,
       finalDistiTo: distiTo,
     });
+
     if (preview) {
       return {
         ok: true,
@@ -352,7 +401,6 @@ export async function sendOrderNotification(opts: {
       subject: distiSubject,
       html: distiHtml,
     });
-
 
     if ((dealerRes as any)?.error || (distiRes as any)?.error) {
       return { ok: false, error: "mail_failed" };

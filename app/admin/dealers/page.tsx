@@ -113,6 +113,9 @@ type CreateDealerApiResponse = {
   warning?: string;
   dealerId?: number;
   userId?: string;
+  dealer?: {
+  dealer_id?: number;
+  };
 };
 
 const FISCAL_YEAR_START_MONTH = 4;
@@ -225,6 +228,14 @@ function uniqueTags(tags: DealerTag[]) {
   return [...map.values()].sort((a, b) => a.label.localeCompare(b.label, "de-CH"));
 }
 
+function cleanText(value: unknown) {
+  if (value === null || value === undefined) return "";
+
+  return String(value)
+    .replace(/\r?\n|\r/g, "")
+    .trim();
+}
+
 export default function AdminDealersPage() {
   const supabase = createClient();
 
@@ -264,6 +275,18 @@ export default function AdminDealersPage() {
     email: "",
     login_nr: "",
     password: "",
+
+    street: "",
+    plz: "",
+    city: "",
+    phone: "",
+    contactPerson: "",
+
+    language: "de_CH",
+
+    mailBg: "",
+    mailKam: "matthias.violante@p5connect.ch",
+    kamEmailSony: "matthias.violante@sony.com",
   });
 
   const loadData = useCallback(async () => {
@@ -369,10 +392,22 @@ export default function AdminDealersPage() {
   const handleCreateDealer = async () => {
     setCreateDealerResult(null);
 
-    const loginNr = newDealer.login_nr.trim();
-    const email = newDealer.email.trim().toLowerCase();
-    const password = newDealer.password.trim();
-    const name = newDealer.name.trim();
+    const loginNr = cleanText(newDealer.login_nr);
+    const email = cleanText(newDealer.email).toLowerCase();
+    const password = cleanText(newDealer.password);
+    const name = cleanText(newDealer.name);
+
+    const street = cleanText(newDealer.street);
+    const plz = cleanText(newDealer.plz);
+    const city = cleanText(newDealer.city);
+    const phone = cleanText(newDealer.phone);
+    const contactPerson = cleanText(newDealer.contactPerson);
+
+    const language = cleanText(newDealer.language) || "de_CH";
+
+    const mailBg = cleanText(newDealer.mailBg);
+    const mailKam = cleanText(newDealer.mailKam);
+    const kamEmailSony = cleanText(newDealer.kamEmailSony);
 
     if (!name) {
       setCreateDealerResult({ type: "error", message: "Bitte Händlername eingeben." });
@@ -386,6 +421,14 @@ export default function AdminDealersPage() {
 
     if (!email) {
       setCreateDealerResult({ type: "error", message: "Bitte E-Mail eingeben." });
+      return;
+    }
+
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      setCreateDealerResult({
+        type: "error",
+        message: "Bitte eine gültige E-Mail eingeben.",
+      });
       return;
     }
 
@@ -411,6 +454,24 @@ export default function AdminDealersPage() {
           password,
           name,
           role: "dealer",
+
+          street,
+          plz,
+          zip: plz,
+          city,
+          country: "CH",
+          phone,
+          contactPerson,
+
+          language,
+
+          mailDealer: email,
+          mailBg,
+          mailKam,
+          kamEmailSony,
+
+          kam: "Matthias Violante",
+          kamName: "Matthias Violante",
         }),
       });
 
@@ -426,10 +487,28 @@ export default function AdminDealersPage() {
 
       setCreateDealerResult({
         type: "success",
-        message: data.warning || `Händler wurde erstellt. Dealer ID: ${data.dealerId ?? "–"}`,
+        message: data.warning || `Händler wurde erstellt. Dealer ID: ${data.dealerId ?? data.dealer?.dealer_id ?? "–"}`,
       });
 
-      setNewDealer({ name: "", email: "", login_nr: "", password: "" });
+      setNewDealer({
+        name: "",
+        email: "",
+        login_nr: "",
+        password: "",
+
+        street: "",
+        plz: "",
+        city: "",
+        phone: "",
+        contactPerson: "",
+
+        language: "de_CH",
+
+        mailBg: "",
+        mailKam: "matthias.violante@p5connect.ch",
+        kamEmailSony: "matthias.violante@sony.com",
+      });
+
       await loadData();
 
       setTimeout(() => {
@@ -1097,7 +1176,7 @@ export default function AdminDealersPage() {
 
       {createDealerOpen && (
         <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/40 p-3">
-          <div className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-xl">
+          <div className="max-h-[90vh] w-full max-w-3xl overflow-y-auto rounded-2xl bg-white p-6 shadow-xl">
             <div className="mb-4 flex items-start justify-between gap-3">
               <div>
                 <h2 className="text-lg font-semibold text-gray-900">Neuen Händler anlegen</h2>
@@ -1161,7 +1240,106 @@ export default function AdminDealersPage() {
                   placeholder="Mindestens 8 Zeichen"
                 />
               </div>
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                  <div>
+                    <label className="mb-1 block text-sm font-medium text-gray-700">Strasse</label>
+                    <input
+                      value={newDealer.street}
+                      onChange={(e) => setNewDealer((prev) => ({ ...prev, street: e.target.value }))}
+                      className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500"
+                      placeholder="z. B. Luzernerstrasse 6"
+                    />
+                  </div>
 
+                  <div>
+                    <label className="mb-1 block text-sm font-medium text-gray-700">PLZ</label>
+                    <input
+                      value={newDealer.plz}
+                      onChange={(e) => setNewDealer((prev) => ({ ...prev, plz: e.target.value }))}
+                      className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500"
+                      placeholder="z. B. 5630"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="mb-1 block text-sm font-medium text-gray-700">Ort</label>
+                    <input
+                      value={newDealer.city}
+                      onChange={(e) => setNewDealer((prev) => ({ ...prev, city: e.target.value }))}
+                      className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500"
+                      placeholder="z. B. Muri"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="mb-1 block text-sm font-medium text-gray-700">Telefon</label>
+                    <input
+                      value={newDealer.phone}
+                      onChange={(e) => setNewDealer((prev) => ({ ...prev, phone: e.target.value }))}
+                      className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500"
+                      placeholder="z. B. +41 56 664 14 20"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="mb-1 block text-sm font-medium text-gray-700">Ansprechperson</label>
+                    <input
+                      value={newDealer.contactPerson}
+                      onChange={(e) =>
+                        setNewDealer((prev) => ({ ...prev, contactPerson: e.target.value }))
+                      }
+                      className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500"
+                      placeholder="z. B. Martin Pabst"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="mb-1 block text-sm font-medium text-gray-700">Sprache</label>
+                    <select
+                      value={newDealer.language}
+                      onChange={(e) => setNewDealer((prev) => ({ ...prev, language: e.target.value }))}
+                      className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500"
+                    >
+                      <option value="de_CH">Deutsch</option>
+                      <option value="fr_CH">Französisch</option>
+                      <option value="it_CH">Italienisch</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="mb-1 block text-sm font-medium text-gray-700">KAM-Mail P5</label>
+                    <input
+                      value={newDealer.mailKam}
+                      onChange={(e) => setNewDealer((prev) => ({ ...prev, mailKam: e.target.value }))}
+                      className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500"
+                      placeholder="matthias.violante@p5connect.ch"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="mb-1 block text-sm font-medium text-gray-700">KAM-Mail Sony</label>
+                    <input
+                      value={newDealer.kamEmailSony}
+                      onChange={(e) =>
+                        setNewDealer((prev) => ({ ...prev, kamEmailSony: e.target.value }))
+                      }
+                      className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500"
+                      placeholder="matthias.violante@sony.com"
+                    />
+                  </div>
+
+                  <div className="md:col-span-2">
+                    <label className="mb-1 block text-sm font-medium text-gray-700">
+                      Buying Group / Distributor Mail
+                    </label>
+                    <input
+                      value={newDealer.mailBg}
+                      onChange={(e) => setNewDealer((prev) => ({ ...prev, mailBg: e.target.value }))}
+                      className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500"
+                      placeholder="z. B. info@electronicpartner.ch"
+                    />
+                  </div>
+                </div>
               {createDealerResult ? (
                 <div
                   className={`rounded-xl border p-3 text-sm ${
