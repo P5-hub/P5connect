@@ -231,18 +231,25 @@ export default function VerlaufPage() {
   useEffect(() => {
     if (dealerLoading) return;
 
+    const activeDealerId = Number(dealer?.dealer_id);
+
+    if (!Number.isFinite(activeDealerId) || activeDealerId <= 0) {
+      setRows([]);
+      setLatestProjectActions({});
+      setLatestSubmissionActions({});
+      setLoading(false);
+      return;
+    }
+
     (async () => {
       setLoading(true);
 
       let query = supabase
         .from("v_submission_history_header")
         .select("*")
+        .eq("dealer_id", activeDealerId)
         .order("created_at", { ascending: false })
         .limit(100);
-
-      if (dealer?.dealer_id) {
-        query = query.eq("dealer_id", dealer.dealer_id);
-      }
 
       if (typFilter) {
         query = query.eq("typ", typFilter);

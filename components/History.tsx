@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { getSupabaseBrowser } from "@/lib/supabaseClient";
-import { useDealer } from "@/app/(dealer)/DealerContext";
+import { useActiveDealer } from "@/app/(dealer)/hooks/useActiveDealer";
 import {
   ShoppingCart,
   Briefcase,
@@ -81,7 +81,7 @@ const typeConfig: Record<
 const TitleIcon = HistoryIcon;
 
 export default function History({ filterTyp }: { filterTyp?: string }) {
-  const dealer = useDealer();
+  const { dealer, loading: dealerLoading } = useActiveDealer();
   const [history, setHistory] = useState<HistoryEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [latestProjectActions, setLatestProjectActions] = useState<
@@ -125,13 +125,21 @@ export default function History({ filterTyp }: { filterTyp?: string }) {
   };
 
   const loadHistory = async () => {
-    if (!dealer?.dealer_id) return;
+    const activeDealerId = Number(dealer?.dealer_id);
+
+    if (!Number.isFinite(activeDealerId) || activeDealerId <= 0) {
+      setHistory([]);
+      setLatestProjectActions({});
+      setLoading(false);
+      return;
+    }
+
     setLoading(true);
 
     let query = supabase
       .from("v_submission_history_full")
       .select("*")
-      .eq("dealer_id", dealer.dealer_id)
+      .eq("dealer_id", activeDealerId)
       .order("created_at", { ascending: false })
       .limit(20);
 
@@ -247,7 +255,7 @@ export default function History({ filterTyp }: { filterTyp?: string }) {
 
   const visibleHistory = useMemo(() => history, [history]);
 
-  if (!dealer) {
+  if (dealerLoading || !dealer) {
     return (
       <div className="p-4 border rounded-lg bg-gray-50 text-gray-500 text-sm">
         ⏳ Händlerdaten werden geladen...
