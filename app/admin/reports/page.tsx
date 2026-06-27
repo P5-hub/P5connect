@@ -111,7 +111,7 @@ export default function ReportsPage() {
       </div>
 
       {/* ================= REPORT NAVIGATION ================= */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div className="border border-blue-100 bg-blue-50 rounded-xl p-4 shadow-sm">
           <div className="flex items-center gap-2 text-blue-800 font-semibold">
             <BarChart3 className="w-5 h-5" />
@@ -125,6 +125,22 @@ export default function ReportsPage() {
             Aktuelle Ansicht
           </div>
         </div>
+
+        <Link
+          href="/admin/reports/sellout"
+          className="border border-green-100 bg-green-50 rounded-xl p-4 hover:bg-green-100 transition shadow-sm block"
+        >
+          <div className="flex items-center gap-2 text-green-800 font-semibold">
+            <BarChart3 className="w-5 h-5" />
+            Sell-out Dashboard
+          </div>
+          <p className="text-sm text-green-700 mt-2">
+            Verkäufe, Lagerbestände, Top-Produkte und Händler-Drilldown.
+          </p>
+          <div className="mt-3 inline-flex items-center gap-2 text-xs font-medium text-green-700 bg-white/70 border border-green-100 rounded-full px-3 py-1">
+            Öffnen
+          </div>
+        </Link>
 
         <Link
           href="/admin/reports/campaigns"

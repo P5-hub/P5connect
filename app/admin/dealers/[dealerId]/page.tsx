@@ -1,6 +1,7 @@
   "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { createClient } from "@/utils/supabase/client";
 import { Card } from "@/components/ui/card";
@@ -202,6 +203,43 @@ type AutoMetricRow = {
 
 type PeriodMode = "month" | "quarter" | "halfyear" | "year" | "ytd_calendar" | "ytd_fiscal";
 type TopProduct = { label: string; qty: number; revenue: number };
+
+type DealerSelloutWeek = {
+  sellout_year: number;
+  sellout_week: number;
+  dealer_id: number;
+  dealer_name: string | null;
+  sold_qty: number | null;
+  sellout_revenue: number | null;
+  latest_stock_qty: number | null;
+  product_count: number | null;
+  active_product_count: number | null;
+  missing_price_qty: number | null;
+  zero_price_qty: number | null;
+  priced_qty: number | null;
+  last_reported_at: string | null;
+};
+
+type DealerSelloutProductWeek = {
+  sellout_year: number;
+  sellout_week: number;
+  dealer_id: number;
+  product_id: number | null;
+  ean: string | null;
+  sony_article: string | null;
+  product_name: string | null;
+  category: string | null;
+  model: string | null;
+  sold_qty: number | null;
+  sellout_revenue: number | null;
+  latest_stock_qty: number | null;
+  latest_stock_date: string | null;
+  missing_price_qty: number | null;
+  zero_price_qty: number | null;
+  priced_qty: number | null;
+  avg_sellout_price: number | null;
+  last_reported_at: string | null;
+};
 
 type VisitFormState = {
   visit_date: string;
@@ -638,6 +676,11 @@ export default function AdminDealerDetailPage() {
   const [autoDisplayOrderCount, setAutoDisplayOrderCount] = useState(0);
   const [autoPositionsCount, setAutoPositionsCount] = useState(0);
   const [autoTopProducts, setAutoTopProducts] = useState<TopProduct[]>([]);
+  const [loadingSelloutKpis, setLoadingSelloutKpis] = useState(false);
+  const [dealerSelloutWeeks, setDealerSelloutWeeks] = useState<DealerSelloutWeek[]>([]);
+  const [dealerSelloutProducts, setDealerSelloutProducts] = useState<DealerSelloutProductWeek[]>([]);
+  const [showSelloutWeeks, setShowSelloutWeeks] = useState(false);
+  const [showSelloutProducts, setShowSelloutProducts] = useState(false);
   const [toast, setToast] = useState<{ type: "success" | "error"; message: string } | null>(null);
 
   const [profileForm, setProfileForm] = useState({ contact_person_name: "", contact_person_role: "", customer_type: "", region: "", partner_status: "", last_login_at: "", last_visit_date: "", birthdays_notes: "", personal_notes: "", general_notes: "" });
@@ -774,10 +817,59 @@ export default function AdminDealerDetailPage() {
     finally { setLoadingAutoKpis(false); }
   }, [dealerId, periodMode, supabase]);
 
+  const loadDealerSelloutKpis = useCallback(async () => {
+  if (!dealerId || Number.isNaN(dealerId)) return;
+
+  setLoadingSelloutKpis(true);
+
+  try {
+    const weeksRes = await supabase
+      .from("v_sellout_by_dealer_week")
+      .select("*")
+      .eq("dealer_id", dealerId)
+      .order("sellout_year", { ascending: false })
+      .order("sellout_week", { ascending: false })
+      .limit(8);
+
+    if (weeksRes.error) throw weeksRes.error;
+
+    const weekRows = (weeksRes.data ?? []) as DealerSelloutWeek[];
+    setDealerSelloutWeeks(weekRows);
+
+    const latestWeek = weekRows[0];
+
+    if (!latestWeek) {
+      setDealerSelloutProducts([]);
+      return;
+    }
+
+    const productsRes = await supabase
+      .from("v_sellout_product_dealer_week")
+      .select("*")
+      .eq("dealer_id", dealerId)
+      .eq("sellout_year", latestWeek.sellout_year)
+      .eq("sellout_week", latestWeek.sellout_week)
+      .order("sold_qty", { ascending: false })
+      .limit(12);
+
+    if (productsRes.error) throw productsRes.error;
+
+    setDealerSelloutProducts((productsRes.data ?? []) as DealerSelloutProductWeek[]);
+  } catch (error) {
+    console.error("Fehler beim Laden Sell-out Händlerdaten:", error);
+  } finally {
+    setLoadingSelloutKpis(false);
+  }
+}, [dealerId, supabase]);
+
   useEffect(() => {
   loadData();
 }, [loadData]);
   useEffect(() => { loadAutoKpis(); }, [loadAutoKpis]);
+
+  useEffect(() => {
+  loadDealerSelloutKpis();
+}, [loadDealerSelloutKpis]);
 
   const groupedTags = useMemo<Record<DealerTagCategory, DealerTag[]>>(() => ({
     crm: allTags.filter((tag) => tag.category === "crm"),
@@ -1160,6 +1252,223 @@ export default function AdminDealerDetailPage() {
       <Card className="rounded-2xl border border-gray-200 p-5"><div className="flex flex-wrap items-start justify-between gap-4"><div><div className="flex items-center gap-2 text-gray-900"><Store className="h-5 w-5 text-indigo-600" /><h1 className="text-xl font-semibold">Händlerakte</h1></div><div className="mt-3 grid grid-cols-1 gap-x-8 gap-y-1 text-sm text-gray-600 md:grid-cols-2"><p><span className="font-medium text-gray-800">Händler:</span> {dealer.name ?? "-"}</p><p><span className="font-medium text-gray-800">Dealer ID:</span> {dealer.dealer_id}</p><p><span className="font-medium text-gray-800">Login:</span> {dealer.login_nr ?? "-"}</p><p><span className="font-medium text-gray-800">E-Mail:</span> {dealer.email ?? "-"}</p></div><div className="mt-3 flex flex-wrap gap-2">{combinedInterestTags.slice(0, 4).map((tag) => <span key={tag.tag_id} className="rounded-full bg-blue-50 px-2.5 py-1 text-xs font-medium text-blue-700 ring-1 ring-blue-100">{tag.label}</span>)}{combinedCrmTags.slice(0, 4).map((tag) => <span key={tag.tag_id} className="rounded-full bg-amber-50 px-2.5 py-1 text-xs font-medium text-amber-700 ring-1 ring-amber-100">{tag.label}</span>)}</div></div><div className="flex flex-wrap gap-2"><Button type="button" variant="outline" onClick={() => router.back()}><ArrowLeft className="mr-2 h-4 w-4" />Zurück</Button><Button type="button" onClick={saveMainData} disabled={savingMain}>{savingMain ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}Speichern</Button></div></div></Card>
 
       <Card className="rounded-2xl border border-gray-200 p-5"><SectionHeader icon={<BarChart3 className="h-5 w-5 text-emerald-600" />} title="Auto KPI / Sell-in" subtitle="Automatischer Überblick aus euren Bestellungen. Dieser Umsatz ist Sell-in, nicht Sell-out." action={<div className="flex items-center gap-2"><span className="text-sm text-gray-500">Zeitraum</span><select value={periodMode} onChange={(e) => setPeriodMode(e.target.value as PeriodMode)} className="rounded-md border border-gray-300 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500"><option value="month">Monat</option><option value="quarter">Quartal</option><option value="halfyear">Halbjahr</option><option value="year">Jahr</option><option value="ytd_calendar">YTD Kalenderjahr</option><option value="ytd_fiscal">YTD Fiscal Year</option></select></div>} />{loadingAutoKpis ? <div className="flex items-center gap-2 rounded-xl border bg-white p-4 text-sm text-gray-500"><Loader2 className="h-4 w-4 animate-spin" />Auto KPI werden geladen...</div> : <div className="space-y-4"><div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-6"><StatCard title="Sell-in Sony Umsatz" value={formatCurrency(autoSonyRevenue)} subtitle={getPeriodLabel(periodMode)} /><StatCard title="Vorjahr" value={formatCurrency(autoSonyRevenuePrevYear)} subtitle="Gleicher Zeitraum" /><StatCard title="YoY" value={formatPercent(yoyPercent)} subtitle="Sell-in Sony Umsatz" /><StatCard title="Display-Bestellungen" value={formatInteger(autoDisplayOrderCount)} subtitle={getPeriodLabel(periodMode)} /><StatCard title="Bestellpositionen" value={formatInteger(autoPositionsCount)} subtitle={getPeriodLabel(periodMode)} /><StatCard title="Displays aktiv" value={formatInteger(displayActiveCount)} subtitle={`${formatInteger(displayDisplayedCount)} ausgestellt`} /></div><div className="grid grid-cols-1 gap-3 xl:grid-cols-3">{[0, 1, 2].map((idx) => { const product = autoTopProducts[idx]; return <div key={idx} className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm"><div className="flex items-center gap-2 text-sm font-medium text-gray-700"><Trophy className="h-4 w-4 text-amber-500" />Top Produkt {idx + 1}</div><div className="mt-2 text-base font-semibold text-gray-900">{product?.label || "–"}</div><div className="mt-1 text-sm text-gray-500">Menge: {product ? formatInteger(product.qty) : "–"}</div><div className="text-sm text-gray-500">Sell-in Umsatz: {product ? formatCurrency(product.revenue) : "–"}</div></div>; })}</div></div>}</Card>
+
+      <Card className="rounded-2xl border border-emerald-100 bg-emerald-50/40 p-5">
+        <SectionHeader
+          icon={<BarChart3 className="h-5 w-5 text-emerald-600" />}
+          title="Sell-out aus P5connect"
+          subtitle="Automatisch aus den gemeldeten Verkaufszahlen und Lagerbeständen."
+        />
+
+        {loadingSelloutKpis ? (
+          <div className="flex items-center gap-2 rounded-xl border bg-white p-4 text-sm text-gray-500">
+            <Loader2 className="h-4 w-4 animate-spin" />
+            Sell-out Daten werden geladen.
+          </div>
+        ) : dealerSelloutWeeks.length === 0 ? (
+          <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
+            Für diesen Händler wurden noch keine Sell-out Daten gemeldet.
+          </div>
+        ) : (
+          <div className="space-y-5">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-6">
+              <StatCard
+                title="Letzte KW"
+                value={`KW ${dealerSelloutWeeks[0].sellout_week}`}
+                subtitle={String(dealerSelloutWeeks[0].sellout_year)}
+              />
+              <StatCard
+                title="Verkaufte Stück"
+                value={formatInteger(dealerSelloutWeeks[0].sold_qty)}
+                subtitle="letzte Meldung"
+              />
+              <StatCard
+                title="Sell-out Umsatz"
+                value={formatCurrency(dealerSelloutWeeks[0].sellout_revenue)}
+                subtitle="gemeldete VK-Preise"
+              />
+              <StatCard
+                title="Lagerbestand"
+                value={formatInteger(dealerSelloutWeeks[0].latest_stock_qty)}
+                subtitle="neuester Snapshot"
+              />
+              <StatCard
+                title="Produkte"
+                value={formatInteger(dealerSelloutWeeks[0].product_count)}
+                subtitle="mit Meldung"
+              />
+              <StatCard
+                title="Preisqualität"
+                value={`${formatInteger(dealerSelloutWeeks[0].priced_qty)} / ${formatInteger(
+                  dealerSelloutWeeks[0].sold_qty
+                )}`}
+                subtitle={`${formatInteger(dealerSelloutWeeks[0].zero_price_qty)} Stk. ohne Preis`}
+              />
+            </div>
+
+            {Number(dealerSelloutWeeks[0].zero_price_qty ?? 0) > 0 ? (
+              <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
+                ⚠️ Bei diesem Händler wurden {formatInteger(dealerSelloutWeeks[0].zero_price_qty)} Stück ohne Verkaufspreis gemeldet.
+                Die Stückzahlen und Lagerwerte sind nutzbar, der Umsatz kann aber unvollständig sein.
+              </div>
+            ) : null}
+
+            <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+              <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <div className="text-sm font-semibold text-gray-900">
+                      Wochenverlauf
+                    </div>
+                    <p className="mt-1 text-xs text-gray-500">
+                      Letzte {dealerSelloutWeeks.length} gemeldete Sell-out Woche(n).
+                    </p>
+                  </div>
+
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setShowSelloutWeeks((prev) => !prev)}
+                  >
+                    {showSelloutWeeks ? "Ausblenden" : "Anzeigen"}
+                  </Button>
+                </div>
+
+                {showSelloutWeeks ? (
+                  <div className="mt-4 overflow-x-auto">
+                    <table className="min-w-full text-sm">
+                      <thead>
+                        <tr className="text-left text-xs uppercase text-gray-500">
+                          <th className="px-2 py-2">KW</th>
+                          <th className="px-2 py-2">Stück</th>
+                          <th className="px-2 py-2">Umsatz</th>
+                          <th className="px-2 py-2">Lager</th>
+                          <th className="px-2 py-2">ohne Preis</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {dealerSelloutWeeks.map((row) => (
+                          <tr
+                            key={`${row.sellout_year}-${row.sellout_week}`}
+                            className="border-t text-gray-700"
+                          >
+                            <td className="px-2 py-2">
+                              KW {row.sellout_week} / {row.sellout_year}
+                            </td>
+                            <td className="px-2 py-2 font-semibold">
+                              {formatInteger(row.sold_qty)}
+                            </td>
+                            <td className="px-2 py-2">
+                              {formatCurrency(row.sellout_revenue)}
+                            </td>
+                            <td className="px-2 py-2">
+                              {formatInteger(row.latest_stock_qty)}
+                            </td>
+                            <td className="px-2 py-2">
+                              {Number(row.zero_price_qty ?? 0) > 0 ? (
+                                <span className="font-medium text-amber-700">
+                                  {formatInteger(row.zero_price_qty)}
+                                </span>
+                              ) : (
+                                "–"
+                              )}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                ) : (
+                  <div className="mt-4 rounded-xl bg-gray-50 p-3 text-xs text-gray-500">
+                    Der Wochenverlauf ist ausgeblendet, damit die Händlerakte übersichtlich bleibt.
+                  </div>
+                )}
+              </div>
+
+              <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <div className="text-sm font-semibold text-gray-900">
+                      Produkte letzte gemeldete KW
+                    </div>
+                    <p className="mt-1 text-xs text-gray-500">
+                      {dealerSelloutProducts.length} Produkt(e) in der letzten gemeldeten Sell-out Woche.
+                    </p>
+                  </div>
+
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setShowSelloutProducts((prev) => !prev)}
+                  >
+                    {showSelloutProducts ? "Ausblenden" : "Anzeigen"}
+                  </Button>
+                </div>
+
+                {showSelloutProducts ? (
+                  dealerSelloutProducts.length === 0 ? (
+                    <div className="mt-4 text-sm text-gray-500">
+                      Keine Produkte für die letzte Sell-out Woche gefunden.
+                    </div>
+                  ) : (
+                    <div className="mt-4 space-y-2">
+                      {dealerSelloutProducts.map((product) => (
+                        <div
+                          key={`${product.sellout_year}-${product.sellout_week}-${product.product_id ?? product.ean ?? product.sony_article}`}
+                          className="rounded-xl border border-gray-100 bg-gray-50 p-3"
+                        >
+                          <div className="flex flex-wrap items-start justify-between gap-2">
+                            <div>
+                              <div className="font-semibold text-gray-900">
+                                {product.sony_article || product.product_name || "–"}
+                              </div>
+                              <div className="text-xs text-gray-500">
+                                EAN: {product.ean || "–"} · {product.category || "–"}
+                              </div>
+                            </div>
+
+                            <div className="text-right text-sm">
+                              <div className="font-semibold text-gray-900">
+                                {formatInteger(product.sold_qty)} Stk.
+                              </div>
+                              <div className="text-xs text-gray-500">
+                                Lager: {formatInteger(product.latest_stock_qty)}
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className="mt-2 flex flex-wrap gap-3 text-xs text-gray-600">
+                            <span>Umsatz: {formatCurrency(product.sellout_revenue)}</span>
+                            <span>Ø Preis: {formatCurrency(product.avg_sellout_price)}</span>
+                            {Number(product.zero_price_qty ?? 0) > 0 ? (
+                              <span className="font-medium text-amber-700">
+                                {formatInteger(product.zero_price_qty)} Stk. ohne Preis
+                              </span>
+                            ) : null}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )
+                ) : (
+                  <div className="mt-4 rounded-xl bg-gray-50 p-3 text-xs text-gray-500">
+                    Die Produktdetails sind ausgeblendet, damit die Händlerakte übersichtlich bleibt.
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <Link
+              href={`/admin/reports/sellout?dealer_id=${dealerId}`}
+              className="inline-flex items-center rounded-md border border-emerald-200 bg-white px-3 py-2 text-sm font-medium text-emerald-700 hover:bg-emerald-50"
+            >
+              Sell-out Dashboard öffnen
+            </Link>
+          </div>
+        )}
+      </Card>
 
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-[0.9fr_1.1fr]"><Card className="rounded-2xl border border-gray-200 p-5"><SectionHeader icon={<Clock3 className="h-5 w-5 text-orange-600" />} title="Tasks / Next Steps" subtitle="Direkt sichtbar vor jedem Besuch." /><div className="mb-5 space-y-3 rounded-2xl border bg-gray-50 p-4"><div className="grid grid-cols-1 gap-3 md:grid-cols-[1fr_150px_220px_auto]"><div><FieldLabel>Titel</FieldLabel><Input value={taskForm.title} onChange={(e) => setTaskForm((prev) => ({ ...prev, title: e.target.value }))} placeholder="z. B. Display-Frequenz prüfen" /></div><div><FieldLabel>Fällig bis</FieldLabel><Input type="date" value={taskForm.due_date} onChange={(e) => setTaskForm((prev) => ({ ...prev, due_date: e.target.value }))} /></div><div><FieldLabel>Zuständig</FieldLabel><select value={taskForm.assigned_to} onChange={(e) => setTaskForm((prev) => ({ ...prev, assigned_to: e.target.value }))} className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500"><option value="">Nicht zugewiesen</option>{dealerUsers.map((user) => <option key={user.id} value={user.user_email}>{user.display_name || user.user_email}{user.role ? ` · ${user.role}` : ""}</option>)}</select></div><div className="flex items-end"><Button type="button" onClick={addTask} disabled={addingTask}>{addingTask ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Plus className="mr-2 h-4 w-4" />}Task</Button></div></div><div><FieldLabel>Beschreibung</FieldLabel><Textarea value={taskForm.description} onChange={(v) => setTaskForm((prev) => ({ ...prev, description: v }))} rows={2} /></div></div><div className="space-y-3"><h3 className="text-sm font-semibold text-gray-900">Offen ({openTasks.length})</h3>{openTasks.length === 0 ? <p className="text-sm text-gray-500">Keine offenen Aufgaben.</p> : openTasks.map((task) => <div key={task.task_id} className="rounded-xl border border-orange-200 bg-orange-50 p-3"><div className="flex flex-wrap items-start justify-between gap-3"><div className="min-w-0 flex-1"><div className="font-medium text-gray-900">{task.title}</div>{task.description ? <p className="mt-1 whitespace-pre-wrap text-sm text-gray-600">{task.description}</p> : null}<div className="mt-2 text-xs text-gray-500">Fällig: {task.due_date || "-"}</div><div className="mt-1 text-xs text-gray-500">Zuständig: {getAssignedName(task.assigned_to)}</div></div><div className="flex flex-wrap gap-2"><Button size="sm" type="button" onClick={() => updateTaskStatus(task.task_id, "done")} className="bg-green-600 hover:bg-green-700"><CheckCircle2 className="mr-1 h-4 w-4" />Erledigt</Button><Button size="sm" type="button" variant="outline" onClick={() => updateTaskStatus(task.task_id, "cancelled")}><XCircle className="mr-1 h-4 w-4" />Abbrechen</Button></div></div></div>)}<details className="rounded-xl border border-gray-200 bg-white p-3"><summary className="cursor-pointer text-sm font-semibold text-gray-900">Erledigt / Abgebrochen ({doneTasks.length + cancelledTasks.length})</summary><div className="mt-3 space-y-2">{[...doneTasks, ...cancelledTasks].length === 0 ? <p className="text-sm text-gray-500">Noch keine abgeschlossenen Aufgaben.</p> : [...doneTasks, ...cancelledTasks].slice(0, 8).map((task) => <div key={task.task_id} className="rounded-xl border border-gray-200 bg-gray-50 p-3"><div className="font-medium text-gray-900">{task.title}</div><div className="text-xs text-gray-500">Status: {task.status === "done" ? "Erledigt" : "Abgebrochen"}</div><div className="mt-1 text-xs text-gray-500">Zuständig: {getAssignedName(task.assigned_to)}</div></div>)}</div></details></div></Card>
 

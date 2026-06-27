@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState, useCallback } from "react";
 import { createClient } from "@/utils/supabase/client";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -55,15 +55,29 @@ export default function AdminBestellungenListPage() {
   const { t } = useI18n();
   const supabase = createClient();
   const router = useRouter();
+  const searchParams = useSearchParams();
+
+  const initialStatusParam = searchParams.get("status");
+  const initialSearchParam = searchParams.get("search") ?? "";
+
+  const initialStatusFilter =
+    initialStatusParam === "approved" ||
+    initialStatusParam === "rejected" ||
+    initialStatusParam === "pending"
+      ? initialStatusParam
+      : initialStatusParam === "all"
+      ? "alle"
+      : "pending";
 
   const [rows, setRows] = useState<Row[]>([]);
   const [loading, setLoading] = useState(true);
 
   const [statusFilter, setStatusFilter] = useState<
     "pending" | "approved" | "rejected" | "alle"
-  >("pending");
+  >(initialStatusFilter);
+
   const [typeFilter, setTypeFilter] = useState<TypeFilter>("alle");
-  const [searchQuery, setSearchQuery] = useState("");
+  const [searchQuery, setSearchQuery] = useState(initialSearchParam);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -166,6 +180,23 @@ export default function AdminBestellungenListPage() {
   }, [fetchData]);
 
   useEffect(() => {
+    const statusParam = searchParams.get("status");
+    const searchParam = searchParams.get("search") ?? "";
+
+    if (
+      statusParam === "approved" ||
+      statusParam === "rejected" ||
+      statusParam === "pending"
+    ) {
+      setStatusFilter(statusParam);
+    } else if (statusParam === "all") {
+      setStatusFilter("alle");
+    }
+
+    setSearchQuery(searchParam);
+  }, [searchParams]);
+
+  useEffect(() => {
     const ch = supabase
       .channel("rt-admin-orders")
       .on(
@@ -209,6 +240,8 @@ export default function AdminBestellungenListPage() {
       const hay =
         [
           r.submission_id,
+          `B-${r.submission_id}`,
+          `#${r.submission_id}`,
           r.dealers?.name,
           r.dealers?.email,
           r.campaign_name_snapshot,

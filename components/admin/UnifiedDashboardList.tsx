@@ -5,6 +5,7 @@ import { createClient } from "@/utils/supabase/client";
 import { Card } from "@/components/ui/card";
 import { Loader2, CheckCircle, XCircle, Clock, Search } from "lucide-react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { useI18n } from "@/lib/i18n/I18nProvider";
@@ -34,14 +35,27 @@ export default function UnifiedDashboardList({
 }: UnifiedDashboardListProps) {
   const supabase = createClient();
   const { lang } = useI18n();
+  const searchParams = useSearchParams();
+
+  const initialStatusParam = searchParams.get("status");
+  const initialSearchParam = searchParams.get("search") ?? "";
+
+  const initialStatusFilter =
+    initialStatusParam === "approved" ||
+    initialStatusParam === "rejected" ||
+    initialStatusParam === "pending"
+      ? initialStatusParam
+      : initialStatusParam === "all"
+      ? "all"
+      : "pending";
 
   const [data, setData] = useState<any[]>([]);
   const [filtered, setFiltered] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [search, setSearch] = useState("");
+  const [search, setSearch] = useState(initialSearchParam);
   const [statusFilter, setStatusFilter] = useState<
     "pending" | "approved" | "rejected" | "all"
-  >("pending");
+  >(initialStatusFilter);
 
   const [supportTypeFilter, setSupportTypeFilter] = useState<
     "all" | "sellout" | "marketing" | "event" | "other" | "unknown"
@@ -381,6 +395,23 @@ export default function UnifiedDashboardList({
   }, [type, supabase]);
 
   useEffect(() => {
+    const statusParam = searchParams.get("status");
+    const searchParam = searchParams.get("search") ?? "";
+
+    if (
+      statusParam === "approved" ||
+      statusParam === "rejected" ||
+      statusParam === "pending"
+    ) {
+      setStatusFilter(statusParam);
+    } else if (statusParam === "all") {
+      setStatusFilter("all");
+    }
+
+    setSearch(searchParam);
+  }, [searchParams]);
+
+  useEffect(() => {
     let result = [...data];
 
     if (statusFilter !== "all") {
@@ -394,15 +425,37 @@ export default function UnifiedDashboardList({
     }
 
     if (search.trim()) {
-      const s = search.toLowerCase();
-      result = result.filter(
-        (r) =>
-          r.submission_id?.toString().includes(s) ||
-          r.title?.toLowerCase().includes(s) ||
-          r.dealers?.name?.toLowerCase().includes(s) ||
-          r.dealers?.email?.toLowerCase().includes(s) ||
-          r.dealers?.mail_dealer?.toLowerCase().includes(s)
-      );
+      const s = search.toLowerCase().trim();
+
+      result = result.filter((r) => {
+        const prefix =
+          type === "projekt"
+            ? "P"
+            : type === "support"
+            ? "S"
+            : type === "bestellung"
+            ? "B"
+            : "";
+
+        const hay =
+          [
+            r.submission_id,
+            prefix ? `${prefix}-${r.submission_id}` : null,
+            `#${r.submission_id}`,
+            r.title,
+            r.dealers?.name,
+            r.dealers?.email,
+            r.dealers?.mail_dealer,
+            r.kommentar,
+            r.order_comment,
+            r.support_details?.support_typ,
+          ]
+            .filter(Boolean)
+            .join(" ")
+            .toLowerCase() || "";
+
+        return hay.includes(s);
+      });
     }
 
     setFiltered(result);
