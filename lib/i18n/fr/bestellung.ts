@@ -36,6 +36,10 @@ export const bestellung = {
     needDistributor: "❌ Veuillez sélectionner un distributeur principal.",
     needValidDate: "Veuillez choisir une date de livraison valide (YYYY-MM-DD).",
 
+    missingDeliveryPhoneTitle: "Numéro de téléphone manquant",
+    missingDeliveryPhoneText:
+      "Veuillez indiquer un numéro de téléphone pour l’adresse de livraison alternative.",
+
     invalidInputTitle: "Saisie invalide",
     invalidQuantityText: "Veuillez saisir une quantité valide pour {product}.",
 
@@ -238,6 +242,7 @@ export const bestellung = {
       zip: "NPA",
       city: "Localité",
       country: "Pays",
+      phone: "Téléphone",
       phoneOptional: "Téléphone (optionnel)",
       emailOptional: "E-mail (optionnel)",
       defaultCountry: "Suisse",

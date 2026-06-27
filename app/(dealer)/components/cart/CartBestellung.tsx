@@ -2259,6 +2259,23 @@ export default function CartBestellung() {
       return;
     }
 
+    if (hasAltDelivery && !deliveryPhone.trim()) {
+      toast.error(
+        tr(
+          "bestellung.toast.missingDeliveryPhoneTitle",
+          "Telefonnummer fehlt"
+        ),
+        {
+          description: tr(
+            "bestellung.toast.missingDeliveryPhoneText",
+            "Bitte Telefonnummer für die abweichende Lieferadresse angeben."
+          ),
+          duration: TOAST_DURATION,
+        }
+      );
+      return;
+    }
+
     if (deliveryMode === "sofort" && deliveryDate) {
       setDeliveryDate("");
     }
@@ -3313,15 +3330,16 @@ export default function CartBestellung() {
                     </div>
 
                     <div>
-                      <FieldLabel>
+                      <FieldLabel required>
                         {tr(
-                          "bestellung.cartSheet.altDelivery.phoneOptional",
-                          "Telefon (optional)"
+                          "bestellung.cartSheet.altDelivery.phone",
+                          "Telefon"
                         )}
                       </FieldLabel>
                       <Input
                         value={deliveryPhone}
                         onChange={(e) => setDeliveryPhone(e.target.value)}
+                        required={hasAltDelivery}
                         className="h-10 text-sm"
                       />
                     </div>

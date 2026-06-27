@@ -36,6 +36,10 @@ export const bestellung = {
     needDistributor: "❌ Tscherna p.pl. in distributur principal.",
     needValidDate: "Tscherna p.pl. ina data da furniziun valaivla (YYYY-MM-DD).",
 
+    missingDeliveryPhoneTitle: "Numer da telefon manca",
+    missingDeliveryPhoneText:
+      "Endatescha p.pl. in numer da telefon per l’adressa da furniziun alternativa.",
+
     invalidInputTitle: "Endataziun nunvalaivla",
     invalidQuantityText: "Endatescha p.pl. ina quantitad valaivla per {product}.",
 
@@ -238,6 +242,7 @@ export const bestellung = {
       zip: "PLZ",
       city: "Lieu",
       country: "Pajais",
+      phone: "Telefon",
       phoneOptional: "Telefon (opziunal)",
       emailOptional: "E-mail (opziunal)",
       defaultCountry: "Svizra",

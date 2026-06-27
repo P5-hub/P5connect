@@ -36,6 +36,10 @@ export const bestellung = {
     needDistributor: "❌ Bitte Haupt-Distributor auswählen.",
     needValidDate: "Bitte gültiges Lieferdatum (YYYY-MM-DD) wählen.",
 
+    missingDeliveryPhoneTitle: "Telefonnummer fehlt",
+    missingDeliveryPhoneText:
+      "Bitte Telefonnummer für die abweichende Lieferadresse angeben.",
+
     invalidInputTitle: "Ungültige Eingabe",
     invalidQuantityText: "Bitte gültige Menge für {product} eingeben!",
 
@@ -234,11 +238,12 @@ export const bestellung = {
       useAdditionalAddress:
         "Zusätzliche Lieferadresse verwenden",
       name: "Name / Firma",
-      street: "Straße / Nr.",
+      street: "Strasse / Nr.",
       zip: "PLZ",
       city: "Ort",
       country: "Land",
       phoneOptional: "Telefon (optional)",
+      phone: "Telefon",
       emailOptional: "E-Mail (optional)",
       defaultCountry: "Schweiz",
     },
