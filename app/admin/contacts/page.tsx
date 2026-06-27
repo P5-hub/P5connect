@@ -14,6 +14,7 @@ import {
   Search,
   Store,
   Tag,
+  Trash2,
   UserRound,
   Users,
   X,
@@ -121,6 +122,7 @@ export default function AdminContactsPage() {
   const [sortMode, setSortMode] = useState<"dealer" | "contact" | "openTasks" | "created">("dealer");
 
   const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [editingUserId, setEditingUserId] = useState<number | null>(null);
   const [contactForm, setContactForm] = useState({
     dealer_id: "",
     display_name: "",
@@ -334,6 +336,7 @@ export default function AdminContactsPage() {
   };
 
   const openCreateModal = () => {
+    setEditingUserId(null);
     setContactForm({
       dealer_id: "",
       display_name: "",
@@ -344,12 +347,32 @@ export default function AdminContactsPage() {
     setIsCreateOpen(true);
   };
 
+  const openEditModal = (row: ContactRow) => {
+    setEditingUserId(Number(row.user.id));
+    setContactForm({
+      dealer_id: String(row.user.dealer_id),
+      display_name: row.user.display_name || "",
+      user_email: row.user.user_email || "",
+      role: row.user.role || "",
+    });
+    setSelectedTagIds(row.tags.map((tag) => Number(tag.tag_id)));
+    setIsCreateOpen(true);
+  };
+
   const closeCreateModal = () => {
     if (savingContact) return;
     setIsCreateOpen(false);
+    setEditingUserId(null);
+    setContactForm({
+      dealer_id: "",
+      display_name: "",
+      user_email: "",
+      role: "",
+    });
+    setSelectedTagIds([]);
   };
 
-  const createContact = async () => {
+  const saveContact = async () => {
     const dealerId = Number(contactForm.dealer_id);
     const email = contactForm.user_email.trim().toLowerCase();
     const displayName = contactForm.display_name.trim();
@@ -382,25 +405,52 @@ export default function AdminContactsPage() {
 
       if (existingError) throw existingError;
 
-      if (existingUser) {
+      if (existingUser && Number(existingUser.id) !== editingUserId) {
         showToast("error", "Dieser Kontakt existiert bei diesem Händler bereits.");
         return;
       }
 
-      const { data: insertedUser, error: insertError } = await supabase
-        .from("dealer_users")
-        .insert({
-          dealer_id: dealerId,
-          user_email: email,
-          display_name: displayName,
-          role: role || null,
-        })
-        .select("id")
-        .single();
+      let dealerUserId = editingUserId;
 
-      if (insertError) throw insertError;
+      if (editingUserId) {
+        const { error: updateError } = await supabase
+          .from("dealer_users")
+          .update({
+            dealer_id: dealerId,
+            user_email: email,
+            display_name: displayName,
+            role: role || null,
+          })
+          .eq("id", editingUserId);
 
-      const dealerUserId = Number(insertedUser.id);
+        if (updateError) throw updateError;
+      } else {
+        const { data: insertedUser, error: insertError } = await supabase
+          .from("dealer_users")
+          .insert({
+            dealer_id: dealerId,
+            user_email: email,
+            display_name: displayName,
+            role: role || null,
+          })
+          .select("id")
+          .single();
+
+        if (insertError) throw insertError;
+
+        dealerUserId = Number(insertedUser.id);
+      }
+
+      if (!dealerUserId) {
+        throw new Error("Keine Kontakt-ID gefunden.");
+      }
+
+      const { error: deleteTagError } = await supabase
+        .from("dealer_user_tag_assignments")
+        .delete()
+        .eq("dealer_user_id", dealerUserId);
+
+      if (deleteTagError) throw deleteTagError;
 
       if (selectedTagIds.length > 0) {
         const payload = selectedTagIds.map((tagId) => ({
@@ -415,8 +465,13 @@ export default function AdminContactsPage() {
         if (tagError) throw tagError;
       }
 
-      showToast("success", "Kontakt wurde angelegt.");
+      showToast(
+        "success",
+        editingUserId ? "Kontakt wurde aktualisiert." : "Kontakt wurde angelegt."
+      );
+
       setIsCreateOpen(false);
+      setEditingUserId(null);
       setContactForm({
         dealer_id: "",
         display_name: "",
@@ -426,13 +481,49 @@ export default function AdminContactsPage() {
       setSelectedTagIds([]);
       await loadData();
     } catch (error) {
-      console.error("Fehler beim Erstellen des Kontakts:", error);
-      showToast("error", "Kontakt konnte nicht erstellt werden.");
+      console.error("Fehler beim Speichern des Kontakts:", error);
+      showToast("error", "Kontakt konnte nicht gespeichert werden.");
     } finally {
       setSavingContact(false);
     }
   };
+  const deleteContact = async (row: ContactRow) => {
+    const contactName = row.user.display_name || row.user.user_email;
 
+    const confirmed = window.confirm(
+      `Kontakt "${contactName}" wirklich löschen? Diese Aktion kann nicht rückgängig gemacht werden.`
+    );
+
+    if (!confirmed) return;
+
+    try {
+      setSavingContact(true);
+
+      const dealerUserId = Number(row.user.id);
+
+      const { error: tagDeleteError } = await supabase
+        .from("dealer_user_tag_assignments")
+        .delete()
+        .eq("dealer_user_id", dealerUserId);
+
+      if (tagDeleteError) throw tagDeleteError;
+
+      const { error: userDeleteError } = await supabase
+        .from("dealer_users")
+        .delete()
+        .eq("id", dealerUserId);
+
+      if (userDeleteError) throw userDeleteError;
+
+      showToast("success", "Kontakt wurde gelöscht.");
+      await loadData();
+    } catch (error) {
+      console.error("Fehler beim Löschen des Kontakts:", error);
+      showToast("error", "Kontakt konnte nicht gelöscht werden.");
+    } finally {
+      setSavingContact(false);
+    }
+  };
   const renderTagPills = (items: DealerTag[], category: "interest" | "crm") => {
     const filtered =
       category === "interest"
@@ -680,12 +771,31 @@ export default function AdminContactsPage() {
                       <td className="px-3 py-3">{formatDate(row.user.created_at)}</td>
 
                       <td className="px-3 py-3">
-                        <Link href={`/admin/dealers/${row.user.dealer_id}`}>
-                          <Button type="button" size="sm">
-                            <Store className="mr-2 h-4 w-4" />
-                            Händlerakte öffnen
+                        <div className="flex flex-wrap gap-2">
+                          <Button type="button" size="sm" variant="outline" onClick={() => openEditModal(row)}>
+                            <UserRound className="mr-2 h-4 w-4" />
+                            Bearbeiten
                           </Button>
-                        </Link>
+
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="outline"
+                            onClick={() => deleteContact(row)}
+                            disabled={savingContact}
+                            className="border-red-200 text-red-700 hover:bg-red-50"
+                          >
+                            <Trash2 className="mr-2 h-4 w-4" />
+                            Löschen
+                          </Button>
+
+                          <Link href={`/admin/dealers/${row.user.dealer_id}`}>
+                            <Button type="button" size="sm">
+                              <Store className="mr-2 h-4 w-4" />
+                              Händlerakte öffnen
+                            </Button>
+                          </Link>
+                        </div>
                       </td>
                     </tr>
                   ))
@@ -707,9 +817,13 @@ export default function AdminContactsPage() {
           <div className="max-h-[90vh] w-full max-w-3xl overflow-y-auto rounded-2xl bg-white p-6 shadow-xl">
             <div className="mb-5 flex items-start justify-between gap-4">
               <div>
-                <h2 className="text-xl font-semibold text-gray-900">Kontakt anlegen</h2>
+                <h2 className="text-xl font-semibold text-gray-900">
+                  {editingUserId ? "Kontakt bearbeiten" : "Kontakt anlegen"}
+                </h2>
                 <p className="mt-1 text-sm text-gray-500">
-                  Kontakt einem Händler zuweisen und direkt Interessen/CRM-Merkmale speichern.
+                  {editingUserId
+                    ? "Kontaktangaben, Händlerzuweisung und Interessen/CRM-Merkmale ändern."
+                    : "Kontakt einem Händler zuweisen und direkt Interessen/CRM-Merkmale speichern."}
                 </p>
               </div>
 
@@ -839,13 +953,13 @@ export default function AdminContactsPage() {
                 Abbrechen
               </Button>
 
-              <Button type="button" onClick={createContact} disabled={savingContact}>
+              <Button type="button" onClick={saveContact} disabled={savingContact}>
                 {savingContact ? (
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                 ) : (
                   <Plus className="mr-2 h-4 w-4" />
                 )}
-                Kontakt speichern
+                {editingUserId ? "Änderungen speichern" : "Kontakt speichern"}
               </Button>
             </div>
           </div>
