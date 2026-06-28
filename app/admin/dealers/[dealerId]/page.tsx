@@ -112,6 +112,10 @@ type DealerUser = {
   user_email: string;
   display_name: string | null;
   role: string | null;
+  phone: string | null;
+  mobile: string | null;
+  birthday: string | null;
+  notes: string | null;
 };
 
 type DealerUserTagAssignment = {
@@ -664,6 +668,25 @@ export default function AdminDealerDetailPage() {
   const [dealerUsers, setDealerUsers] = useState<DealerUser[]>([]);
   const [editingUser, setEditingUser] = useState<DealerUser | null>(null);
   const [savingUser, setSavingUser] = useState(false);
+  const [showContactForm, setShowContactForm] = useState(false);
+  const [addingDealerUser, setAddingDealerUser] = useState(false);
+  const [newDealerUserForm, setNewDealerUserForm] = useState({
+    display_name: "",
+    user_email: "",
+    role: "",
+    phone: "",
+    mobile: "",
+    birthday: "",
+    notes: "",
+  });
+  const [newDealerUserTagIds, setNewDealerUserTagIds] = useState<number[]>([]);
+  const toggleNewDealerUserTag = (tagId: number) => {
+    setNewDealerUserTagIds((prev) =>
+      prev.includes(tagId)
+        ? prev.filter((id) => id !== tagId)
+        : [...prev, tagId]
+    );
+  };
   const [dealerUserTagAssignments, setDealerUserTagAssignments] = useState<DealerUserTagAssignment[]>([]);
   const [visits, setVisits] = useState<VisitReport[]>([]);
   const [displayItems, setDisplayItems] = useState<DealerDisplayItem[]>([]);
@@ -726,7 +749,7 @@ export default function AdminDealerDetailPage() {
         supabase.from("dealer_tags").select("tag_id, label, category, is_active, sort_order").eq("is_active", true).order("sort_order", { ascending: true }).order("label", { ascending: true }),
         supabase.from("dealer_tag_assignments").select("tag_id").eq("dealer_id", dealerId),
         supabase.from("dealer_tasks").select("*").eq("dealer_id", dealerId).order("created_at", { ascending: false }),
-        supabase.from("dealer_users").select("id, dealer_id, user_email, display_name, role").eq("dealer_id", dealerId).order("role", { ascending: true }).order("user_email", { ascending: true }),
+        supabase.from("dealer_users").select("id, dealer_id, user_email, display_name, role, phone, mobile, birthday, notes").eq("dealer_id", dealerId).order("role", { ascending: true }).order("user_email", { ascending: true }),
         supabase.from("dealer_user_tag_assignments").select("id, dealer_user_id, tag_id"),
         supabase.from("dealer_visit_reports").select("*").eq("dealer_id", dealerId).order("visit_date", { ascending: false }).order("created_at", { ascending: false }),
         supabase.from("dealer_display_items").select("*").eq("dealer_id", dealerId).order("created_at", { ascending: false }),
@@ -1128,20 +1151,133 @@ export default function AdminDealerDetailPage() {
       await reloadWithoutScrollJump();
     } catch (error) { console.error("Fehler beim Aktualisieren Display-Status:", error); showToast("error", "Display-Status konnte nicht aktualisiert werden."); }
   };
+  const addDealerUser = async () => {
+    const email = newDealerUserForm.user_email.trim().toLowerCase();
+    const displayName = newDealerUserForm.display_name.trim();
+    const role = newDealerUserForm.role.trim();
 
+    if (!displayName) {
+      showToast("error", "Bitte Namen eingeben.");
+      return;
+    }
+
+    if (!email || !email.includes("@")) {
+      showToast("error", "Bitte gültige E-Mail eingeben.");
+      return;
+    }
+
+    try {
+      setAddingDealerUser(true);
+
+      const { data: existingUser, error: existingError } = await supabase
+        .from("dealer_users")
+        .select("id")
+        .eq("dealer_id", dealerId)
+        .eq("user_email", email)
+        .maybeSingle();
+
+      if (existingError) throw existingError;
+
+      if (existingUser) {
+        showToast("error", "Dieser Kontakt existiert bei diesem Händler bereits.");
+        return;
+      }
+
+      const { data: insertedUser, error } = await supabase
+        .from("dealer_users")
+        .insert({
+          dealer_id: dealerId,
+          user_email: email,
+          display_name: displayName,
+          role: role || null,
+          phone: newDealerUserForm.phone.trim() || null,
+          mobile: newDealerUserForm.mobile.trim() || null,
+          birthday: newDealerUserForm.birthday || null,
+          notes: newDealerUserForm.notes.trim() || null,
+        })
+        .select("id")
+        .single();
+
+      if (error) throw error;
+
+      const newDealerUserId = Number(insertedUser.id);
+
+      if (newDealerUserTagIds.length > 0) {
+        const tagPayload = newDealerUserTagIds.map((tagId) => ({
+          dealer_user_id: newDealerUserId,
+          tag_id: tagId,
+        }));
+
+        const { error: tagError } = await supabase
+          .from("dealer_user_tag_assignments")
+          .insert(tagPayload);
+
+        if (tagError) throw tagError;
+      }
+
+      setNewDealerUserForm({
+        display_name: "",
+        user_email: "",
+        role: "",
+        phone: "",
+        mobile: "",
+        birthday: "",
+        notes: "",
+      });
+      setNewDealerUserTagIds([]);
+      setShowContactForm(false);
+
+      showToast("success", "Kontakt wurde angelegt.");
+      await reloadWithoutScrollJump();
+    } catch (error) {
+      console.error("Fehler beim Anlegen Kontakt:", error);
+      showToast("error", "Kontakt konnte nicht angelegt werden.");
+    } finally {
+      setAddingDealerUser(false);
+    }
+  };
   const updateDealerUser = async () => {
     if (!editingUser) return;
+
     const email = editingUser.user_email.trim().toLowerCase();
-    if (!email) { showToast("error", "Bitte E-Mail eingeben."); return; }
+
+    if (!email || !email.includes("@")) {
+      showToast("error", "Bitte gültige E-Mail eingeben.");
+      return;
+    }
+
     try {
       setSavingUser(true);
-      const { data, error } = await supabase.from("dealer_users").update({ user_email: email, display_name: editingUser.display_name?.trim() || null, role: editingUser.role?.trim() || null }).eq("id", editingUser.id).select("id, dealer_id, user_email, display_name, role").single();
+
+      const { data, error } = await supabase
+        .from("dealer_users")
+        .update({
+          user_email: email,
+          display_name: editingUser.display_name?.trim() || null,
+          role: editingUser.role?.trim() || null,
+          phone: editingUser.phone?.trim() || null,
+          mobile: editingUser.mobile?.trim() || null,
+          birthday: editingUser.birthday || null,
+          notes: editingUser.notes?.trim() || null,
+        })
+        .eq("id", editingUser.id)
+        .select("id, dealer_id, user_email, display_name, role, phone, mobile, birthday, notes")
+        .single();
+
       if (error) throw error;
-      setDealerUsers((prev) => prev.map((user) => user.id === editingUser.id ? (data as DealerUser) : user));
+
+      setDealerUsers((prev) =>
+        prev.map((user) => (user.id === editingUser.id ? (data as DealerUser) : user))
+      );
+
       showToast("success", "Mitarbeiter gespeichert.");
       setEditingUser(null);
-    } catch (error) { console.error("Fehler beim Speichern Mitarbeiter:", error); showToast("error", "Mitarbeiter konnte nicht gespeichert werden. Prüfe RLS-Update-Policy."); }
-    finally { setSavingUser(false); }
+    } catch (error) {
+      console.error("Fehler beim Speichern Mitarbeiter:", error);
+      showToast("error", "Mitarbeiter konnte nicht gespeichert werden. Prüfe RLS-Update-Policy.");
+    } finally {
+      setSavingUser(false);
+    }
   };
 
   const deleteDealerUser = async () => {
@@ -1632,8 +1768,155 @@ export default function AdminDealerDetailPage() {
           <SectionHeader
             icon={<UserRound className="h-5 w-5 text-indigo-600" />}
             title="Kontakte"
-            subtitle="Interne Ansprechpartner dieses Händlers."
+            subtitle="Ansprechpartner dieses Händlers erfassen, bearbeiten und pflegen."
+            action={
+              <Button
+                type="button"
+                onClick={() => setShowContactForm((prev) => !prev)}
+              >
+                <Plus className="mr-2 h-4 w-4" />
+                {showContactForm ? "Formular ausblenden" : "Kontakt anlegen"}
+              </Button>
+            }
           />
+
+          {showContactForm ? (
+            <div className="mb-5 rounded-2xl border border-indigo-100 bg-indigo-50 p-4">
+              <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+                <div>
+                  <FieldLabel>Name *</FieldLabel>
+                  <Input
+                    value={newDealerUserForm.display_name}
+                    onChange={(e) =>
+                      setNewDealerUserForm((prev) => ({
+                        ...prev,
+                        display_name: e.target.value,
+                      }))
+                    }
+                    placeholder="z. B. Max Muster"
+                  />
+                </div>
+
+                <div>
+                  <FieldLabel>E-Mail *</FieldLabel>
+                  <Input
+                    type="email"
+                    value={newDealerUserForm.user_email}
+                    onChange={(e) =>
+                      setNewDealerUserForm((prev) => ({
+                        ...prev,
+                        user_email: e.target.value,
+                      }))
+                    }
+                    placeholder="name@haendler.ch"
+                  />
+                </div>
+
+                <div>
+                  <FieldLabel>Rolle / Funktion</FieldLabel>
+                  <Input
+                    value={newDealerUserForm.role}
+                    onChange={(e) =>
+                      setNewDealerUserForm((prev) => ({
+                        ...prev,
+                        role: e.target.value,
+                      }))
+                    }
+                    placeholder="z. B. Geschäftsführer"
+                  />
+                </div>
+              </div>
+                <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-3">
+                  <div>
+                    <FieldLabel>Telefon</FieldLabel>
+                    <Input
+                      value={newDealerUserForm.phone}
+                      onChange={(e) =>
+                        setNewDealerUserForm((prev) => ({
+                          ...prev,
+                          phone: e.target.value,
+                        }))
+                      }
+                      placeholder="z. B. 044 123 45 67"
+                    />
+                  </div>
+
+                  <div>
+                    <FieldLabel>Mobile</FieldLabel>
+                    <Input
+                      value={newDealerUserForm.mobile}
+                      onChange={(e) =>
+                        setNewDealerUserForm((prev) => ({
+                          ...prev,
+                          mobile: e.target.value,
+                        }))
+                      }
+                      placeholder="z. B. 079 123 45 67"
+                    />
+                  </div>
+
+                  <div>
+                    <FieldLabel>Geburtstag</FieldLabel>
+                    <Input
+                      type="date"
+                      value={newDealerUserForm.birthday}
+                      onChange={(e) =>
+                        setNewDealerUserForm((prev) => ({
+                          ...prev,
+                          birthday: e.target.value,
+                        }))
+                      }
+                    />
+                  </div>
+
+                  <div className="md:col-span-3">
+                    <FieldLabel>Bemerkungen</FieldLabel>
+                    <Textarea
+                      value={newDealerUserForm.notes}
+                      onChange={(value) =>
+                        setNewDealerUserForm((prev) => ({
+                          ...prev,
+                          notes: value,
+                        }))
+                      }
+                      rows={3}
+                      placeholder="z. B. bevorzugt Mobile, interessiert an Premium OLED, Geburtstag beachten..."
+                    />
+                  </div>
+                </div>
+              <div className="mt-4 space-y-4">
+                <TagCategorySection
+                  group={TAG_GROUPS.find((group) => group.key === "interest")!}
+                  tags={groupedTags.interest}
+                  activeIds={newDealerUserTagIds}
+                  onToggle={toggleNewDealerUserTag}
+                  small
+                />
+
+                <TagCategorySection
+                  group={TAG_GROUPS.find((group) => group.key === "crm")!}
+                  tags={[...groupedTags.crm, ...groupedTags.custom]}
+                  activeIds={newDealerUserTagIds}
+                  onToggle={toggleNewDealerUserTag}
+                  small
+                />
+              </div>
+              <div className="mt-4 flex justify-end">
+                <Button
+                  type="button"
+                  onClick={addDealerUser}
+                  disabled={addingDealerUser}
+                >
+                  {addingDealerUser ? (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  ) : (
+                    <Plus className="mr-2 h-4 w-4" />
+                  )}
+                  Kontakt speichern
+                </Button>
+              </div>
+            </div>
+          ) : null}
 
           {dealerUsers.length === 0 ? (
             <p className="text-sm text-gray-500">
@@ -1649,14 +1932,60 @@ export default function AdminDealerDetailPage() {
                   <div className="font-semibold text-gray-900">
                     {user.display_name || user.user_email}
                   </div>
+
                   <div className="mt-1 text-sm text-gray-500">
                     {user.role || "Keine Rolle"}
                   </div>
+
                   <div className="mt-1 text-sm text-gray-500">
                     {user.user_email}
                   </div>
+                  <div className="mt-3 grid grid-cols-1 gap-1 text-sm text-gray-600">
+                    {user.phone ? (
+                      <div>
+                        <span className="font-medium text-gray-800">Telefon:</span> {user.phone}
+                      </div>
+                    ) : null}
 
-                  <div className="mt-3">
+                    {user.mobile ? (
+                      <div>
+                        <span className="font-medium text-gray-800">Mobile:</span> {user.mobile}
+                      </div>
+                    ) : null}
+
+                    {user.birthday ? (
+                      <div>
+                        <span className="font-medium text-gray-800">Geburtstag:</span>{" "}
+                        {formatDate(user.birthday)}
+                      </div>
+                    ) : null}
+
+                    {user.notes ? (
+                      <div className="mt-2 rounded-xl border border-gray-200 bg-white p-3 text-sm text-gray-600">
+                        <div className="mb-1 font-medium text-gray-800">Bemerkungen</div>
+                        <div className="whitespace-pre-wrap">{user.notes}</div>
+                      </div>
+                    ) : null}
+                  </div>
+                  <div className="mt-3 space-y-3">
+                    {TAG_GROUPS.map((group) => {
+                      const assignedUserTagIds = dealerUserTagAssignments
+                        .filter((x) => Number(x.dealer_user_id) === Number(user.id))
+                        .map((x) => Number(x.tag_id));
+
+                      return (
+                        <TagCategorySection
+                          key={`${user.id}-${group.key}-contact-card`}
+                          group={group}
+                          tags={groupedTags[group.key]}
+                          activeIds={assignedUserTagIds}
+                          onToggle={(tagId) => toggleDealerUserTag(Number(user.id), tagId)}
+                          small
+                        />
+                      );
+                    })}
+                  </div>
+                  <div className="mt-3 flex flex-wrap gap-2">
                     <Button
                       type="button"
                       size="sm"
@@ -1664,6 +1993,19 @@ export default function AdminDealerDetailPage() {
                       onClick={() => setEditingUser(user)}
                     >
                       Bearbeiten
+                    </Button>
+
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      className="border-red-200 text-red-700 hover:bg-red-50"
+                      onClick={() => {
+                        setEditingUser(user);
+                        setTimeout(() => deleteDealerUser(), 0);
+                      }}
+                    >
+                      Löschen
                     </Button>
                   </div>
                 </div>
@@ -1686,7 +2028,57 @@ export default function AdminDealerDetailPage() {
 
         </>
       )}
-      {editingUser && <div className="fixed inset-0 z-[90] flex items-center justify-center bg-black/40 p-3"><div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl"><h2 className="mb-4 text-lg font-semibold text-gray-900">Mitarbeiter bearbeiten</h2><div className="space-y-4"><div><FieldLabel>Name</FieldLabel><Input value={editingUser.display_name || ""} onChange={(e) => setEditingUser((prev) => prev ? { ...prev, display_name: e.target.value } : prev)} /></div><div><FieldLabel>E-Mail *</FieldLabel><Input type="email" value={editingUser.user_email} onChange={(e) => setEditingUser((prev) => prev ? { ...prev, user_email: e.target.value } : prev)} /></div><div><FieldLabel>Rolle / Funktion</FieldLabel><Input value={editingUser.role || ""} onChange={(e) => setEditingUser((prev) => prev ? { ...prev, role: e.target.value } : prev)} /></div></div><div className="mt-6 flex flex-wrap justify-between gap-3"><Button type="button" variant="outline" className="border-red-200 text-red-700 hover:bg-red-50" onClick={deleteDealerUser} disabled={savingUser}>Löschen</Button><div className="flex gap-3"><Button type="button" variant="outline" onClick={() => setEditingUser(null)} disabled={savingUser}>Abbrechen</Button><Button type="button" onClick={updateDealerUser} disabled={savingUser}>{savingUser ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}Speichern</Button></div></div></div></div>}
+      {editingUser && <div className="fixed inset-0 z-[90] flex items-center justify-center bg-black/40 p-3"><div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl"><h2 className="mb-4 text-lg font-semibold text-gray-900">Mitarbeiter bearbeiten</h2><div className="space-y-4"><div><FieldLabel>Name</FieldLabel><Input value={editingUser.display_name || ""} onChange={(e) => setEditingUser((prev) => prev ? { ...prev, display_name: e.target.value } : prev)} /></div><div><FieldLabel>E-Mail *</FieldLabel><Input type="email" value={editingUser.user_email} onChange={(e) => setEditingUser((prev) => prev ? { ...prev, user_email: e.target.value } : prev)} /></div><div><FieldLabel>Rolle / Funktion</FieldLabel><Input value={editingUser.role || ""} onChange={(e) => setEditingUser((prev) => prev ? { ...prev, role: e.target.value } : prev)} /></div>
+      <div>
+        <FieldLabel>Telefon</FieldLabel>
+        <Input
+          value={editingUser.phone || ""}
+          onChange={(e) =>
+            setEditingUser((prev) =>
+              prev ? { ...prev, phone: e.target.value } : prev
+            )
+          }
+        />
+      </div>
+
+      <div>
+        <FieldLabel>Mobile</FieldLabel>
+        <Input
+          value={editingUser.mobile || ""}
+          onChange={(e) =>
+            setEditingUser((prev) =>
+              prev ? { ...prev, mobile: e.target.value } : prev
+            )
+          }
+        />
+      </div>
+
+      <div>
+        <FieldLabel>Geburtstag</FieldLabel>
+        <Input
+          type="date"
+          value={editingUser.birthday || ""}
+          onChange={(e) =>
+            setEditingUser((prev) =>
+              prev ? { ...prev, birthday: e.target.value } : prev
+            )
+          }
+        />
+      </div>
+
+      <div>
+        <FieldLabel>Bemerkungen</FieldLabel>
+        <Textarea
+          value={editingUser.notes || ""}
+          onChange={(value) =>
+            setEditingUser((prev) =>
+              prev ? { ...prev, notes: value } : prev
+            )
+          }
+          rows={3}
+        />
+      </div>
+      </div><div className="mt-6 flex flex-wrap justify-between gap-3"><Button type="button" variant="outline" className="border-red-200 text-red-700 hover:bg-red-50" onClick={deleteDealerUser} disabled={savingUser}>Löschen</Button><div className="flex gap-3"><Button type="button" variant="outline" onClick={() => setEditingUser(null)} disabled={savingUser}>Abbrechen</Button><Button type="button" onClick={updateDealerUser} disabled={savingUser}>{savingUser ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}Speichern</Button></div></div></div></div>}
 
       {editingVisit && <div className="fixed inset-0 z-[90] flex items-center justify-center bg-black/40 p-3"><div className="max-h-[90vh] w-full max-w-5xl overflow-y-auto rounded-2xl bg-white p-6 shadow-xl"><div className="mb-5 flex items-start justify-between gap-3"><div><h2 className="text-lg font-semibold text-gray-900">Besuchsrapport bearbeiten</h2><p className="mt-1 text-sm text-gray-500">Gleiche Logik wie bei der Neuerfassung: Sell-in Snapshot separat, Sell-out Werte manuell, Prozente automatisch.</p></div><Button type="button" variant="outline" onClick={() => setEditingVisit(null)} disabled={savingVisitEdit}>Abbrechen</Button></div><div className="grid grid-cols-1 gap-6 xl:grid-cols-[1fr_420px]"><div className="space-y-4"><div className="grid grid-cols-1 gap-4 md:grid-cols-2"><div><FieldLabel>Datum</FieldLabel><Input type="date" value={editingVisit.visit_date} onChange={(e) => setEditingVisit((prev) => prev ? { ...prev, visit_date: e.target.value } : prev)} /></div><div><FieldLabel>Besuch von</FieldLabel><Input value={editingVisit.visited_by || ""} onChange={(e) => setEditingVisit((prev) => prev ? { ...prev, visited_by: e.target.value } : prev)} /></div></div><div><FieldLabel>Kontakt / Teilnehmer</FieldLabel><Textarea value={editingVisit.contact_persons || ""} onChange={(v) => setEditingVisit((prev) => prev ? { ...prev, contact_persons: v } : prev)} rows={3} /></div><div><FieldLabel>Was wurde besprochen?</FieldLabel><Textarea value={editingVisit.discussed || ""} onChange={(v) => setEditingVisit((prev) => prev ? { ...prev, discussed: v } : prev)} rows={4} /></div><div><FieldLabel>Was wurde vereinbart?</FieldLabel><Textarea value={editingVisit.agreed || ""} onChange={(v) => setEditingVisit((prev) => prev ? { ...prev, agreed: v } : prev)} rows={3} /></div><div className="grid grid-cols-1 gap-4 md:grid-cols-2"><div><FieldLabel>Nächste Schritte</FieldLabel><Textarea value={editingVisit.next_steps || ""} onChange={(v) => setEditingVisit((prev) => prev ? { ...prev, next_steps: v } : prev)} rows={3} /></div><div><FieldLabel>Offene Punkte</FieldLabel><Textarea value={editingVisit.open_points || ""} onChange={(v) => setEditingVisit((prev) => prev ? { ...prev, open_points: v } : prev)} rows={3} /></div></div><div className="grid grid-cols-1 gap-4 md:grid-cols-2"><div><FieldLabel>Was lief gut?</FieldLabel><Textarea value={editingVisit.what_went_well || ""} onChange={(v) => setEditingVisit((prev) => prev ? { ...prev, what_went_well: v } : prev)} rows={3} /></div><div><FieldLabel>Was lief weniger gut?</FieldLabel><Textarea value={editingVisit.what_went_less_well || ""} onChange={(v) => setEditingVisit((prev) => prev ? { ...prev, what_went_less_well: v } : prev)} rows={3} /></div><div><FieldLabel>Konkurrenz / Marktinfos</FieldLabel><Textarea value={editingVisit.competition_market_info || ""} onChange={(v) => setEditingVisit((prev) => prev ? { ...prev, competition_market_info: v } : prev)} rows={3} /></div><div><FieldLabel>Branding / Sichtbarkeit</FieldLabel><Textarea value={editingVisit.branding_visibility || ""} onChange={(v) => setEditingVisit((prev) => prev ? { ...prev, branding_visibility: v } : prev)} rows={3} /></div></div></div><div className="space-y-4"><div className="rounded-2xl border border-gray-200 bg-white p-4"><div className="mb-3 text-sm font-semibold text-gray-900">Sell-in Snapshot</div><p className="mb-3 text-xs text-gray-500">Dieser Wert ist bewusst separat: Er zeigt den Sony Sell-in aus euren Bestellungen zum Zeitpunkt des Rapports.</p><FieldLabel>Sell-in Sony Umsatz Snapshot</FieldLabel><Input value={numberToInput(editingVisit.sony_sales_snapshot)} onChange={(e) => setEditingVisit((prev) => prev ? { ...prev, sony_sales_snapshot: toNumberOrNull(e.target.value) } : prev)} /></div>{renderSelloutInputGrid({
         mode: "edit",

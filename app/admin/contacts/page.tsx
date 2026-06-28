@@ -35,6 +35,10 @@ type DealerUser = {
   user_email: string;
   display_name: string | null;
   role: string | null;
+  phone: string | null;
+  mobile: string | null;
+  birthday: string | null;
+  notes: string | null;
   created_at: string | null;
 };
 
@@ -128,6 +132,10 @@ export default function AdminContactsPage() {
     display_name: "",
     user_email: "",
     role: "",
+    phone: "",
+    mobile: "",
+    birthday: "",
+    notes: "",
   });
   const [selectedTagIds, setSelectedTagIds] = useState<number[]>([]);
 
@@ -150,7 +158,7 @@ export default function AdminContactsPage() {
 
         supabase
           .from("dealer_users")
-          .select("id, dealer_id, user_email, display_name, role, created_at")
+          .select("id, dealer_id, user_email, display_name, role, phone, mobile, birthday, notes, created_at")
           .order("created_at", { ascending: false }),
 
         supabase
@@ -261,6 +269,9 @@ export default function AdminContactsPage() {
         user.display_name?.toLowerCase().includes(q) ||
         user.user_email?.toLowerCase().includes(q) ||
         user.role?.toLowerCase().includes(q) ||
+        user.phone?.toLowerCase().includes(q) ||
+        user.mobile?.toLowerCase().includes(q) ||
+        user.notes?.toLowerCase().includes(q) ||
         dealer?.name?.toLowerCase().includes(q) ||
         dealer?.email?.toLowerCase().includes(q) ||
         dealer?.login_nr?.toLowerCase().includes(q) ||
@@ -342,6 +353,10 @@ export default function AdminContactsPage() {
       display_name: "",
       user_email: "",
       role: "",
+      phone: "",
+      mobile: "",
+      birthday: "",
+      notes: "",
     });
     setSelectedTagIds([]);
     setIsCreateOpen(true);
@@ -354,6 +369,10 @@ export default function AdminContactsPage() {
       display_name: row.user.display_name || "",
       user_email: row.user.user_email || "",
       role: row.user.role || "",
+      phone: row.user.phone || "",
+      mobile: row.user.mobile || "",
+      birthday: row.user.birthday || "",
+      notes: row.user.notes || "",
     });
     setSelectedTagIds(row.tags.map((tag) => Number(tag.tag_id)));
     setIsCreateOpen(true);
@@ -368,6 +387,10 @@ export default function AdminContactsPage() {
       display_name: "",
       user_email: "",
       role: "",
+      phone: "",
+      mobile: "",
+      birthday: "",
+      notes: "",
     });
     setSelectedTagIds([]);
   };
@@ -377,6 +400,10 @@ export default function AdminContactsPage() {
     const email = contactForm.user_email.trim().toLowerCase();
     const displayName = contactForm.display_name.trim();
     const role = contactForm.role.trim();
+    const phone = contactForm.phone.trim();
+    const mobile = contactForm.mobile.trim();
+    const birthday = contactForm.birthday;
+    const notes = contactForm.notes.trim();
 
     if (!dealerId || Number.isNaN(dealerId)) {
       showToast("error", "Bitte Händler auswählen.");
@@ -420,6 +447,10 @@ export default function AdminContactsPage() {
             user_email: email,
             display_name: displayName,
             role: role || null,
+            phone: phone || null,
+            mobile: mobile || null,
+            birthday: birthday || null,
+            notes: notes || null,
           })
           .eq("id", editingUserId);
 
@@ -432,6 +463,10 @@ export default function AdminContactsPage() {
             user_email: email,
             display_name: displayName,
             role: role || null,
+            phone: phone || null,
+            mobile: mobile || null,
+            birthday: birthday || null,
+            notes: notes || null,
           })
           .select("id")
           .single();
@@ -477,6 +512,10 @@ export default function AdminContactsPage() {
         display_name: "",
         user_email: "",
         role: "",
+        phone: "",
+        mobile: "",
+        birthday: "",
+        notes: "",
       });
       setSelectedTagIds([]);
       await loadData();
@@ -729,13 +768,35 @@ export default function AdminContactsPage() {
                 ) : (
                   filteredRows.map((row) => (
                     <tr key={row.user.id} className="bg-gray-50 text-sm text-gray-700">
-                      <td className="px-3 py-3">
+                      <td className="px-3 py-3 min-w-[260px]">
                         <div className="font-semibold text-gray-900">
                           {row.user.display_name || row.user.user_email}
                         </div>
-                        <div className="text-xs text-gray-500">{row.user.user_email}</div>
+
+                        <div className="mt-1 text-xs text-gray-500">
+                          {row.user.user_email}
+                        </div>
+
+                        {row.user.phone ? (
+                          <div className="mt-1 text-xs text-gray-500">
+                            Tel: {row.user.phone}
+                          </div>
+                        ) : null}
+
+                        {row.user.mobile ? (
+                          <div className="mt-1 text-xs text-gray-500">
+                            Mobile: {row.user.mobile}
+                          </div>
+                        ) : null}
+
+                        {row.user.birthday ? (
+                          <div className="mt-1 text-xs text-gray-500">
+                            Geburtstag: {formatDate(row.user.birthday)}
+                          </div>
+                        ) : null}
+
                         {row.user.role ? (
-                          <span className="mt-1 inline-flex rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-700">
+                          <span className="mt-2 inline-flex rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-700">
                             {row.user.role}
                           </span>
                         ) : null}
@@ -889,6 +950,55 @@ export default function AdminContactsPage() {
                     setContactForm((prev) => ({ ...prev, role: e.target.value }))
                   }
                   placeholder="z. B. Sales, Inhaber, Einkauf, Filialleiter"
+                  className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+
+              <div>
+                <FieldLabel>Telefon</FieldLabel>
+                <input
+                  value={contactForm.phone}
+                  onChange={(e) =>
+                    setContactForm((prev) => ({ ...prev, phone: e.target.value }))
+                  }
+                  placeholder="z. B. 044 123 45 67"
+                  className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+
+              <div>
+                <FieldLabel>Mobile</FieldLabel>
+                <input
+                  value={contactForm.mobile}
+                  onChange={(e) =>
+                    setContactForm((prev) => ({ ...prev, mobile: e.target.value }))
+                  }
+                  placeholder="z. B. 079 123 45 67"
+                  className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+
+              <div>
+                <FieldLabel>Geburtstag</FieldLabel>
+                <input
+                  type="date"
+                  value={contactForm.birthday}
+                  onChange={(e) =>
+                    setContactForm((prev) => ({ ...prev, birthday: e.target.value }))
+                  }
+                  className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+
+              <div className="md:col-span-2">
+                <FieldLabel>Bemerkungen</FieldLabel>
+                <textarea
+                  value={contactForm.notes}
+                  onChange={(e) =>
+                    setContactForm((prev) => ({ ...prev, notes: e.target.value }))
+                  }
+                  rows={3}
+                  placeholder="z. B. bevorzugter Kontaktweg, persönliche Hinweise, Event-Interesse..."
                   className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>
