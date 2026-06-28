@@ -705,16 +705,28 @@ function AdminLayoutInner({ children }: { children: ReactNode }) {
       color: "text-indigo-600",
     },
     {
-      href: "/admin/pricing-import",
-      key: null,
-      label: "Preis-Import",
-      color: "text-emerald-600",
-    },
-    {
       href: "/admin/contacts",
       key: null,
       label: "Kontakte",
       color: "text-purple-600",
+    },
+    {
+      href: "/admin/dealers/tasks",
+      key: null,
+      label: "Tasks",
+      color: "text-orange-600",
+    },
+    {
+      href: "/admin/dealers/visits",
+      key: null,
+      label: "Besuche",
+      color: "text-blue-600",
+    },
+    {
+      href: "/admin/pricing-import",
+      key: null,
+      label: "Preis-Import",
+      color: "text-emerald-600",
     },
     {
       href: "/admin/reports",
@@ -730,8 +742,19 @@ function AdminLayoutInner({ children }: { children: ReactNode }) {
     },
   ];
 
+  const isNavItemActive = (href: string) => {
+    if (href === "/admin/dealers") {
+      return (
+        pathname === "/admin/dealers" ||
+        /^\/admin\/dealers\/\d+/.test(pathname)
+      );
+    }
+
+    return pathname === href || pathname.startsWith(`${href}/`);
+  };
+
   const activeColor = useMemo(() => {
-    const match = navItems.find((item) => pathname.startsWith(item.href));
+    const match = navItems.find((item) => isNavItemActive(item.href));
     return match ? match.color : "text-gray-800";
   }, [pathname, navItems]);
 
@@ -955,7 +978,7 @@ function AdminLayoutInner({ children }: { children: ReactNode }) {
 
         <nav className="hidden md:flex gap-6 px-6 py-2 bg-white border-t shadow-sm overflow-x-auto">
           {navItems.map((item) => {
-            const isActive = pathname.startsWith(item.href);
+            const isActive = isNavItemActive(item.href);
             const count = item.key ? pendingCounts[item.key] : 0;
 
             return (
@@ -1112,7 +1135,7 @@ function AdminLayoutInner({ children }: { children: ReactNode }) {
                 </div>
                 <div className="flex flex-col gap-1">
                   {navItems.map((item) => {
-                    const isActive = pathname.startsWith(item.href);
+                    const isActive = isNavItemActive(item.href);
                     const count = item.key ? pendingCounts[item.key] : 0;
 
                     return (

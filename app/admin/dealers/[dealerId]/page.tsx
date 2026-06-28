@@ -654,6 +654,8 @@ export default function AdminDealerDetailPage() {
   >("overview");
   const [savingMain, setSavingMain] = useState(false);
   const [addingTask, setAddingTask] = useState(false);
+  const [editingTask, setEditingTask] = useState<DealerTask | null>(null);
+  const [savingTaskEdit, setSavingTaskEdit] = useState(false);
   const [addingVisit, setAddingVisit] = useState(false);
   const [creatingTag, setCreatingTag] = useState(false);
   const [addingDisplayItem, setAddingDisplayItem] = useState(false);
@@ -1051,6 +1053,50 @@ export default function AdminDealerDetailPage() {
     finally { setAddingTask(false); }
   };
 
+  const updateTask = async () => {
+    if (!editingTask) return;
+
+    const title = editingTask.title.trim();
+
+    if (!title) {
+      showToast("error", "Bitte einen Task-Titel eingeben.");
+      return;
+    }
+
+    try {
+      setSavingTaskEdit(true);
+
+      const payload: Record<string, string | null> = {
+        title,
+        description: editingTask.description?.trim() || null,
+        due_date: editingTask.due_date || null,
+        assigned_to: editingTask.assigned_to?.trim() || null,
+        status: editingTask.status,
+        done_at: editingTask.done_at,
+      };
+
+      if (editingTask.status === "open") {
+        payload.done_at = null;
+      }
+
+      const { error } = await supabase
+        .from("dealer_tasks")
+        .update(payload)
+        .eq("task_id", editingTask.task_id);
+
+      if (error) throw error;
+
+      showToast("success", "Task wurde aktualisiert.");
+      setEditingTask(null);
+      await reloadWithoutScrollJump();
+    } catch (error) {
+      console.error("Fehler beim Bearbeiten Task:", error);
+      showToast("error", "Task konnte nicht gespeichert werden.");
+    } finally {
+      setSavingTaskEdit(false);
+    }
+  };
+
   const updateTaskStatus = async (taskId: number, status: "open" | "done" | "cancelled") => {
     try {
       const { data: userData } = await supabase.auth.getUser();
@@ -1403,6 +1449,7 @@ export default function AdminDealerDetailPage() {
 
       <Card className="rounded-2xl border border-gray-200 p-2">
         <div className="flex flex-wrap gap-2">
+          
           {dealerTabs.map((tab) => {
             const active = activeTab === tab.key;
 
@@ -1646,7 +1693,39 @@ export default function AdminDealerDetailPage() {
       )}
       {activeTab === "tasks" && (
         <>
-          <div className="space-y-6"><Card className="rounded-2xl border border-gray-200 p-5"><SectionHeader icon={<Clock3 className="h-5 w-5 text-orange-600" />} title="Tasks / Next Steps" subtitle="Direkt sichtbar vor jedem Besuch." /><div className="mb-5 space-y-3 rounded-2xl border bg-gray-50 p-4"><div className="grid grid-cols-1 gap-3 md:grid-cols-[1fr_150px_220px_auto]"><div><FieldLabel>Titel</FieldLabel><Input value={taskForm.title} onChange={(e) => setTaskForm((prev) => ({ ...prev, title: e.target.value }))} placeholder="z. B. Display-Frequenz prüfen" /></div><div><FieldLabel>Fällig bis</FieldLabel><Input type="date" value={taskForm.due_date} onChange={(e) => setTaskForm((prev) => ({ ...prev, due_date: e.target.value }))} /></div><div><FieldLabel>Zuständig</FieldLabel><select value={taskForm.assigned_to} onChange={(e) => setTaskForm((prev) => ({ ...prev, assigned_to: e.target.value }))} className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500"><option value="">Nicht zugewiesen</option>{dealerUsers.map((user) => <option key={user.id} value={user.user_email}>{user.display_name || user.user_email}{user.role ? ` · ${user.role}` : ""}</option>)}</select></div><div className="flex items-end"><Button type="button" onClick={addTask} disabled={addingTask}>{addingTask ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Plus className="mr-2 h-4 w-4" />}Task</Button></div></div><div><FieldLabel>Beschreibung</FieldLabel><Textarea value={taskForm.description} onChange={(v) => setTaskForm((prev) => ({ ...prev, description: v }))} rows={2} /></div></div><div className="space-y-3"><h3 className="text-sm font-semibold text-gray-900">Offen ({openTasks.length})</h3>{openTasks.length === 0 ? <p className="text-sm text-gray-500">Keine offenen Aufgaben.</p> : openTasks.map((task) => <div key={task.task_id} className="rounded-xl border border-orange-200 bg-orange-50 p-3"><div className="flex flex-wrap items-start justify-between gap-3"><div className="min-w-0 flex-1"><div className="font-medium text-gray-900">{task.title}</div>{task.description ? <p className="mt-1 whitespace-pre-wrap text-sm text-gray-600">{task.description}</p> : null}<div className="mt-2 text-xs text-gray-500">Fällig: {task.due_date || "-"}</div><div className="mt-1 text-xs text-gray-500">Zuständig: {getAssignedName(task.assigned_to)}</div></div><div className="flex flex-wrap gap-2"><Button size="sm" type="button" onClick={() => updateTaskStatus(task.task_id, "done")} className="bg-green-600 hover:bg-green-700"><CheckCircle2 className="mr-1 h-4 w-4" />Erledigt</Button><Button size="sm" type="button" variant="outline" onClick={() => updateTaskStatus(task.task_id, "cancelled")}><XCircle className="mr-1 h-4 w-4" />Abbrechen</Button></div></div></div>)}<details className="rounded-xl border border-gray-200 bg-white p-3"><summary className="cursor-pointer text-sm font-semibold text-gray-900">Erledigt / Abgebrochen ({doneTasks.length + cancelledTasks.length})</summary><div className="mt-3 space-y-2">{[...doneTasks, ...cancelledTasks].length === 0 ? <p className="text-sm text-gray-500">Noch keine abgeschlossenen Aufgaben.</p> : [...doneTasks, ...cancelledTasks].slice(0, 8).map((task) => <div key={task.task_id} className="rounded-xl border border-gray-200 bg-gray-50 p-3"><div className="font-medium text-gray-900">{task.title}</div><div className="text-xs text-gray-500">Status: {task.status === "done" ? "Erledigt" : "Abgebrochen"}</div><div className="mt-1 text-xs text-gray-500">Zuständig: {getAssignedName(task.assigned_to)}</div></div>)}</div></details></div></Card>
+          <div className="space-y-6"><Card className="rounded-2xl border border-gray-200 p-5"><SectionHeader icon={<Clock3 className="h-5 w-5 text-orange-600" />} title="Tasks / Next Steps" subtitle="Direkt sichtbar vor jedem Besuch." /><div className="mb-5 space-y-3 rounded-2xl border bg-gray-50 p-4"><div className="grid grid-cols-1 gap-3 md:grid-cols-[1fr_150px_220px_auto]"><div><FieldLabel>Titel</FieldLabel><Input value={taskForm.title} onChange={(e) => setTaskForm((prev) => ({ ...prev, title: e.target.value }))} placeholder="z. B. Display-Frequenz prüfen" /></div><div><FieldLabel>Fällig bis</FieldLabel><Input type="date" value={taskForm.due_date} onChange={(e) => setTaskForm((prev) => ({ ...prev, due_date: e.target.value }))} /></div><div><FieldLabel>Zuständig</FieldLabel><select value={taskForm.assigned_to} onChange={(e) => setTaskForm((prev) => ({ ...prev, assigned_to: e.target.value }))} className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500"><option value="">Nicht zugewiesen</option>{dealerUsers.map((user) => <option key={user.id} value={user.user_email}>{user.display_name || user.user_email}{user.role ? ` · ${user.role}` : ""}</option>)}</select></div><div className="flex items-end"><Button type="button" onClick={addTask} disabled={addingTask}>{addingTask ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Plus className="mr-2 h-4 w-4" />}Task</Button></div></div><div><FieldLabel>Beschreibung</FieldLabel><Textarea value={taskForm.description} onChange={(v) => setTaskForm((prev) => ({ ...prev, description: v }))} rows={2} /></div></div><div className="space-y-3"><h3 className="text-sm font-semibold text-gray-900">Offen ({openTasks.length})</h3>{openTasks.length === 0 ? <p className="text-sm text-gray-500">Keine offenen Aufgaben.</p> : openTasks.map((task) => <div key={task.task_id} className="rounded-xl border border-orange-200 bg-orange-50 p-3"><div className="flex flex-wrap items-start justify-between gap-3"><div className="min-w-0 flex-1"><div className="font-medium text-gray-900">{task.title}</div>{task.description ? <p className="mt-1 whitespace-pre-wrap text-sm text-gray-600">{task.description}</p> : null}<div className="mt-2 text-xs text-gray-500">Fällig: {task.due_date || "-"}</div><div className="mt-1 text-xs text-gray-500">Zuständig: {getAssignedName(task.assigned_to)}</div></div>
+          <div className="flex flex-wrap gap-2">
+            <Button
+              size="sm"
+              type="button"
+              variant="outline"
+              onClick={() => setEditingTask(task)}
+            >
+              <Edit3 className="mr-1 h-4 w-4" />
+              Bearbeiten
+            </Button>
+
+            <Button
+              size="sm"
+              type="button"
+              onClick={() => updateTaskStatus(task.task_id, "done")}
+              className="bg-green-600 hover:bg-green-700"
+            >
+              <CheckCircle2 className="mr-1 h-4 w-4" />
+              Erledigt
+            </Button>
+
+            <Button
+              size="sm"
+              type="button"
+              variant="outline"
+              onClick={() => updateTaskStatus(task.task_id, "cancelled")}
+            >
+              <XCircle className="mr-1 h-4 w-4" />
+              Abbrechen
+            </Button>
+          </div>
+          </div></div>)}<details className="rounded-xl border border-gray-200 bg-white p-3"><summary className="cursor-pointer text-sm font-semibold text-gray-900">Erledigt / Abgebrochen ({doneTasks.length + cancelledTasks.length})</summary><div className="mt-3 space-y-2">{[...doneTasks, ...cancelledTasks].length === 0 ? <p className="text-sm text-gray-500">Noch keine abgeschlossenen Aufgaben.</p> : [...doneTasks, ...cancelledTasks].slice(0, 8).map((task) => <div key={task.task_id} className="rounded-xl border border-gray-200 bg-gray-50 p-3"><div className="font-medium text-gray-900">{task.title}</div><div className="text-xs text-gray-500">Status: {task.status === "done" ? "Erledigt" : "Abgebrochen"}</div><div className="mt-1 text-xs text-gray-500">Zuständig: {getAssignedName(task.assigned_to)}</div></div>)}</div></details></div></Card>
           </div>
               </>
             )}
@@ -2086,6 +2165,130 @@ export default function AdminDealerDetailPage() {
         setEditingVisit,
       })}
         <div className="flex justify-end gap-3"><Button type="button" variant="outline" onClick={() => setEditingVisit(null)} disabled={savingVisitEdit}>Abbrechen</Button><Button type="button" onClick={updateVisit} disabled={savingVisitEdit}>{savingVisitEdit ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}Änderungen speichern</Button></div></div></div></div></div>}
+
+      {editingTask && (
+        <div className="fixed inset-0 z-[90] flex items-center justify-center bg-black/40 p-3">
+          <div className="w-full max-w-2xl rounded-2xl bg-white p-6 shadow-xl">
+            <div className="mb-5">
+              <h2 className="text-xl font-semibold text-gray-900">
+                Task bearbeiten
+              </h2>
+              <p className="mt-1 text-sm text-gray-500">
+                Aufgabe, Fälligkeit, Zuständigkeit und Status ändern.
+              </p>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <FieldLabel>Titel *</FieldLabel>
+                <Input
+                  value={editingTask.title}
+                  onChange={(e) =>
+                    setEditingTask((prev) =>
+                      prev ? { ...prev, title: e.target.value } : prev
+                    )
+                  }
+                />
+              </div>
+
+              <div>
+                <FieldLabel>Beschreibung</FieldLabel>
+                <Textarea
+                  value={editingTask.description || ""}
+                  onChange={(value) =>
+                    setEditingTask((prev) =>
+                      prev ? { ...prev, description: value } : prev
+                    )
+                  }
+                  rows={4}
+                />
+              </div>
+
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+                <div>
+                  <FieldLabel>Fällig am</FieldLabel>
+                  <Input
+                    type="date"
+                    value={editingTask.due_date || ""}
+                    onChange={(e) =>
+                      setEditingTask((prev) =>
+                        prev ? { ...prev, due_date: e.target.value } : prev
+                      )
+                    }
+                  />
+                </div>
+
+                <div>
+                  <FieldLabel>Zuständig</FieldLabel>
+                  <select
+                    value={editingTask.assigned_to || ""}
+                    onChange={(e) =>
+                      setEditingTask((prev) =>
+                        prev ? { ...prev, assigned_to: e.target.value || null } : prev
+                      )
+                    }
+                    className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="">Nicht zugewiesen</option>
+                    {dealerUsers.map((user) => (
+                      <option key={user.id} value={user.user_email}>
+                        {user.display_name || user.user_email}
+                        {user.role ? ` · ${user.role}` : ""}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <FieldLabel>Status</FieldLabel>
+                  <select
+                    value={editingTask.status}
+                    onChange={(e) =>
+                      setEditingTask((prev) =>
+                        prev
+                          ? {
+                              ...prev,
+                              status: e.target.value as "open" | "done" | "cancelled",
+                            }
+                          : prev
+                      )
+                    }
+                    className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="open">Offen</option>
+                    <option value="done">Erledigt</option>
+                    <option value="cancelled">Abgebrochen</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-6 flex flex-wrap justify-end gap-3">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setEditingTask(null)}
+                disabled={savingTaskEdit}
+              >
+                Abbrechen
+              </Button>
+
+              <Button
+                type="button"
+                onClick={updateTask}
+                disabled={savingTaskEdit}
+              >
+                {savingTaskEdit ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <Save className="mr-2 h-4 w-4" />
+                )}
+                Speichern
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {toast && <div className="fixed right-4 top-4 z-[90]"><div className={`rounded px-4 py-2 text-sm text-white shadow-md ${toast.type === "success" ? "bg-green-600" : "bg-red-600"}`}>{toast.message}</div></div>}
     </div>
