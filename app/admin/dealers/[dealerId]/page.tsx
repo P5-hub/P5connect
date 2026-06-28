@@ -669,6 +669,7 @@ export default function AdminDealerDetailPage() {
   const [displayItems, setDisplayItems] = useState<DealerDisplayItem[]>([]);
   const [editingVisit, setEditingVisit] = useState<VisitReport | null>(null);
   const [savingVisitEdit, setSavingVisitEdit] = useState(false);
+  const [showVisitForm, setShowVisitForm] = useState(false);
 
   const [newTagLabel, setNewTagLabel] = useState("");
   const [newTagCategory, setNewTagCategory] = useState<"interest" | "crm">("crm");
@@ -1059,6 +1060,7 @@ export default function AdminDealerDetailPage() {
       await supabase.from("dealer_profiles").update({ last_visit_date: visitDate, updated_by: currentUser }).eq("dealer_id", dealerId);
       setVisitForm(createEmptyVisitForm());
       setSelectedVisitContactId("");
+      setShowVisitForm(false);
       showToast("success", "Besuchsbericht gespeichert.");
       await reloadWithoutScrollJump();
     } catch (error) { console.error("Fehler beim Speichern Besuch:", error); showToast("error", "Besuchsbericht konnte nicht gespeichert werden."); }
@@ -1600,7 +1602,17 @@ export default function AdminDealerDetailPage() {
               </div>{visit.open_points ? <div className="xl:col-span-2 rounded-xl border bg-orange-50 p-3"><div className="font-medium text-orange-800">Offene Punkte</div><div className="mt-1 whitespace-pre-wrap text-orange-700">{visit.open_points}</div></div> : null}</div></div>;
             })}</div></Card>  
 
+            <div className="flex justify-end">
+              <Button
+                type="button"
+                onClick={() => setShowVisitForm((prev) => !prev)}
+              >
+                {showVisitForm ? "Besuchsreport ausblenden" : "+ Neuer Besuchsreport"}
+              </Button>
+            </div>
 
+            {showVisitForm && (
+              <>
           <Card className="rounded-2xl border border-gray-200 p-5"><SectionHeader icon={<MessageSquare className="h-5 w-5 text-purple-600" />} title="Neuer Besuchsreport" subtitle="Sell-in wird automatisch aus Bestellungen übernommen. Sell-out wird hier manuell erfasst." /><div className="grid grid-cols-1 gap-6 xl:grid-cols-[1fr_420px]"><div className="space-y-4"><div className="grid grid-cols-1 gap-4 md:grid-cols-2"><div><FieldLabel>Datum</FieldLabel><Input type="date" value={visitForm.visit_date} onChange={(e) => setVisitForm((prev) => ({ ...prev, visit_date: e.target.value }))} /></div><div><FieldLabel>Besuch von</FieldLabel><Input value={visitForm.visited_by} onChange={(e) => setVisitForm((prev) => ({ ...prev, visited_by: e.target.value }))} placeholder="z. B. Roger / Dominik" /></div></div><div className="rounded-2xl border border-indigo-100 bg-indigo-50 p-4"><div className="grid grid-cols-1 gap-4 md:grid-cols-2"><div><FieldLabel>Kontaktperson beim Händler</FieldLabel><select value={selectedVisitContactId} onChange={(e) => setSelectedVisitContactId(e.target.value)} className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500"><option value="">Keine Kontaktperson ausgewählt</option>{dealerContactOptions.map((contact) => <option key={contact.id} value={contact.id}>{contact.label}{contact.raw.role ? ` · ${contact.raw.role}` : ""}</option>)}</select>{dealerContactOptions.length === 0 ? <p className="mt-1 text-xs text-indigo-700">Noch keine Kontakte für diesen Händler hinterlegt. Du kannst sie in der Kontaktverwaltung erfassen.</p> : selectedVisitContact ? <p className="mt-1 text-xs text-indigo-700">{selectedVisitContact.role || "Kontakt"} · {selectedVisitContact.user_email}</p> : null}</div><div><FieldLabel>Weitere Kontaktpersonen / Notiz</FieldLabel><Textarea value={visitForm.contact_persons} onChange={(v) => setVisitForm((prev) => ({ ...prev, contact_persons: v }))} rows={3} placeholder="z. B. zusätzlich Geschäftsführer, Verkaufsleiter, Lernender..." /></div></div></div><div><FieldLabel>Was wurde besprochen?</FieldLabel><Textarea value={visitForm.discussed} onChange={(v) => setVisitForm((prev) => ({ ...prev, discussed: v }))} rows={4} /></div><div><FieldLabel>Was wurde vereinbart?</FieldLabel><Textarea value={visitForm.agreed} onChange={(v) => setVisitForm((prev) => ({ ...prev, agreed: v }))} rows={3} /></div><div className="grid grid-cols-1 gap-4 md:grid-cols-2"><div><FieldLabel>Nächste Schritte</FieldLabel><Textarea value={visitForm.next_steps} onChange={(v) => setVisitForm((prev) => ({ ...prev, next_steps: v }))} rows={3} /></div><div><FieldLabel>Offene Punkte</FieldLabel><Textarea value={visitForm.open_points} onChange={(v) => setVisitForm((prev) => ({ ...prev, open_points: v }))} rows={3} /></div></div><div className="grid grid-cols-1 gap-4 md:grid-cols-2"><div><FieldLabel>Was lief gut?</FieldLabel><Textarea value={visitForm.what_went_well} onChange={(v) => setVisitForm((prev) => ({ ...prev, what_went_well: v }))} rows={3} /></div><div><FieldLabel>Was lief weniger gut?</FieldLabel><Textarea value={visitForm.what_went_less_well} onChange={(v) => setVisitForm((prev) => ({ ...prev, what_went_less_well: v }))} rows={3} /></div><div><FieldLabel>Konkurrenz / Marktinfos</FieldLabel><Textarea value={visitForm.competition_market_info} onChange={(v) => setVisitForm((prev) => ({ ...prev, competition_market_info: v }))} rows={3} /></div><div><FieldLabel>Branding / Sichtbarkeit</FieldLabel><Textarea value={visitForm.branding_visibility} onChange={(v) => setVisitForm((prev) => ({ ...prev, branding_visibility: v }))} rows={3} /></div></div></div><div className="space-y-4"><div className="rounded-2xl border border-gray-200 bg-white p-4"><div className="mb-3 text-sm font-semibold text-gray-900">Sell-in Snapshot aus Auto KPI</div><div className="grid grid-cols-2 gap-2 text-xs text-gray-600"><div>Zeitraum</div><div className="font-semibold text-gray-900">{getPeriodLabel(periodMode)}</div><div>Sell-in Sony Umsatz</div><div className="font-semibold text-gray-900">{formatCurrency(autoSonyRevenue)}</div><div>Vorjahr</div><div className="font-semibold text-gray-900">{formatCurrency(autoSonyRevenuePrevYear)}</div><div>YoY</div><div className="font-semibold text-gray-900">{formatPercent(yoyPercent)}</div></div></div>{renderSelloutInputGrid({ mode: "create" })}<div className="rounded-2xl border border-gray-200 bg-white p-4"><div className="mb-3 text-sm font-semibold text-gray-900">Letzter gespeicherter Besuch</div><div className="grid grid-cols-2 gap-2 text-xs text-gray-600"><div>Periode</div><div className="font-semibold text-gray-900">{latestVisitSellout.period || "–"}{latestVisitSellout.periodStart || latestVisitSellout.periodEnd ? ` · ${formatDate(latestVisitSellout.periodStart)} – ${formatDate(latestVisitSellout.periodEnd)}` : ""}</div><div>Sell-in Sony</div><div className="font-semibold text-gray-900">{formatCurrency(latestVisitSellout.sellInSony)}</div><div>Sell-out Total</div><div className="font-semibold text-gray-900">{formatCurrency(latestVisitSellout.total)}</div><div>Sell-out Sony</div><div className="font-semibold text-gray-900">{formatCurrency(latestVisitSellout.sony)} · {formatPercent(latestVisitSellout.sonyShare)}</div><div>TV Sony</div><div className="font-semibold text-gray-900">{formatCurrency(latestVisitSellout.tvSony)} / {formatCurrency(latestVisitSellout.tvTotal)} · {formatPercent(latestVisitSellout.tvShare)}</div>
             <div>TV Qty Sony</div>
             <div className="font-semibold text-gray-900">
@@ -1611,6 +1623,8 @@ export default function AdminDealerDetailPage() {
               {formatInteger(latestVisitSellout.sbSonyQty)} / {formatInteger(latestVisitSellout.sbTotalQty)} · {formatPercent(latestVisitSellout.sbQtyShare)}
             </div>
             <div>Rest Sony</div><div className="font-semibold text-gray-900">{formatCurrency(latestVisitSellout.restSony)} / {formatCurrency(latestVisitSellout.restTotal)} · {formatPercent(latestVisitSellout.restShare)}</div></div></div><div className="flex justify-end"><Button type="button" onClick={addVisit} disabled={addingVisit}>{addingVisit ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Plus className="mr-2 h-4 w-4" />}Besuchsreport speichern</Button></div></div></div></Card>
+            </>
+          )}
         </>
       )}
       {activeTab === "contacts" && (
