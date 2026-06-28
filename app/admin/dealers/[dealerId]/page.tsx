@@ -1,4 +1,4 @@
-  "use client";
+"use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
@@ -645,6 +645,9 @@ export default function AdminDealerDetailPage() {
   const dealerId = Number(params?.dealerId);
 
   const [loading, setLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState<
+    "overview" | "contacts" | "visits" | "tasks" | "displays" | "masterdata"
+  >("overview");
   const [savingMain, setSavingMain] = useState(false);
   const [addingTask, setAddingTask] = useState(false);
   const [addingVisit, setAddingVisit] = useState(false);
@@ -818,58 +821,58 @@ export default function AdminDealerDetailPage() {
   }, [dealerId, periodMode, supabase]);
 
   const loadDealerSelloutKpis = useCallback(async () => {
-  if (!dealerId || Number.isNaN(dealerId)) return;
+    if (!dealerId || Number.isNaN(dealerId)) return;
 
-  setLoadingSelloutKpis(true);
+    setLoadingSelloutKpis(true);
 
-  try {
-    const weeksRes = await supabase
-      .from("v_sellout_by_dealer_week")
-      .select("*")
-      .eq("dealer_id", dealerId)
-      .order("sellout_year", { ascending: false })
-      .order("sellout_week", { ascending: false })
-      .limit(8);
+    try {
+      const weeksRes = await supabase
+        .from("v_sellout_by_dealer_week")
+        .select("*")
+        .eq("dealer_id", dealerId)
+        .order("sellout_year", { ascending: false })
+        .order("sellout_week", { ascending: false })
+        .limit(8);
 
-    if (weeksRes.error) throw weeksRes.error;
+      if (weeksRes.error) throw weeksRes.error;
 
-    const weekRows = (weeksRes.data ?? []) as DealerSelloutWeek[];
-    setDealerSelloutWeeks(weekRows);
+      const weekRows = (weeksRes.data ?? []) as DealerSelloutWeek[];
+      setDealerSelloutWeeks(weekRows);
 
-    const latestWeek = weekRows[0];
+      const latestWeek = weekRows[0];
 
-    if (!latestWeek) {
-      setDealerSelloutProducts([]);
-      return;
+      if (!latestWeek) {
+        setDealerSelloutProducts([]);
+        return;
+      }
+
+      const productsRes = await supabase
+        .from("v_sellout_product_dealer_week")
+        .select("*")
+        .eq("dealer_id", dealerId)
+        .eq("sellout_year", latestWeek.sellout_year)
+        .eq("sellout_week", latestWeek.sellout_week)
+        .order("sold_qty", { ascending: false })
+        .limit(12);
+
+      if (productsRes.error) throw productsRes.error;
+
+      setDealerSelloutProducts((productsRes.data ?? []) as DealerSelloutProductWeek[]);
+    } catch (error) {
+      console.error("Fehler beim Laden Sell-out Händlerdaten:", error);
+    } finally {
+      setLoadingSelloutKpis(false);
     }
-
-    const productsRes = await supabase
-      .from("v_sellout_product_dealer_week")
-      .select("*")
-      .eq("dealer_id", dealerId)
-      .eq("sellout_year", latestWeek.sellout_year)
-      .eq("sellout_week", latestWeek.sellout_week)
-      .order("sold_qty", { ascending: false })
-      .limit(12);
-
-    if (productsRes.error) throw productsRes.error;
-
-    setDealerSelloutProducts((productsRes.data ?? []) as DealerSelloutProductWeek[]);
-  } catch (error) {
-    console.error("Fehler beim Laden Sell-out Händlerdaten:", error);
-  } finally {
-    setLoadingSelloutKpis(false);
-  }
-}, [dealerId, supabase]);
+  }, [dealerId, supabase]);
 
   useEffect(() => {
-  loadData();
-}, [loadData]);
+    loadData();
+  }, [loadData]);
   useEffect(() => { loadAutoKpis(); }, [loadAutoKpis]);
 
   useEffect(() => {
-  loadDealerSelloutKpis();
-}, [loadDealerSelloutKpis]);
+    loadDealerSelloutKpis();
+  }, [loadDealerSelloutKpis]);
 
   const groupedTags = useMemo<Record<DealerTagCategory, DealerTag[]>>(() => ({
     crm: allTags.filter((tag) => tag.category === "crm"),
@@ -1189,33 +1192,33 @@ export default function AdminDealerDetailPage() {
     return <div className="rounded-2xl border border-emerald-100 bg-emerald-50 p-4"><div className="mb-3"><div className="text-sm font-semibold text-emerald-900">Sell-out Händlerumsatz</div><p className="mt-1 text-xs text-emerald-800">Diese Werte stammen vom Händler/POS. Prozentwerte werden automatisch aus Sony Umsatz ÷ Total Umsatz berechnet.</p></div><div className="space-y-3"><div className="grid grid-cols-1 gap-3 md:grid-cols-3"><div><FieldLabel>Periode</FieldLabel><select value={isEdit ? editingVisit?.snapshot_period_type || "quarter" : getCreateValue("snapshot_period_type")} onChange={(e) => isEdit ? setEditStringValue("snapshot_period_type", e.target.value) : setCreateValue("snapshot_period_type", e.target.value)} className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500"><option value="month">Monat</option><option value="quarter">Quartal</option><option value="halfyear">Halbjahr</option><option value="year">Jahr</option><option value="ytd_fiscal">YTD Fiscal Year</option><option value="custom">Definierte Periode</option></select></div><div><FieldLabel>Von</FieldLabel><Input type="date" value={isEdit ? editingVisit?.snapshot_period_start || "" : getCreateValue("snapshot_period_start")} onChange={(e) => isEdit ? setEditStringValue("snapshot_period_start", e.target.value) : setCreateValue("snapshot_period_start", e.target.value)} /></div><div><FieldLabel>Bis</FieldLabel><Input type="date" value={isEdit ? editingVisit?.snapshot_period_end || "" : getCreateValue("snapshot_period_end")} onChange={(e) => isEdit ? setEditStringValue("snapshot_period_end", e.target.value) : setCreateValue("snapshot_period_end", e.target.value)} /></div></div>
       <div className="grid grid-cols-1 gap-3 md:grid-cols-2"><div><FieldLabel>Sell-out Total Umsatz</FieldLabel><Input value={isEdit ? getEditNumberValue("sellout_total_sales") : getCreateValue("sellout_total_sales")} onChange={(e) => isEdit ? setEditNumberValue("sellout_total_sales", e.target.value) : setCreateValue("sellout_total_sales", e.target.value)} placeholder="z. B. 250000" /></div><div><FieldLabel>Sell-out Sony Umsatz</FieldLabel><Input value={isEdit ? getEditNumberValue("sellout_sony_total") : getCreateValue("sellout_sony_total")} onChange={(e) => isEdit ? setEditNumberValue("sellout_sony_total", e.target.value) : setCreateValue("sellout_sony_total", e.target.value)} placeholder="z. B. 42000" /></div></div><div className="rounded-xl bg-white p-3 text-xs text-gray-700 ring-1 ring-emerald-100">Sony Anteil Sell-out: <b>{formatPercent(calcSharePercent(currentSelloutSony, currentSelloutTotal))}</b></div>
       <div className="grid grid-cols-1 gap-3 md:grid-cols-2"><div><FieldLabel>TV Total Umsatz</FieldLabel><Input value={isEdit ? getEditNumberValue("tv_total_sales") : getCreateValue("tv_total_sales")} onChange={(e) => isEdit ? setEditNumberValue("tv_total_sales", e.target.value) : setCreateValue("tv_total_sales", e.target.value)} /></div><div><FieldLabel>TV Sony Umsatz</FieldLabel><Input value={isEdit ? getEditNumberValue("tv_sony_sales") : getCreateValue("tv_sony_sales")} onChange={(e) => isEdit ? setEditNumberValue("tv_sony_sales", e.target.value) : setCreateValue("tv_sony_sales", e.target.value)} /></div></div><div className="rounded-xl bg-white p-3 text-xs text-gray-700 ring-1 ring-emerald-100">TV Sony Anteil Sell-out: <b>{formatPercent(calcSharePercent(currentTvSony, currentTvTotal))}</b></div>
-            <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-              <div>
-                <FieldLabel>TV Total verkauft Qty</FieldLabel>
-                <Input value={isEdit ? getEditNumberValue("tv_total_qty") : getCreateValue("tv_total_qty")} onChange={(e) => isEdit ? setEditNumberValue("tv_total_qty", e.target.value) : setCreateValue("tv_total_qty", e.target.value)} />
-              </div>
-              <div>
-                <FieldLabel>TV Sony verkauft Qty</FieldLabel>
-                <Input value={isEdit ? getEditNumberValue("tv_sony_qty") : getCreateValue("tv_sony_qty")} onChange={(e) => isEdit ? setEditNumberValue("tv_sony_qty", e.target.value) : setCreateValue("tv_sony_qty", e.target.value)} />
-              </div>
-            </div>
-            <div className="rounded-xl bg-white p-3 text-xs text-gray-700 ring-1 ring-emerald-100">
-              TV Sony Anteil Qty: <b>{formatPercent(calcSharePercent(currentTvSonyQty, currentTvTotalQty))}</b>
-            </div>
+      <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+        <div>
+          <FieldLabel>TV Total verkauft Qty</FieldLabel>
+          <Input value={isEdit ? getEditNumberValue("tv_total_qty") : getCreateValue("tv_total_qty")} onChange={(e) => isEdit ? setEditNumberValue("tv_total_qty", e.target.value) : setCreateValue("tv_total_qty", e.target.value)} />
+        </div>
+        <div>
+          <FieldLabel>TV Sony verkauft Qty</FieldLabel>
+          <Input value={isEdit ? getEditNumberValue("tv_sony_qty") : getCreateValue("tv_sony_qty")} onChange={(e) => isEdit ? setEditNumberValue("tv_sony_qty", e.target.value) : setCreateValue("tv_sony_qty", e.target.value)} />
+        </div>
+      </div>
+      <div className="rounded-xl bg-white p-3 text-xs text-gray-700 ring-1 ring-emerald-100">
+        TV Sony Anteil Qty: <b>{formatPercent(calcSharePercent(currentTvSonyQty, currentTvTotalQty))}</b>
+      </div>
       <div className="grid grid-cols-1 gap-3 md:grid-cols-2"><div><FieldLabel>Soundbar Total Umsatz</FieldLabel><Input value={isEdit ? getEditNumberValue("sb_total_sales") : getCreateValue("sb_total_sales")} onChange={(e) => isEdit ? setEditNumberValue("sb_total_sales", e.target.value) : setCreateValue("sb_total_sales", e.target.value)} /></div><div><FieldLabel>Soundbar Sony Umsatz</FieldLabel><Input value={isEdit ? getEditNumberValue("sb_sony_sales") : getCreateValue("sb_sony_sales")} onChange={(e) => isEdit ? setEditNumberValue("sb_sony_sales", e.target.value) : setCreateValue("sb_sony_sales", e.target.value)} /></div></div><div className="rounded-xl bg-white p-3 text-xs text-gray-700 ring-1 ring-emerald-100">Soundbar Sony Anteil Sell-out: <b>{formatPercent(calcSharePercent(currentSbSony, currentSbTotal))}</b></div>
-            <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-              <div>
-                <FieldLabel>Soundbar Total verkauft Qty</FieldLabel>
-                <Input value={isEdit ? getEditNumberValue("sb_total_qty") : getCreateValue("sb_total_qty")} onChange={(e) => isEdit ? setEditNumberValue("sb_total_qty", e.target.value) : setCreateValue("sb_total_qty", e.target.value)} />
-              </div>
-              <div>
-                <FieldLabel>Soundbar Sony verkauft Qty</FieldLabel>
-                <Input value={isEdit ? getEditNumberValue("sb_sony_qty") : getCreateValue("sb_sony_qty")} onChange={(e) => isEdit ? setEditNumberValue("sb_sony_qty", e.target.value) : setCreateValue("sb_sony_qty", e.target.value)} />
-              </div>
-            </div>
-            <div className="rounded-xl bg-white p-3 text-xs text-gray-700 ring-1 ring-emerald-100">
-              Soundbar Sony Anteil Qty: <b>{formatPercent(calcSharePercent(currentSbSonyQty, currentSbTotalQty))}</b>
-            </div>
+      <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+        <div>
+          <FieldLabel>Soundbar Total verkauft Qty</FieldLabel>
+          <Input value={isEdit ? getEditNumberValue("sb_total_qty") : getCreateValue("sb_total_qty")} onChange={(e) => isEdit ? setEditNumberValue("sb_total_qty", e.target.value) : setCreateValue("sb_total_qty", e.target.value)} />
+        </div>
+        <div>
+          <FieldLabel>Soundbar Sony verkauft Qty</FieldLabel>
+          <Input value={isEdit ? getEditNumberValue("sb_sony_qty") : getCreateValue("sb_sony_qty")} onChange={(e) => isEdit ? setEditNumberValue("sb_sony_qty", e.target.value) : setCreateValue("sb_sony_qty", e.target.value)} />
+        </div>
+      </div>
+      <div className="rounded-xl bg-white p-3 text-xs text-gray-700 ring-1 ring-emerald-100">
+        Soundbar Sony Anteil Qty: <b>{formatPercent(calcSharePercent(currentSbSonyQty, currentSbTotalQty))}</b>
+      </div>
       <div className="grid grid-cols-1 gap-3 md:grid-cols-2"><div><FieldLabel>Rest Total Umsatz</FieldLabel><Input value={isEdit ? getEditNumberValue("rest_total_sales") : getCreateValue("rest_total_sales")} onChange={(e) => isEdit ? setEditNumberValue("rest_total_sales", e.target.value) : setCreateValue("rest_total_sales", e.target.value)} /></div><div><FieldLabel>Rest Sony Umsatz</FieldLabel><Input value={isEdit ? getEditNumberValue("rest_sony_sales") : getCreateValue("rest_sony_sales")} onChange={(e) => isEdit ? setEditNumberValue("rest_sony_sales", e.target.value) : setCreateValue("rest_sony_sales", e.target.value)} /></div></div><div className="rounded-xl bg-white p-3 text-xs text-gray-700 ring-1 ring-emerald-100">Rest Sony Anteil Sell-out: <b>{formatPercent(calcSharePercent(currentRestSony, currentRestTotal))}</b></div></div></div>;
   };
 
@@ -1247,340 +1250,434 @@ export default function AdminDealerDetailPage() {
     sellInSony: latestVisit?.sony_sales_snapshot ?? null,
   };
 
+  const dealerTabs = [
+    { key: "overview", label: "Übersicht" },
+    { key: "contacts", label: "Kontakte" },
+    { key: "visits", label: "Besuchsberichte" },
+    { key: "tasks", label: "Tasks" },
+    { key: "displays", label: "Displays" },
+    { key: "masterdata", label: "Stammdaten" },
+  ] as const;
+
   return (
     <div className="space-y-6 p-3 md:p-6">
       <Card className="rounded-2xl border border-gray-200 p-5"><div className="flex flex-wrap items-start justify-between gap-4"><div><div className="flex items-center gap-2 text-gray-900"><Store className="h-5 w-5 text-indigo-600" /><h1 className="text-xl font-semibold">Händlerakte</h1></div><div className="mt-3 grid grid-cols-1 gap-x-8 gap-y-1 text-sm text-gray-600 md:grid-cols-2"><p><span className="font-medium text-gray-800">Händler:</span> {dealer.name ?? "-"}</p><p><span className="font-medium text-gray-800">Dealer ID:</span> {dealer.dealer_id}</p><p><span className="font-medium text-gray-800">Login:</span> {dealer.login_nr ?? "-"}</p><p><span className="font-medium text-gray-800">E-Mail:</span> {dealer.email ?? "-"}</p></div><div className="mt-3 flex flex-wrap gap-2">{combinedInterestTags.slice(0, 4).map((tag) => <span key={tag.tag_id} className="rounded-full bg-blue-50 px-2.5 py-1 text-xs font-medium text-blue-700 ring-1 ring-blue-100">{tag.label}</span>)}{combinedCrmTags.slice(0, 4).map((tag) => <span key={tag.tag_id} className="rounded-full bg-amber-50 px-2.5 py-1 text-xs font-medium text-amber-700 ring-1 ring-amber-100">{tag.label}</span>)}</div></div><div className="flex flex-wrap gap-2"><Button type="button" variant="outline" onClick={() => router.back()}><ArrowLeft className="mr-2 h-4 w-4" />Zurück</Button><Button type="button" onClick={saveMainData} disabled={savingMain}>{savingMain ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}Speichern</Button></div></div></Card>
 
-      <Card className="rounded-2xl border border-gray-200 p-5"><SectionHeader icon={<BarChart3 className="h-5 w-5 text-emerald-600" />} title="Auto KPI / Sell-in" subtitle="Automatischer Überblick aus euren Bestellungen. Dieser Umsatz ist Sell-in, nicht Sell-out." action={<div className="flex items-center gap-2"><span className="text-sm text-gray-500">Zeitraum</span><select value={periodMode} onChange={(e) => setPeriodMode(e.target.value as PeriodMode)} className="rounded-md border border-gray-300 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500"><option value="month">Monat</option><option value="quarter">Quartal</option><option value="halfyear">Halbjahr</option><option value="year">Jahr</option><option value="ytd_calendar">YTD Kalenderjahr</option><option value="ytd_fiscal">YTD Fiscal Year</option></select></div>} />{loadingAutoKpis ? <div className="flex items-center gap-2 rounded-xl border bg-white p-4 text-sm text-gray-500"><Loader2 className="h-4 w-4 animate-spin" />Auto KPI werden geladen...</div> : <div className="space-y-4"><div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-6"><StatCard title="Sell-in Sony Umsatz" value={formatCurrency(autoSonyRevenue)} subtitle={getPeriodLabel(periodMode)} /><StatCard title="Vorjahr" value={formatCurrency(autoSonyRevenuePrevYear)} subtitle="Gleicher Zeitraum" /><StatCard title="YoY" value={formatPercent(yoyPercent)} subtitle="Sell-in Sony Umsatz" /><StatCard title="Display-Bestellungen" value={formatInteger(autoDisplayOrderCount)} subtitle={getPeriodLabel(periodMode)} /><StatCard title="Bestellpositionen" value={formatInteger(autoPositionsCount)} subtitle={getPeriodLabel(periodMode)} /><StatCard title="Displays aktiv" value={formatInteger(displayActiveCount)} subtitle={`${formatInteger(displayDisplayedCount)} ausgestellt`} /></div><div className="grid grid-cols-1 gap-3 xl:grid-cols-3">{[0, 1, 2].map((idx) => { const product = autoTopProducts[idx]; return <div key={idx} className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm"><div className="flex items-center gap-2 text-sm font-medium text-gray-700"><Trophy className="h-4 w-4 text-amber-500" />Top Produkt {idx + 1}</div><div className="mt-2 text-base font-semibold text-gray-900">{product?.label || "–"}</div><div className="mt-1 text-sm text-gray-500">Menge: {product ? formatInteger(product.qty) : "–"}</div><div className="text-sm text-gray-500">Sell-in Umsatz: {product ? formatCurrency(product.revenue) : "–"}</div></div>; })}</div></div>}</Card>
+      <Card className="rounded-2xl border border-gray-200 p-2">
+        <div className="flex flex-wrap gap-2">
+          {dealerTabs.map((tab) => {
+            const active = activeTab === tab.key;
 
-      <Card className="rounded-2xl border border-emerald-100 bg-emerald-50/40 p-5">
-        <SectionHeader
-          icon={<BarChart3 className="h-5 w-5 text-emerald-600" />}
-          title="Sell-out aus P5connect"
-          subtitle="Automatisch aus den gemeldeten Verkaufszahlen und Lagerbeständen."
-        />
-
-        {loadingSelloutKpis ? (
-          <div className="flex items-center gap-2 rounded-xl border bg-white p-4 text-sm text-gray-500">
-            <Loader2 className="h-4 w-4 animate-spin" />
-            Sell-out Daten werden geladen.
-          </div>
-        ) : dealerSelloutWeeks.length === 0 ? (
-          <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
-            Für diesen Händler wurden noch keine Sell-out Daten gemeldet.
-          </div>
-        ) : (
-          <div className="space-y-5">
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-6">
-              <StatCard
-                title="Letzte KW"
-                value={`KW ${dealerSelloutWeeks[0].sellout_week}`}
-                subtitle={String(dealerSelloutWeeks[0].sellout_year)}
-              />
-              <StatCard
-                title="Verkaufte Stück"
-                value={formatInteger(dealerSelloutWeeks[0].sold_qty)}
-                subtitle="letzte Meldung"
-              />
-              <StatCard
-                title="Sell-out Umsatz"
-                value={formatCurrency(dealerSelloutWeeks[0].sellout_revenue)}
-                subtitle="gemeldete VK-Preise"
-              />
-              <StatCard
-                title="Lagerbestand"
-                value={formatInteger(dealerSelloutWeeks[0].latest_stock_qty)}
-                subtitle="neuester Snapshot"
-              />
-              <StatCard
-                title="Produkte"
-                value={formatInteger(dealerSelloutWeeks[0].product_count)}
-                subtitle="mit Meldung"
-              />
-              <StatCard
-                title="Preisqualität"
-                value={`${formatInteger(dealerSelloutWeeks[0].priced_qty)} / ${formatInteger(
-                  dealerSelloutWeeks[0].sold_qty
-                )}`}
-                subtitle={`${formatInteger(dealerSelloutWeeks[0].zero_price_qty)} Stk. ohne Preis`}
-              />
-            </div>
-
-            {Number(dealerSelloutWeeks[0].zero_price_qty ?? 0) > 0 ? (
-              <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
-                ⚠️ Bei diesem Händler wurden {formatInteger(dealerSelloutWeeks[0].zero_price_qty)} Stück ohne Verkaufspreis gemeldet.
-                Die Stückzahlen und Lagerwerte sind nutzbar, der Umsatz kann aber unvollständig sein.
-              </div>
-            ) : null}
-
-            <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
-              <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
-                <div className="flex items-center justify-between gap-3">
-                  <div>
-                    <div className="text-sm font-semibold text-gray-900">
-                      Wochenverlauf
-                    </div>
-                    <p className="mt-1 text-xs text-gray-500">
-                      Letzte {dealerSelloutWeeks.length} gemeldete Sell-out Woche(n).
-                    </p>
-                  </div>
-
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setShowSelloutWeeks((prev) => !prev)}
-                  >
-                    {showSelloutWeeks ? "Ausblenden" : "Anzeigen"}
-                  </Button>
-                </div>
-
-                {showSelloutWeeks ? (
-                  <div className="mt-4 overflow-x-auto">
-                    <table className="min-w-full text-sm">
-                      <thead>
-                        <tr className="text-left text-xs uppercase text-gray-500">
-                          <th className="px-2 py-2">KW</th>
-                          <th className="px-2 py-2">Stück</th>
-                          <th className="px-2 py-2">Umsatz</th>
-                          <th className="px-2 py-2">Lager</th>
-                          <th className="px-2 py-2">ohne Preis</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {dealerSelloutWeeks.map((row) => (
-                          <tr
-                            key={`${row.sellout_year}-${row.sellout_week}`}
-                            className="border-t text-gray-700"
-                          >
-                            <td className="px-2 py-2">
-                              KW {row.sellout_week} / {row.sellout_year}
-                            </td>
-                            <td className="px-2 py-2 font-semibold">
-                              {formatInteger(row.sold_qty)}
-                            </td>
-                            <td className="px-2 py-2">
-                              {formatCurrency(row.sellout_revenue)}
-                            </td>
-                            <td className="px-2 py-2">
-                              {formatInteger(row.latest_stock_qty)}
-                            </td>
-                            <td className="px-2 py-2">
-                              {Number(row.zero_price_qty ?? 0) > 0 ? (
-                                <span className="font-medium text-amber-700">
-                                  {formatInteger(row.zero_price_qty)}
-                                </span>
-                              ) : (
-                                "–"
-                              )}
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                ) : (
-                  <div className="mt-4 rounded-xl bg-gray-50 p-3 text-xs text-gray-500">
-                    Der Wochenverlauf ist ausgeblendet, damit die Händlerakte übersichtlich bleibt.
-                  </div>
-                )}
-              </div>
-
-              <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
-                <div className="flex items-center justify-between gap-3">
-                  <div>
-                    <div className="text-sm font-semibold text-gray-900">
-                      Produkte letzte gemeldete KW
-                    </div>
-                    <p className="mt-1 text-xs text-gray-500">
-                      {dealerSelloutProducts.length} Produkt(e) in der letzten gemeldeten Sell-out Woche.
-                    </p>
-                  </div>
-
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setShowSelloutProducts((prev) => !prev)}
-                  >
-                    {showSelloutProducts ? "Ausblenden" : "Anzeigen"}
-                  </Button>
-                </div>
-
-                {showSelloutProducts ? (
-                  dealerSelloutProducts.length === 0 ? (
-                    <div className="mt-4 text-sm text-gray-500">
-                      Keine Produkte für die letzte Sell-out Woche gefunden.
-                    </div>
-                  ) : (
-                    <div className="mt-4 space-y-2">
-                      {dealerSelloutProducts.map((product) => (
-                        <div
-                          key={`${product.sellout_year}-${product.sellout_week}-${product.product_id ?? product.ean ?? product.sony_article}`}
-                          className="rounded-xl border border-gray-100 bg-gray-50 p-3"
-                        >
-                          <div className="flex flex-wrap items-start justify-between gap-2">
-                            <div>
-                              <div className="font-semibold text-gray-900">
-                                {product.sony_article || product.product_name || "–"}
-                              </div>
-                              <div className="text-xs text-gray-500">
-                                EAN: {product.ean || "–"} · {product.category || "–"}
-                              </div>
-                            </div>
-
-                            <div className="text-right text-sm">
-                              <div className="font-semibold text-gray-900">
-                                {formatInteger(product.sold_qty)} Stk.
-                              </div>
-                              <div className="text-xs text-gray-500">
-                                Lager: {formatInteger(product.latest_stock_qty)}
-                              </div>
-                            </div>
-                          </div>
-
-                          <div className="mt-2 flex flex-wrap gap-3 text-xs text-gray-600">
-                            <span>Umsatz: {formatCurrency(product.sellout_revenue)}</span>
-                            <span>Ø Preis: {formatCurrency(product.avg_sellout_price)}</span>
-                            {Number(product.zero_price_qty ?? 0) > 0 ? (
-                              <span className="font-medium text-amber-700">
-                                {formatInteger(product.zero_price_qty)} Stk. ohne Preis
-                              </span>
-                            ) : null}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )
-                ) : (
-                  <div className="mt-4 rounded-xl bg-gray-50 p-3 text-xs text-gray-500">
-                    Die Produktdetails sind ausgeblendet, damit die Händlerakte übersichtlich bleibt.
-                  </div>
-                )}
-              </div>
-            </div>
-
-            <Link
-              href={`/admin/reports/sellout?dealer_id=${dealerId}`}
-              className="inline-flex items-center rounded-md border border-emerald-200 bg-white px-3 py-2 text-sm font-medium text-emerald-700 hover:bg-emerald-50"
-            >
-              Sell-out Dashboard öffnen
-            </Link>
-          </div>
-        )}
+            return (
+              <button
+                key={tab.key}
+                type="button"
+                onClick={() => setActiveTab(tab.key)}
+                className={`rounded-xl px-4 py-2 text-sm font-medium transition ${active
+                    ? "bg-slate-900 text-white shadow-sm"
+                    : "text-gray-600 hover:bg-gray-100"
+                  }`}
+              >
+                {tab.label}
+              </button>
+            );
+          })}
+        </div>
       </Card>
+      {activeTab === "overview" && (
+        <>
+          <Card className="rounded-2xl border border-gray-200 p-5"><SectionHeader icon={<BarChart3 className="h-5 w-5 text-emerald-600" />} title="Auto KPI / Sell-in" subtitle="Automatischer Überblick aus euren Bestellungen. Dieser Umsatz ist Sell-in, nicht Sell-out." action={<div className="flex items-center gap-2"><span className="text-sm text-gray-500">Zeitraum</span><select value={periodMode} onChange={(e) => setPeriodMode(e.target.value as PeriodMode)} className="rounded-md border border-gray-300 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500"><option value="month">Monat</option><option value="quarter">Quartal</option><option value="halfyear">Halbjahr</option><option value="year">Jahr</option><option value="ytd_calendar">YTD Kalenderjahr</option><option value="ytd_fiscal">YTD Fiscal Year</option></select></div>} />{loadingAutoKpis ? <div className="flex items-center gap-2 rounded-xl border bg-white p-4 text-sm text-gray-500"><Loader2 className="h-4 w-4 animate-spin" />Auto KPI werden geladen...</div> : <div className="space-y-4"><div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-6"><StatCard title="Sell-in Sony Umsatz" value={formatCurrency(autoSonyRevenue)} subtitle={getPeriodLabel(periodMode)} /><StatCard title="Vorjahr" value={formatCurrency(autoSonyRevenuePrevYear)} subtitle="Gleicher Zeitraum" /><StatCard title="YoY" value={formatPercent(yoyPercent)} subtitle="Sell-in Sony Umsatz" /><StatCard title="Display-Bestellungen" value={formatInteger(autoDisplayOrderCount)} subtitle={getPeriodLabel(periodMode)} /><StatCard title="Bestellpositionen" value={formatInteger(autoPositionsCount)} subtitle={getPeriodLabel(periodMode)} /><StatCard title="Displays aktiv" value={formatInteger(displayActiveCount)} subtitle={`${formatInteger(displayDisplayedCount)} ausgestellt`} /></div><div className="grid grid-cols-1 gap-3 xl:grid-cols-3">{[0, 1, 2].map((idx) => { const product = autoTopProducts[idx]; return <div key={idx} className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm"><div className="flex items-center gap-2 text-sm font-medium text-gray-700"><Trophy className="h-4 w-4 text-amber-500" />Top Produkt {idx + 1}</div><div className="mt-2 text-base font-semibold text-gray-900">{product?.label || "–"}</div><div className="mt-1 text-sm text-gray-500">Menge: {product ? formatInteger(product.qty) : "–"}</div><div className="text-sm text-gray-500">Sell-in Umsatz: {product ? formatCurrency(product.revenue) : "–"}</div></div>; })}</div></div>}</Card>
 
-      <div className="grid grid-cols-1 gap-6 xl:grid-cols-[0.9fr_1.1fr]"><Card className="rounded-2xl border border-gray-200 p-5"><SectionHeader icon={<Clock3 className="h-5 w-5 text-orange-600" />} title="Tasks / Next Steps" subtitle="Direkt sichtbar vor jedem Besuch." /><div className="mb-5 space-y-3 rounded-2xl border bg-gray-50 p-4"><div className="grid grid-cols-1 gap-3 md:grid-cols-[1fr_150px_220px_auto]"><div><FieldLabel>Titel</FieldLabel><Input value={taskForm.title} onChange={(e) => setTaskForm((prev) => ({ ...prev, title: e.target.value }))} placeholder="z. B. Display-Frequenz prüfen" /></div><div><FieldLabel>Fällig bis</FieldLabel><Input type="date" value={taskForm.due_date} onChange={(e) => setTaskForm((prev) => ({ ...prev, due_date: e.target.value }))} /></div><div><FieldLabel>Zuständig</FieldLabel><select value={taskForm.assigned_to} onChange={(e) => setTaskForm((prev) => ({ ...prev, assigned_to: e.target.value }))} className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500"><option value="">Nicht zugewiesen</option>{dealerUsers.map((user) => <option key={user.id} value={user.user_email}>{user.display_name || user.user_email}{user.role ? ` · ${user.role}` : ""}</option>)}</select></div><div className="flex items-end"><Button type="button" onClick={addTask} disabled={addingTask}>{addingTask ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Plus className="mr-2 h-4 w-4" />}Task</Button></div></div><div><FieldLabel>Beschreibung</FieldLabel><Textarea value={taskForm.description} onChange={(v) => setTaskForm((prev) => ({ ...prev, description: v }))} rows={2} /></div></div><div className="space-y-3"><h3 className="text-sm font-semibold text-gray-900">Offen ({openTasks.length})</h3>{openTasks.length === 0 ? <p className="text-sm text-gray-500">Keine offenen Aufgaben.</p> : openTasks.map((task) => <div key={task.task_id} className="rounded-xl border border-orange-200 bg-orange-50 p-3"><div className="flex flex-wrap items-start justify-between gap-3"><div className="min-w-0 flex-1"><div className="font-medium text-gray-900">{task.title}</div>{task.description ? <p className="mt-1 whitespace-pre-wrap text-sm text-gray-600">{task.description}</p> : null}<div className="mt-2 text-xs text-gray-500">Fällig: {task.due_date || "-"}</div><div className="mt-1 text-xs text-gray-500">Zuständig: {getAssignedName(task.assigned_to)}</div></div><div className="flex flex-wrap gap-2"><Button size="sm" type="button" onClick={() => updateTaskStatus(task.task_id, "done")} className="bg-green-600 hover:bg-green-700"><CheckCircle2 className="mr-1 h-4 w-4" />Erledigt</Button><Button size="sm" type="button" variant="outline" onClick={() => updateTaskStatus(task.task_id, "cancelled")}><XCircle className="mr-1 h-4 w-4" />Abbrechen</Button></div></div></div>)}<details className="rounded-xl border border-gray-200 bg-white p-3"><summary className="cursor-pointer text-sm font-semibold text-gray-900">Erledigt / Abgebrochen ({doneTasks.length + cancelledTasks.length})</summary><div className="mt-3 space-y-2">{[...doneTasks, ...cancelledTasks].length === 0 ? <p className="text-sm text-gray-500">Noch keine abgeschlossenen Aufgaben.</p> : [...doneTasks, ...cancelledTasks].slice(0, 8).map((task) => <div key={task.task_id} className="rounded-xl border border-gray-200 bg-gray-50 p-3"><div className="font-medium text-gray-900">{task.title}</div><div className="text-xs text-gray-500">Status: {task.status === "done" ? "Erledigt" : "Abgebrochen"}</div><div className="mt-1 text-xs text-gray-500">Zuständig: {getAssignedName(task.assigned_to)}</div></div>)}</div></details></div></Card>
+          <Card className="rounded-2xl border border-emerald-100 bg-emerald-50/40 p-5">
+            <SectionHeader
+              icon={<BarChart3 className="h-5 w-5 text-emerald-600" />}
+              title="Sell-out aus P5connect"
+              subtitle="Automatisch aus den gemeldeten Verkaufszahlen und Lagerbeständen."
+            />
 
-      <Card className="rounded-2xl border border-gray-200 p-5"><SectionHeader icon={<History className="h-5 w-5 text-indigo-600" />} title="Besuchshistorie" subtitle="Letzte Gespräche, Sell-in Snapshot und Sell-out Werte." /><div className="max-h-[560px] space-y-4 overflow-y-auto pr-1">{visits.length === 0 ? <p className="text-sm text-gray-500">Noch keine Besuchsberichte vorhanden.</p> : visits.map((visit) => { const visitSelloutTotal = visit.sellout_total_sales ?? visit.market_total_sales ?? null; const visitSelloutSony = visit.sellout_sony_total ?? null; const visitTvTotal = visit.tv_total_sales ?? visit.tv_total_all ?? null; const visitTvSony = visit.tv_sony_sales ?? visit.tv_total_sony ?? null; const visitSbTotal = visit.sb_total_sales ?? visit.sb_total_all ?? null; const visitSbSony = visit.sb_sony_sales ?? visit.sb_total_sony ?? null; const visitRestTotal = visit.rest_total_sales ?? null; const visitRestSony = visit.rest_sony_sales ?? null; return <div key={visit.visit_report_id} className="rounded-2xl border border-gray-200 bg-white p-4"><div className="flex flex-wrap items-start justify-between gap-3"><div><div className="font-semibold text-gray-900">{formatDate(visit.visit_date)}</div><div className="text-sm text-gray-500">Besuch von: {visit.visited_by || "-"}</div><div className="mt-1 text-xs text-gray-500">Periode: {visit.snapshot_period_type || "–"}{visit.snapshot_period_start || visit.snapshot_period_end ? ` · ${formatDate(visit.snapshot_period_start)} – ${formatDate(visit.snapshot_period_end)}` : ""}</div></div><div className="flex flex-wrap items-center gap-2"><div className="rounded-full bg-gray-100 px-3 py-1 text-xs font-medium text-gray-700">
-        Sell-in Sony: {formatCurrency(visit.sony_sales_snapshot)}
-        {visit.sellin_snapshot_period_mode ? ` · ${visit.sellin_snapshot_period_mode}` : ""}
-        {visit.sellin_snapshot_period_start || visit.sellin_snapshot_period_end
-          ? ` · ${formatDate(visit.sellin_snapshot_period_start)} – ${formatDate(visit.sellin_snapshot_period_end)}`
-          : ""}
-      </div><Button type="button" size="sm" variant="outline" onClick={() => setEditingVisit(visit)}>Bearbeiten</Button><Button type="button" size="sm" variant="outline" className="border-red-200 text-red-700 hover:bg-red-50" onClick={() => deleteVisit(visit.visit_report_id)}>Löschen</Button></div></div><div className="mt-4 grid grid-cols-1 gap-4 text-sm xl:grid-cols-2"><div><div className="font-medium text-gray-800">Kontakt / Teilnehmer</div><div className="mt-1 whitespace-pre-wrap text-gray-600">{visit.contact_persons || "-"}</div></div><div><div className="font-medium text-gray-800">Vereinbart / Next Steps</div><div className="mt-1 whitespace-pre-wrap text-gray-600">{visit.agreed || "-"}{visit.next_steps ? `\n\nNächste Schritte:\n${visit.next_steps}` : ""}</div></div><div className="xl:col-span-2"><div className="font-medium text-gray-800">Besprochen</div><div className="mt-1 whitespace-pre-wrap text-gray-600">{visit.discussed || "-"}</div></div><div className="xl:col-span-2 rounded-xl border border-emerald-100 bg-emerald-50 p-3">
-  <div className="mb-3 font-medium text-emerald-900">Sell-out Werte</div>
+            {loadingSelloutKpis ? (
+              <div className="flex items-center gap-2 rounded-xl border bg-white p-4 text-sm text-gray-500">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Sell-out Daten werden geladen.
+              </div>
+            ) : dealerSelloutWeeks.length === 0 ? (
+              <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
+                Für diesen Händler wurden noch keine Sell-out Daten gemeldet.
+              </div>
+            ) : (
+              <div className="space-y-5">
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-6">
+                  <StatCard
+                    title="Letzte KW"
+                    value={`KW ${dealerSelloutWeeks[0].sellout_week}`}
+                    subtitle={String(dealerSelloutWeeks[0].sellout_year)}
+                  />
+                  <StatCard
+                    title="Verkaufte Stück"
+                    value={formatInteger(dealerSelloutWeeks[0].sold_qty)}
+                    subtitle="letzte Meldung"
+                  />
+                  <StatCard
+                    title="Sell-out Umsatz"
+                    value={formatCurrency(dealerSelloutWeeks[0].sellout_revenue)}
+                    subtitle="gemeldete VK-Preise"
+                  />
+                  <StatCard
+                    title="Lagerbestand"
+                    value={formatInteger(dealerSelloutWeeks[0].latest_stock_qty)}
+                    subtitle="neuester Snapshot"
+                  />
+                  <StatCard
+                    title="Produkte"
+                    value={formatInteger(dealerSelloutWeeks[0].product_count)}
+                    subtitle="mit Meldung"
+                  />
+                  <StatCard
+                    title="Preisqualität"
+                    value={`${formatInteger(dealerSelloutWeeks[0].priced_qty)} / ${formatInteger(
+                      dealerSelloutWeeks[0].sold_qty
+                    )}`}
+                    subtitle={`${formatInteger(dealerSelloutWeeks[0].zero_price_qty)} Stk. ohne Preis`}
+                  />
+                </div>
 
-  <div className="space-y-3 text-xs text-emerald-900">
-    <div className="grid grid-cols-1 gap-2 rounded-lg bg-white/60 p-3 md:grid-cols-3">
-      <div>
-        <div className="text-emerald-700">Total</div>
-        <div className="font-semibold">{formatCurrency(visitSelloutTotal)}</div>
-      </div>
-      <div>
-        <div className="text-emerald-700">Sony</div>
-        <div className="font-semibold">{formatCurrency(visitSelloutSony)}</div>
-      </div>
-      <div>
-        <div className="text-emerald-700">Sony Anteil</div>
-        <div className="font-semibold">{formatPercent(calcSharePercent(visitSelloutSony, visitSelloutTotal))}</div>
-      </div>
-    </div>
+                {Number(dealerSelloutWeeks[0].zero_price_qty ?? 0) > 0 ? (
+                  <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
+                    ⚠️ Bei diesem Händler wurden {formatInteger(dealerSelloutWeeks[0].zero_price_qty)} Stück ohne Verkaufspreis gemeldet.
+                    Die Stückzahlen und Lagerwerte sind nutzbar, der Umsatz kann aber unvollständig sein.
+                  </div>
+                ) : null}
 
-    <div className="grid grid-cols-1 gap-2 rounded-lg bg-white/60 p-3 md:grid-cols-4">
-      <div>
-        <div className="text-emerald-700">TV Total Umsatz</div>
-        <div className="font-semibold">{formatCurrency(visitTvTotal)}</div>
-      </div>
-      <div>
-        <div className="text-emerald-700">TV Sony Umsatz</div>
-        <div className="font-semibold">{formatCurrency(visitTvSony)}</div>
-      </div>
-      <div>
-        <div className="text-emerald-700">TV Sony Anteil Umsatz</div>
-        <div className="font-semibold">{formatPercent(calcSharePercent(visitTvSony, visitTvTotal))}</div>
-      </div>
-      <div>
-        <div className="text-emerald-700">TV Qty Sony / Total</div>
-        <div className="font-semibold">
-          {formatInteger(visit.tv_sony_qty)} / {formatInteger(visit.tv_total_qty)} · {formatPercent(calcSharePercent(visit.tv_sony_qty, visit.tv_total_qty))}
-        </div>
-      </div>
-    </div>
+                <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+                  <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
+                    <div className="flex items-center justify-between gap-3">
+                      <div>
+                        <div className="text-sm font-semibold text-gray-900">
+                          Wochenverlauf
+                        </div>
+                        <p className="mt-1 text-xs text-gray-500">
+                          Letzte {dealerSelloutWeeks.length} gemeldete Sell-out Woche(n).
+                        </p>
+                      </div>
 
-    <div className="grid grid-cols-1 gap-2 rounded-lg bg-white/60 p-3 md:grid-cols-4">
-      <div>
-        <div className="text-emerald-700">Soundbar Total Umsatz</div>
-        <div className="font-semibold">{formatCurrency(visitSbTotal)}</div>
-      </div>
-      <div>
-        <div className="text-emerald-700">Soundbar Sony Umsatz</div>
-        <div className="font-semibold">{formatCurrency(visitSbSony)}</div>
-      </div>
-      <div>
-        <div className="text-emerald-700">Soundbar Sony Anteil Umsatz</div>
-        <div className="font-semibold">{formatPercent(calcSharePercent(visitSbSony, visitSbTotal))}</div>
-      </div>
-      <div>
-        <div className="text-emerald-700">Soundbar Qty Sony / Total</div>
-        <div className="font-semibold">
-          {formatInteger(visit.sb_sony_qty)} / {formatInteger(visit.sb_total_qty)} · {formatPercent(calcSharePercent(visit.sb_sony_qty, visit.sb_total_qty))}
-        </div>
-      </div>
-    </div>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setShowSelloutWeeks((prev) => !prev)}
+                      >
+                        {showSelloutWeeks ? "Ausblenden" : "Anzeigen"}
+                      </Button>
+                    </div>
 
-    <div className="grid grid-cols-1 gap-2 rounded-lg bg-white/60 p-3 md:grid-cols-3">
-      <div>
-        <div className="text-emerald-700">Rest Total Umsatz</div>
-        <div className="font-semibold">{formatCurrency(visitRestTotal)}</div>
-      </div>
-      <div>
-        <div className="text-emerald-700">Rest Sony Umsatz</div>
-        <div className="font-semibold">{formatCurrency(visitRestSony)}</div>
-      </div>
-      <div>
-        <div className="text-emerald-700">Rest Sony Anteil</div>
-        <div className="font-semibold">{formatPercent(calcSharePercent(visitRestSony, visitRestTotal))}</div>
-      </div>
-    </div>
-  </div>
-</div>{visit.open_points ? <div className="xl:col-span-2 rounded-xl border bg-orange-50 p-3"><div className="font-medium text-orange-800">Offene Punkte</div><div className="mt-1 whitespace-pre-wrap text-orange-700">{visit.open_points}</div></div> : null}</div></div>; })}</div></Card></div>
+                    {showSelloutWeeks ? (
+                      <div className="mt-4 overflow-x-auto">
+                        <table className="min-w-full text-sm">
+                          <thead>
+                            <tr className="text-left text-xs uppercase text-gray-500">
+                              <th className="px-2 py-2">KW</th>
+                              <th className="px-2 py-2">Stück</th>
+                              <th className="px-2 py-2">Umsatz</th>
+                              <th className="px-2 py-2">Lager</th>
+                              <th className="px-2 py-2">ohne Preis</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {dealerSelloutWeeks.map((row) => (
+                              <tr
+                                key={`${row.sellout_year}-${row.sellout_week}`}
+                                className="border-t text-gray-700"
+                              >
+                                <td className="px-2 py-2">
+                                  KW {row.sellout_week} / {row.sellout_year}
+                                </td>
+                                <td className="px-2 py-2 font-semibold">
+                                  {formatInteger(row.sold_qty)}
+                                </td>
+                                <td className="px-2 py-2">
+                                  {formatCurrency(row.sellout_revenue)}
+                                </td>
+                                <td className="px-2 py-2">
+                                  {formatInteger(row.latest_stock_qty)}
+                                </td>
+                                <td className="px-2 py-2">
+                                  {Number(row.zero_price_qty ?? 0) > 0 ? (
+                                    <span className="font-medium text-amber-700">
+                                      {formatInteger(row.zero_price_qty)}
+                                    </span>
+                                  ) : (
+                                    "–"
+                                  )}
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    ) : (
+                      <div className="mt-4 rounded-xl bg-gray-50 p-3 text-xs text-gray-500">
+                        Der Wochenverlauf ist ausgeblendet, damit die Händlerakte übersichtlich bleibt.
+                      </div>
+                    )}
+                  </div>
 
-      <Card className="rounded-2xl border border-gray-200 p-5"><SectionHeader icon={<MessageSquare className="h-5 w-5 text-purple-600" />} title="Neuer Besuchsreport" subtitle="Sell-in wird automatisch aus Bestellungen übernommen. Sell-out wird hier manuell erfasst." /><div className="grid grid-cols-1 gap-6 xl:grid-cols-[1fr_420px]"><div className="space-y-4"><div className="grid grid-cols-1 gap-4 md:grid-cols-2"><div><FieldLabel>Datum</FieldLabel><Input type="date" value={visitForm.visit_date} onChange={(e) => setVisitForm((prev) => ({ ...prev, visit_date: e.target.value }))} /></div><div><FieldLabel>Besuch von</FieldLabel><Input value={visitForm.visited_by} onChange={(e) => setVisitForm((prev) => ({ ...prev, visited_by: e.target.value }))} placeholder="z. B. Roger / Dominik" /></div></div><div className="rounded-2xl border border-indigo-100 bg-indigo-50 p-4"><div className="grid grid-cols-1 gap-4 md:grid-cols-2"><div><FieldLabel>Kontaktperson beim Händler</FieldLabel><select value={selectedVisitContactId} onChange={(e) => setSelectedVisitContactId(e.target.value)} className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500"><option value="">Keine Kontaktperson ausgewählt</option>{dealerContactOptions.map((contact) => <option key={contact.id} value={contact.id}>{contact.label}{contact.raw.role ? ` · ${contact.raw.role}` : ""}</option>)}</select>{dealerContactOptions.length === 0 ? <p className="mt-1 text-xs text-indigo-700">Noch keine Kontakte für diesen Händler hinterlegt. Du kannst sie in der Kontaktverwaltung erfassen.</p> : selectedVisitContact ? <p className="mt-1 text-xs text-indigo-700">{selectedVisitContact.role || "Kontakt"} · {selectedVisitContact.user_email}</p> : null}</div><div><FieldLabel>Weitere Kontaktpersonen / Notiz</FieldLabel><Textarea value={visitForm.contact_persons} onChange={(v) => setVisitForm((prev) => ({ ...prev, contact_persons: v }))} rows={3} placeholder="z. B. zusätzlich Geschäftsführer, Verkaufsleiter, Lernender..." /></div></div></div><div><FieldLabel>Was wurde besprochen?</FieldLabel><Textarea value={visitForm.discussed} onChange={(v) => setVisitForm((prev) => ({ ...prev, discussed: v }))} rows={4} /></div><div><FieldLabel>Was wurde vereinbart?</FieldLabel><Textarea value={visitForm.agreed} onChange={(v) => setVisitForm((prev) => ({ ...prev, agreed: v }))} rows={3} /></div><div className="grid grid-cols-1 gap-4 md:grid-cols-2"><div><FieldLabel>Nächste Schritte</FieldLabel><Textarea value={visitForm.next_steps} onChange={(v) => setVisitForm((prev) => ({ ...prev, next_steps: v }))} rows={3} /></div><div><FieldLabel>Offene Punkte</FieldLabel><Textarea value={visitForm.open_points} onChange={(v) => setVisitForm((prev) => ({ ...prev, open_points: v }))} rows={3} /></div></div><div className="grid grid-cols-1 gap-4 md:grid-cols-2"><div><FieldLabel>Was lief gut?</FieldLabel><Textarea value={visitForm.what_went_well} onChange={(v) => setVisitForm((prev) => ({ ...prev, what_went_well: v }))} rows={3} /></div><div><FieldLabel>Was lief weniger gut?</FieldLabel><Textarea value={visitForm.what_went_less_well} onChange={(v) => setVisitForm((prev) => ({ ...prev, what_went_less_well: v }))} rows={3} /></div><div><FieldLabel>Konkurrenz / Marktinfos</FieldLabel><Textarea value={visitForm.competition_market_info} onChange={(v) => setVisitForm((prev) => ({ ...prev, competition_market_info: v }))} rows={3} /></div><div><FieldLabel>Branding / Sichtbarkeit</FieldLabel><Textarea value={visitForm.branding_visibility} onChange={(v) => setVisitForm((prev) => ({ ...prev, branding_visibility: v }))} rows={3} /></div></div></div><div className="space-y-4"><div className="rounded-2xl border border-gray-200 bg-white p-4"><div className="mb-3 text-sm font-semibold text-gray-900">Sell-in Snapshot aus Auto KPI</div><div className="grid grid-cols-2 gap-2 text-xs text-gray-600"><div>Zeitraum</div><div className="font-semibold text-gray-900">{getPeriodLabel(periodMode)}</div><div>Sell-in Sony Umsatz</div><div className="font-semibold text-gray-900">{formatCurrency(autoSonyRevenue)}</div><div>Vorjahr</div><div className="font-semibold text-gray-900">{formatCurrency(autoSonyRevenuePrevYear)}</div><div>YoY</div><div className="font-semibold text-gray-900">{formatPercent(yoyPercent)}</div></div></div>{renderSelloutInputGrid({ mode: "create" })}<div className="rounded-2xl border border-gray-200 bg-white p-4"><div className="mb-3 text-sm font-semibold text-gray-900">Letzter gespeicherter Besuch</div><div className="grid grid-cols-2 gap-2 text-xs text-gray-600"><div>Periode</div><div className="font-semibold text-gray-900">{latestVisitSellout.period || "–"}{latestVisitSellout.periodStart || latestVisitSellout.periodEnd ? ` · ${formatDate(latestVisitSellout.periodStart)} – ${formatDate(latestVisitSellout.periodEnd)}` : ""}</div><div>Sell-in Sony</div><div className="font-semibold text-gray-900">{formatCurrency(latestVisitSellout.sellInSony)}</div><div>Sell-out Total</div><div className="font-semibold text-gray-900">{formatCurrency(latestVisitSellout.total)}</div><div>Sell-out Sony</div><div className="font-semibold text-gray-900">{formatCurrency(latestVisitSellout.sony)} · {formatPercent(latestVisitSellout.sonyShare)}</div><div>TV Sony</div><div className="font-semibold text-gray-900">{formatCurrency(latestVisitSellout.tvSony)} / {formatCurrency(latestVisitSellout.tvTotal)} · {formatPercent(latestVisitSellout.tvShare)}</div>
-      <div>TV Qty Sony</div>
-        <div className="font-semibold text-gray-900">
-          {formatInteger(latestVisitSellout.tvSonyQty)} / {formatInteger(latestVisitSellout.tvTotalQty)} · {formatPercent(latestVisitSellout.tvQtyShare)}
-        </div><div>Soundbar Sony</div><div className="font-semibold text-gray-900">{formatCurrency(latestVisitSellout.sbSony)} / {formatCurrency(latestVisitSellout.sbTotal)} · {formatPercent(latestVisitSellout.sbShare)}</div>
-        <div>Soundbar Qty Sony</div>
-          <div className="font-semibold text-gray-900">
-            {formatInteger(latestVisitSellout.sbSonyQty)} / {formatInteger(latestVisitSellout.sbTotalQty)} · {formatPercent(latestVisitSellout.sbQtyShare)}
-          </div>
-        <div>Rest Sony</div><div className="font-semibold text-gray-900">{formatCurrency(latestVisitSellout.restSony)} / {formatCurrency(latestVisitSellout.restTotal)} · {formatPercent(latestVisitSellout.restShare)}</div></div></div><div className="flex justify-end"><Button type="button" onClick={addVisit} disabled={addingVisit}>{addingVisit ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Plus className="mr-2 h-4 w-4" />}Besuchsreport speichern</Button></div></div></div></Card>
+                  <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
+                    <div className="flex items-center justify-between gap-3">
+                      <div>
+                        <div className="text-sm font-semibold text-gray-900">
+                          Produkte letzte gemeldete KW
+                        </div>
+                        <p className="mt-1 text-xs text-gray-500">
+                          {dealerSelloutProducts.length} Produkt(e) in der letzten gemeldeten Sell-out Woche.
+                        </p>
+                      </div>
 
-      <Card className="rounded-2xl border border-gray-200 p-5"><SectionHeader icon={<MonitorSmartphone className="h-5 w-5 text-sky-600" />} title="Display-Tracker" subtitle="Gehört zum Kundenbesuch: prüfen, ergänzen und Status aktualisieren." /><div className="grid grid-cols-1 gap-4 xl:grid-cols-[1.4fr_120px_180px_1fr_auto]"><div><FieldLabel>Produkt</FieldLabel><Input value={displayForm.product_name_snapshot} onChange={(e) => setDisplayForm((prev) => ({ ...prev, product_name_snapshot: e.target.value }))} placeholder="z. B. XR-65A95L" /></div><div><FieldLabel>Menge</FieldLabel><Input value={displayForm.ordered_qty} onChange={(e) => setDisplayForm((prev) => ({ ...prev, ordered_qty: e.target.value }))} /></div><div><FieldLabel>Im Laden ausgestellt?</FieldLabel><select value={displayForm.is_displayed} onChange={(e) => setDisplayForm((prev) => ({ ...prev, is_displayed: e.target.value as "yes" | "no" | "unknown" }))} className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500"><option value="yes">Ja</option><option value="no">Nein</option><option value="unknown">Unklar</option></select></div><div><FieldLabel>Bemerkung</FieldLabel><Input value={displayForm.note} onChange={(e) => setDisplayForm((prev) => ({ ...prev, note: e.target.value }))} placeholder="z. B. noch im Lager" /></div><div className="flex items-end"><Button type="button" onClick={addDisplayItem} disabled={addingDisplayItem}>{addingDisplayItem ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Plus className="mr-2 h-4 w-4" />}Hinzufügen</Button></div></div><div className="mt-5 overflow-x-auto">{displayItems.length === 0 ? <p className="text-sm text-gray-500">Noch keine Display-Produkte erfasst.</p> : <table className="min-w-full border-separate border-spacing-y-2"><thead><tr className="text-left text-xs uppercase tracking-wide text-gray-500"><th className="px-3 py-2">Produkt</th><th className="px-3 py-2">Menge</th><th className="px-3 py-2">Status</th><th className="px-3 py-2">Geprüft am</th><th className="px-3 py-2">Bemerkung</th><th className="px-3 py-2">Aktion</th></tr></thead><tbody>{displayItems.map((item) => <tr key={item.display_item_id} className="rounded-2xl bg-gray-50 text-sm text-gray-700"><td className="px-3 py-3 font-medium text-gray-900">{item.product_name_snapshot}</td><td className="px-3 py-3">{item.ordered_qty ?? "-"}</td><td className="px-3 py-3">{item.status === "ordered" ? "Bestellt" : item.status === "displayed" ? "Ausgestellt" : item.status === "not_displayed" ? "Nicht ausgestellt" : item.status === "sold_off" ? "Abverkauft" : item.status === "removed" ? "Entfernt" : "-"}</td><td className="px-3 py-3">{formatDate(item.display_checked_at)}</td><td className="px-3 py-3">{item.note || "-"}</td><td className="px-3 py-3"><div className="flex flex-wrap gap-2"><Button type="button" size="sm" className="bg-green-600 hover:bg-green-700" onClick={() => updateDisplayStatus(item.display_item_id, "displayed")}>Ausgestellt</Button><Button type="button" size="sm" variant="outline" onClick={() => updateDisplayStatus(item.display_item_id, "not_displayed")}>Nicht ausgestellt</Button><Button type="button" size="sm" variant="outline" onClick={() => updateDisplayStatus(item.display_item_id, "sold_off")}>Abverkauft</Button><Button type="button" size="sm" variant="outline" onClick={() => updateDisplayStatus(item.display_item_id, "removed")}>Entfernt</Button><Button type="button" size="sm" variant="outline" onClick={() => updateDisplayStatus(item.display_item_id, "ordered")}>Reset</Button></div></td></tr>)}</tbody></table>}</div></Card>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setShowSelloutProducts((prev) => !prev)}
+                      >
+                        {showSelloutProducts ? "Ausblenden" : "Anzeigen"}
+                      </Button>
+                    </div>
 
-      <details className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm"><summary className="flex cursor-pointer list-none items-center justify-between gap-3"><div className="flex items-center gap-2"><Settings2 className="h-5 w-5 text-blue-600" /><div><h2 className="text-lg font-semibold text-gray-900">CRM & Stammdaten bearbeiten</h2><p className="text-sm text-gray-500">Administrative Daten, Segmentierung und technische Felder sind eingeklappt.</p></div></div><Edit3 className="h-4 w-4 text-gray-500" /></summary><div className="mt-6 grid grid-cols-1 gap-6 xl:grid-cols-2"><Card className="rounded-2xl border border-gray-200 p-5"><SectionHeader icon={<UserRound className="h-5 w-5 text-blue-600" />} title="Händler-Stammdaten" subtitle="Nur bei Bedarf öffnen und bearbeiten." /><div className="space-y-5"><div className="rounded-2xl border border-blue-100 bg-blue-50 p-4"><div className="mb-3 text-sm font-semibold text-blue-900">Basisdaten Händler</div><div className="grid grid-cols-1 gap-4 xl:grid-cols-2"><div><FieldLabel>Händlername *</FieldLabel><Input value={dealerForm.name} onChange={(e) => setDealerForm((prev) => ({ ...prev, name: e.target.value }))} /></div><div><FieldLabel>Store Name</FieldLabel><Input value={dealerForm.store_name} onChange={(e) => setDealerForm((prev) => ({ ...prev, store_name: e.target.value }))} /></div><div><FieldLabel>Login-Nr. *</FieldLabel><Input value={dealerForm.login_nr} onChange={(e) => setDealerForm((prev) => ({ ...prev, login_nr: e.target.value }))} /></div><div><FieldLabel>Login-E-Mail *</FieldLabel><Input type="email" value={dealerForm.login_email} onChange={(e) => setDealerForm((prev) => ({ ...prev, login_email: e.target.value }))} /></div><div><FieldLabel>Händler E-Mail</FieldLabel><Input type="email" value={dealerForm.email} onChange={(e) => setDealerForm((prev) => ({ ...prev, email: e.target.value }))} /></div><div><FieldLabel>Ansprechpartner</FieldLabel><Input value={dealerForm.contact_person} onChange={(e) => setDealerForm((prev) => ({ ...prev, contact_person: e.target.value }))} /></div><div><FieldLabel>Telefon</FieldLabel><Input value={dealerForm.phone} onChange={(e) => setDealerForm((prev) => ({ ...prev, phone: e.target.value }))} /></div><div><FieldLabel>Website</FieldLabel><Input value={dealerForm.website} onChange={(e) => setDealerForm((prev) => ({ ...prev, website: e.target.value }))} /></div></div></div><div className="rounded-2xl border border-gray-200 bg-white p-4"><div className="mb-3 text-sm font-semibold text-gray-900">Adresse & Kategorisierung</div><div className="grid grid-cols-1 gap-4 xl:grid-cols-2"><div className="xl:col-span-2"><FieldLabel>Strasse</FieldLabel><Input value={dealerForm.street} onChange={(e) => setDealerForm((prev) => ({ ...prev, street: e.target.value }))} /></div><div><FieldLabel>PLZ</FieldLabel><Input value={dealerForm.plz} onChange={(e) => setDealerForm((prev) => ({ ...prev, plz: e.target.value }))} /></div><div><FieldLabel>Ort</FieldLabel><Input value={dealerForm.city} onChange={(e) => setDealerForm((prev) => ({ ...prev, city: e.target.value }))} /></div><div><FieldLabel>Land</FieldLabel><Input value={dealerForm.country} onChange={(e) => setDealerForm((prev) => ({ ...prev, country: e.target.value }))} /></div><div><FieldLabel>Sprache</FieldLabel><Input value={dealerForm.language} onChange={(e) => setDealerForm((prev) => ({ ...prev, language: e.target.value }))} placeholder="de / fr / it / en" /></div><div><FieldLabel>Distribution</FieldLabel><Input value={dealerForm.distribution} onChange={(e) => setDealerForm((prev) => ({ ...prev, distribution: e.target.value }))} /></div><div><FieldLabel>Kundenklassifizierung</FieldLabel><Input value={dealerForm.customer_classification} onChange={(e) => setDealerForm((prev) => ({ ...prev, customer_classification: e.target.value }))} /></div></div></div><div className="rounded-2xl border border-amber-100 bg-amber-50 p-4"><div className="mb-3 text-sm font-semibold text-amber-900">Zuständigkeit & Mails</div><div className="grid grid-cols-1 gap-4 xl:grid-cols-2"><div><FieldLabel>KAM</FieldLabel><Input value={dealerForm.kam} onChange={(e) => setDealerForm((prev) => ({ ...prev, kam: e.target.value }))} /></div><div><FieldLabel>KAM Name</FieldLabel><Input value={dealerForm.kam_name} onChange={(e) => setDealerForm((prev) => ({ ...prev, kam_name: e.target.value }))} /></div><div><FieldLabel>KAM E-Mail Sony</FieldLabel><Input value={dealerForm.kam_email_sony} onChange={(e) => setDealerForm((prev) => ({ ...prev, kam_email_sony: e.target.value }))} /></div><div><FieldLabel>Mail Dealer</FieldLabel><Input value={dealerForm.mail_dealer} onChange={(e) => setDealerForm((prev) => ({ ...prev, mail_dealer: e.target.value }))} /></div><div><FieldLabel>Mail KAM</FieldLabel><Input value={dealerForm.mail_kam} onChange={(e) => setDealerForm((prev) => ({ ...prev, mail_kam: e.target.value }))} /></div><div><FieldLabel>Mail KAM 2</FieldLabel><Input value={dealerForm.mail_kam2} onChange={(e) => setDealerForm((prev) => ({ ...prev, mail_kam2: e.target.value }))} /></div><div><FieldLabel>Mail BG</FieldLabel><Input value={dealerForm.mail_bg} onChange={(e) => setDealerForm((prev) => ({ ...prev, mail_bg: e.target.value }))} /></div><div><FieldLabel>Mail BG 2</FieldLabel><Input value={dealerForm.mail_bg2} onChange={(e) => setDealerForm((prev) => ({ ...prev, mail_bg2: e.target.value }))} /></div><div className="xl:col-span-2"><FieldLabel>Mail Sony</FieldLabel><Input value={dealerForm.mail_sony} onChange={(e) => setDealerForm((prev) => ({ ...prev, mail_sony: e.target.value }))} /></div></div></div></div></Card>
+                    {showSelloutProducts ? (
+                      dealerSelloutProducts.length === 0 ? (
+                        <div className="mt-4 text-sm text-gray-500">
+                          Keine Produkte für die letzte Sell-out Woche gefunden.
+                        </div>
+                      ) : (
+                        <div className="mt-4 space-y-2">
+                          {dealerSelloutProducts.map((product) => (
+                            <div
+                              key={`${product.sellout_year}-${product.sellout_week}-${product.product_id ?? product.ean ?? product.sony_article}`}
+                              className="rounded-xl border border-gray-100 bg-gray-50 p-3"
+                            >
+                              <div className="flex flex-wrap items-start justify-between gap-2">
+                                <div>
+                                  <div className="font-semibold text-gray-900">
+                                    {product.sony_article || product.product_name || "–"}
+                                  </div>
+                                  <div className="text-xs text-gray-500">
+                                    EAN: {product.ean || "–"} · {product.category || "–"}
+                                  </div>
+                                </div>
 
-        <Card className="rounded-2xl border border-gray-200 p-5"><SectionHeader icon={<Tag className="h-5 w-5 text-amber-600" />} title="Segmentierung & Tags" subtitle="Gruppierte Händler- und Mitarbeiter-Tags." /><div className="space-y-5">{TAG_GROUPS.map((group) => <TagCategorySection key={group.key} group={group} tags={groupedTags[group.key]} activeIds={assignedTagIds} onToggle={toggleTag} />)}<div className="rounded-2xl border border-dashed border-gray-300 p-4"><div className="mb-3 text-sm font-medium text-gray-800">Zusätzlichen Tag anlegen</div><div className="grid grid-cols-1 gap-3 md:grid-cols-[1fr_180px_auto]"><Input value={newTagLabel} onChange={(e) => setNewTagLabel(e.target.value)} placeholder="z. B. VIP Event geeignet" /><select value={newTagCategory} onChange={(e) => setNewTagCategory(e.target.value as "interest" | "crm")} className="rounded-md border border-gray-300 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500"><option value="interest">Interesse</option><option value="crm">CRM-Merkmal</option></select><Button type="button" onClick={createCustomTag} disabled={creatingTag}>{creatingTag ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Plus className="mr-2 h-4 w-4" />}Tag erstellen</Button></div></div><div className="rounded-2xl border border-indigo-100 bg-indigo-50 p-4"><div className="mb-3"><div className="text-sm font-semibold text-indigo-900">Verantwortliche & persönliche Tags</div><p className="mt-1 text-xs text-indigo-700">Diese Interessen und CRM-Merkmale gelten für den jeweiligen internen Mitarbeiter beim Händler.</p></div>{dealerUsers.length === 0 ? <p className="text-sm text-indigo-700">Noch keine internen Verantwortlichen für diesen Händler hinterlegt.</p> : <div className="space-y-4">{dealerUsers.map((user) => { const assignedUserTagIds = dealerUserTagAssignments.filter((x) => Number(x.dealer_user_id) === Number(user.id)).map((x) => Number(x.tag_id)); return <div key={user.id} className="rounded-xl border bg-white p-4"><div className="mb-3"><div className="font-semibold text-gray-900">{user.display_name || user.user_email}</div><div className="text-xs text-gray-500">{user.role || "Keine Rolle"} · {user.user_email}</div><div className="mt-2"><Button type="button" size="sm" variant="outline" onClick={() => setEditingUser(user)}>Bearbeiten</Button></div></div><div className="space-y-3">{TAG_GROUPS.map((group) => <TagCategorySection key={`${user.id}-${group.key}`} group={group} tags={groupedTags[group.key]} activeIds={assignedUserTagIds} onToggle={(tagId) => toggleDealerUserTag(Number(user.id), tagId)} small />)}</div></div>; })}</div>}</div></div></Card></div></details>
+                                <div className="text-right text-sm">
+                                  <div className="font-semibold text-gray-900">
+                                    {formatInteger(product.sold_qty)} Stk.
+                                  </div>
+                                  <div className="text-xs text-gray-500">
+                                    Lager: {formatInteger(product.latest_stock_qty)}
+                                  </div>
+                                </div>
+                              </div>
 
+                              <div className="mt-2 flex flex-wrap gap-3 text-xs text-gray-600">
+                                <span>Umsatz: {formatCurrency(product.sellout_revenue)}</span>
+                                <span>Ø Preis: {formatCurrency(product.avg_sellout_price)}</span>
+                                {Number(product.zero_price_qty ?? 0) > 0 ? (
+                                  <span className="font-medium text-amber-700">
+                                    {formatInteger(product.zero_price_qty)} Stk. ohne Preis
+                                  </span>
+                                ) : null}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )
+                    ) : (
+                      <div className="mt-4 rounded-xl bg-gray-50 p-3 text-xs text-gray-500">
+                        Die Produktdetails sind ausgeblendet, damit die Händlerakte übersichtlich bleibt.
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                <Link
+                  href={`/admin/reports/sellout?dealer_id=${dealerId}`}
+                  className="inline-flex items-center rounded-md border border-emerald-200 bg-white px-3 py-2 text-sm font-medium text-emerald-700 hover:bg-emerald-50"
+                >
+                  Sell-out Dashboard öffnen
+                </Link>
+              </div>
+            )}
+          </Card>
+        </>
+      )}
+      {activeTab === "tasks" && (
+        <>
+          <div className="grid grid-cols-1 gap-6 xl:grid-cols-[0.9fr_1.1fr]"><Card className="rounded-2xl border border-gray-200 p-5"><SectionHeader icon={<Clock3 className="h-5 w-5 text-orange-600" />} title="Tasks / Next Steps" subtitle="Direkt sichtbar vor jedem Besuch." /><div className="mb-5 space-y-3 rounded-2xl border bg-gray-50 p-4"><div className="grid grid-cols-1 gap-3 md:grid-cols-[1fr_150px_220px_auto]"><div><FieldLabel>Titel</FieldLabel><Input value={taskForm.title} onChange={(e) => setTaskForm((prev) => ({ ...prev, title: e.target.value }))} placeholder="z. B. Display-Frequenz prüfen" /></div><div><FieldLabel>Fällig bis</FieldLabel><Input type="date" value={taskForm.due_date} onChange={(e) => setTaskForm((prev) => ({ ...prev, due_date: e.target.value }))} /></div><div><FieldLabel>Zuständig</FieldLabel><select value={taskForm.assigned_to} onChange={(e) => setTaskForm((prev) => ({ ...prev, assigned_to: e.target.value }))} className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500"><option value="">Nicht zugewiesen</option>{dealerUsers.map((user) => <option key={user.id} value={user.user_email}>{user.display_name || user.user_email}{user.role ? ` · ${user.role}` : ""}</option>)}</select></div><div className="flex items-end"><Button type="button" onClick={addTask} disabled={addingTask}>{addingTask ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Plus className="mr-2 h-4 w-4" />}Task</Button></div></div><div><FieldLabel>Beschreibung</FieldLabel><Textarea value={taskForm.description} onChange={(v) => setTaskForm((prev) => ({ ...prev, description: v }))} rows={2} /></div></div><div className="space-y-3"><h3 className="text-sm font-semibold text-gray-900">Offen ({openTasks.length})</h3>{openTasks.length === 0 ? <p className="text-sm text-gray-500">Keine offenen Aufgaben.</p> : openTasks.map((task) => <div key={task.task_id} className="rounded-xl border border-orange-200 bg-orange-50 p-3"><div className="flex flex-wrap items-start justify-between gap-3"><div className="min-w-0 flex-1"><div className="font-medium text-gray-900">{task.title}</div>{task.description ? <p className="mt-1 whitespace-pre-wrap text-sm text-gray-600">{task.description}</p> : null}<div className="mt-2 text-xs text-gray-500">Fällig: {task.due_date || "-"}</div><div className="mt-1 text-xs text-gray-500">Zuständig: {getAssignedName(task.assigned_to)}</div></div><div className="flex flex-wrap gap-2"><Button size="sm" type="button" onClick={() => updateTaskStatus(task.task_id, "done")} className="bg-green-600 hover:bg-green-700"><CheckCircle2 className="mr-1 h-4 w-4" />Erledigt</Button><Button size="sm" type="button" variant="outline" onClick={() => updateTaskStatus(task.task_id, "cancelled")}><XCircle className="mr-1 h-4 w-4" />Abbrechen</Button></div></div></div>)}<details className="rounded-xl border border-gray-200 bg-white p-3"><summary className="cursor-pointer text-sm font-semibold text-gray-900">Erledigt / Abgebrochen ({doneTasks.length + cancelledTasks.length})</summary><div className="mt-3 space-y-2">{[...doneTasks, ...cancelledTasks].length === 0 ? <p className="text-sm text-gray-500">Noch keine abgeschlossenen Aufgaben.</p> : [...doneTasks, ...cancelledTasks].slice(0, 8).map((task) => <div key={task.task_id} className="rounded-xl border border-gray-200 bg-gray-50 p-3"><div className="font-medium text-gray-900">{task.title}</div><div className="text-xs text-gray-500">Status: {task.status === "done" ? "Erledigt" : "Abgebrochen"}</div><div className="mt-1 text-xs text-gray-500">Zuständig: {getAssignedName(task.assigned_to)}</div></div>)}</div></details></div></Card>
+
+            <Card className="rounded-2xl border border-gray-200 p-5"><SectionHeader icon={<History className="h-5 w-5 text-indigo-600" />} title="Besuchshistorie" subtitle="Letzte Gespräche, Sell-in Snapshot und Sell-out Werte." /><div className="max-h-[560px] space-y-4 overflow-y-auto pr-1">{visits.length === 0 ? <p className="text-sm text-gray-500">Noch keine Besuchsberichte vorhanden.</p> : visits.map((visit) => {
+              const visitSelloutTotal = visit.sellout_total_sales ?? visit.market_total_sales ?? null; const visitSelloutSony = visit.sellout_sony_total ?? null; const visitTvTotal = visit.tv_total_sales ?? visit.tv_total_all ?? null; const visitTvSony = visit.tv_sony_sales ?? visit.tv_total_sony ?? null; const visitSbTotal = visit.sb_total_sales ?? visit.sb_total_all ?? null; const visitSbSony = visit.sb_sony_sales ?? visit.sb_total_sony ?? null; const visitRestTotal = visit.rest_total_sales ?? null; const visitRestSony = visit.rest_sony_sales ?? null; return <div key={visit.visit_report_id} className="rounded-2xl border border-gray-200 bg-white p-4"><div className="flex flex-wrap items-start justify-between gap-3"><div><div className="font-semibold text-gray-900">{formatDate(visit.visit_date)}</div><div className="text-sm text-gray-500">Besuch von: {visit.visited_by || "-"}</div><div className="mt-1 text-xs text-gray-500">Periode: {visit.snapshot_period_type || "–"}{visit.snapshot_period_start || visit.snapshot_period_end ? ` · ${formatDate(visit.snapshot_period_start)} – ${formatDate(visit.snapshot_period_end)}` : ""}</div></div><div className="flex flex-wrap items-center gap-2"><div className="rounded-full bg-gray-100 px-3 py-1 text-xs font-medium text-gray-700">
+                Sell-in Sony: {formatCurrency(visit.sony_sales_snapshot)}
+                {visit.sellin_snapshot_period_mode ? ` · ${visit.sellin_snapshot_period_mode}` : ""}
+                {visit.sellin_snapshot_period_start || visit.sellin_snapshot_period_end
+                  ? ` · ${formatDate(visit.sellin_snapshot_period_start)} – ${formatDate(visit.sellin_snapshot_period_end)}`
+                  : ""}
+              </div><Button type="button" size="sm" variant="outline" onClick={() => setEditingVisit(visit)}>Bearbeiten</Button><Button type="button" size="sm" variant="outline" className="border-red-200 text-red-700 hover:bg-red-50" onClick={() => deleteVisit(visit.visit_report_id)}>Löschen</Button></div></div><div className="mt-4 grid grid-cols-1 gap-4 text-sm xl:grid-cols-2"><div><div className="font-medium text-gray-800">Kontakt / Teilnehmer</div><div className="mt-1 whitespace-pre-wrap text-gray-600">{visit.contact_persons || "-"}</div></div><div><div className="font-medium text-gray-800">Vereinbart / Next Steps</div><div className="mt-1 whitespace-pre-wrap text-gray-600">{visit.agreed || "-"}{visit.next_steps ? `\n\nNächste Schritte:\n${visit.next_steps}` : ""}</div></div><div className="xl:col-span-2"><div className="font-medium text-gray-800">Besprochen</div><div className="mt-1 whitespace-pre-wrap text-gray-600">{visit.discussed || "-"}</div></div><div className="xl:col-span-2 rounded-xl border border-emerald-100 bg-emerald-50 p-3">
+                <div className="mb-3 font-medium text-emerald-900">Sell-out Werte</div>
+
+                <div className="space-y-3 text-xs text-emerald-900">
+                  <div className="grid grid-cols-1 gap-2 rounded-lg bg-white/60 p-3 md:grid-cols-3">
+                    <div>
+                      <div className="text-emerald-700">Total</div>
+                      <div className="font-semibold">{formatCurrency(visitSelloutTotal)}</div>
+                    </div>
+                    <div>
+                      <div className="text-emerald-700">Sony</div>
+                      <div className="font-semibold">{formatCurrency(visitSelloutSony)}</div>
+                    </div>
+                    <div>
+                      <div className="text-emerald-700">Sony Anteil</div>
+                      <div className="font-semibold">{formatPercent(calcSharePercent(visitSelloutSony, visitSelloutTotal))}</div>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 gap-2 rounded-lg bg-white/60 p-3 md:grid-cols-4">
+                    <div>
+                      <div className="text-emerald-700">TV Total Umsatz</div>
+                      <div className="font-semibold">{formatCurrency(visitTvTotal)}</div>
+                    </div>
+                    <div>
+                      <div className="text-emerald-700">TV Sony Umsatz</div>
+                      <div className="font-semibold">{formatCurrency(visitTvSony)}</div>
+                    </div>
+                    <div>
+                      <div className="text-emerald-700">TV Sony Anteil Umsatz</div>
+                      <div className="font-semibold">{formatPercent(calcSharePercent(visitTvSony, visitTvTotal))}</div>
+                    </div>
+                    <div>
+                      <div className="text-emerald-700">TV Qty Sony / Total</div>
+                      <div className="font-semibold">
+                        {formatInteger(visit.tv_sony_qty)} / {formatInteger(visit.tv_total_qty)} · {formatPercent(calcSharePercent(visit.tv_sony_qty, visit.tv_total_qty))}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 gap-2 rounded-lg bg-white/60 p-3 md:grid-cols-4">
+                    <div>
+                      <div className="text-emerald-700">Soundbar Total Umsatz</div>
+                      <div className="font-semibold">{formatCurrency(visitSbTotal)}</div>
+                    </div>
+                    <div>
+                      <div className="text-emerald-700">Soundbar Sony Umsatz</div>
+                      <div className="font-semibold">{formatCurrency(visitSbSony)}</div>
+                    </div>
+                    <div>
+                      <div className="text-emerald-700">Soundbar Sony Anteil Umsatz</div>
+                      <div className="font-semibold">{formatPercent(calcSharePercent(visitSbSony, visitSbTotal))}</div>
+                    </div>
+                    <div>
+                      <div className="text-emerald-700">Soundbar Qty Sony / Total</div>
+                      <div className="font-semibold">
+                        {formatInteger(visit.sb_sony_qty)} / {formatInteger(visit.sb_total_qty)} · {formatPercent(calcSharePercent(visit.sb_sony_qty, visit.sb_total_qty))}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 gap-2 rounded-lg bg-white/60 p-3 md:grid-cols-3">
+                    <div>
+                      <div className="text-emerald-700">Rest Total Umsatz</div>
+                      <div className="font-semibold">{formatCurrency(visitRestTotal)}</div>
+                    </div>
+                    <div>
+                      <div className="text-emerald-700">Rest Sony Umsatz</div>
+                      <div className="font-semibold">{formatCurrency(visitRestSony)}</div>
+                    </div>
+                    <div>
+                      <div className="text-emerald-700">Rest Sony Anteil</div>
+                      <div className="font-semibold">{formatPercent(calcSharePercent(visitRestSony, visitRestTotal))}</div>
+                    </div>
+                  </div>
+                </div>
+              </div>{visit.open_points ? <div className="xl:col-span-2 rounded-xl border bg-orange-50 p-3"><div className="font-medium text-orange-800">Offene Punkte</div><div className="mt-1 whitespace-pre-wrap text-orange-700">{visit.open_points}</div></div> : null}</div></div>;
+            })}</div></Card></div>
+        </>
+      )}
+      {activeTab === "visits" && (
+        <>
+          <Card className="rounded-2xl border border-gray-200 p-5"><SectionHeader icon={<MessageSquare className="h-5 w-5 text-purple-600" />} title="Neuer Besuchsreport" subtitle="Sell-in wird automatisch aus Bestellungen übernommen. Sell-out wird hier manuell erfasst." /><div className="grid grid-cols-1 gap-6 xl:grid-cols-[1fr_420px]"><div className="space-y-4"><div className="grid grid-cols-1 gap-4 md:grid-cols-2"><div><FieldLabel>Datum</FieldLabel><Input type="date" value={visitForm.visit_date} onChange={(e) => setVisitForm((prev) => ({ ...prev, visit_date: e.target.value }))} /></div><div><FieldLabel>Besuch von</FieldLabel><Input value={visitForm.visited_by} onChange={(e) => setVisitForm((prev) => ({ ...prev, visited_by: e.target.value }))} placeholder="z. B. Roger / Dominik" /></div></div><div className="rounded-2xl border border-indigo-100 bg-indigo-50 p-4"><div className="grid grid-cols-1 gap-4 md:grid-cols-2"><div><FieldLabel>Kontaktperson beim Händler</FieldLabel><select value={selectedVisitContactId} onChange={(e) => setSelectedVisitContactId(e.target.value)} className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500"><option value="">Keine Kontaktperson ausgewählt</option>{dealerContactOptions.map((contact) => <option key={contact.id} value={contact.id}>{contact.label}{contact.raw.role ? ` · ${contact.raw.role}` : ""}</option>)}</select>{dealerContactOptions.length === 0 ? <p className="mt-1 text-xs text-indigo-700">Noch keine Kontakte für diesen Händler hinterlegt. Du kannst sie in der Kontaktverwaltung erfassen.</p> : selectedVisitContact ? <p className="mt-1 text-xs text-indigo-700">{selectedVisitContact.role || "Kontakt"} · {selectedVisitContact.user_email}</p> : null}</div><div><FieldLabel>Weitere Kontaktpersonen / Notiz</FieldLabel><Textarea value={visitForm.contact_persons} onChange={(v) => setVisitForm((prev) => ({ ...prev, contact_persons: v }))} rows={3} placeholder="z. B. zusätzlich Geschäftsführer, Verkaufsleiter, Lernender..." /></div></div></div><div><FieldLabel>Was wurde besprochen?</FieldLabel><Textarea value={visitForm.discussed} onChange={(v) => setVisitForm((prev) => ({ ...prev, discussed: v }))} rows={4} /></div><div><FieldLabel>Was wurde vereinbart?</FieldLabel><Textarea value={visitForm.agreed} onChange={(v) => setVisitForm((prev) => ({ ...prev, agreed: v }))} rows={3} /></div><div className="grid grid-cols-1 gap-4 md:grid-cols-2"><div><FieldLabel>Nächste Schritte</FieldLabel><Textarea value={visitForm.next_steps} onChange={(v) => setVisitForm((prev) => ({ ...prev, next_steps: v }))} rows={3} /></div><div><FieldLabel>Offene Punkte</FieldLabel><Textarea value={visitForm.open_points} onChange={(v) => setVisitForm((prev) => ({ ...prev, open_points: v }))} rows={3} /></div></div><div className="grid grid-cols-1 gap-4 md:grid-cols-2"><div><FieldLabel>Was lief gut?</FieldLabel><Textarea value={visitForm.what_went_well} onChange={(v) => setVisitForm((prev) => ({ ...prev, what_went_well: v }))} rows={3} /></div><div><FieldLabel>Was lief weniger gut?</FieldLabel><Textarea value={visitForm.what_went_less_well} onChange={(v) => setVisitForm((prev) => ({ ...prev, what_went_less_well: v }))} rows={3} /></div><div><FieldLabel>Konkurrenz / Marktinfos</FieldLabel><Textarea value={visitForm.competition_market_info} onChange={(v) => setVisitForm((prev) => ({ ...prev, competition_market_info: v }))} rows={3} /></div><div><FieldLabel>Branding / Sichtbarkeit</FieldLabel><Textarea value={visitForm.branding_visibility} onChange={(v) => setVisitForm((prev) => ({ ...prev, branding_visibility: v }))} rows={3} /></div></div></div><div className="space-y-4"><div className="rounded-2xl border border-gray-200 bg-white p-4"><div className="mb-3 text-sm font-semibold text-gray-900">Sell-in Snapshot aus Auto KPI</div><div className="grid grid-cols-2 gap-2 text-xs text-gray-600"><div>Zeitraum</div><div className="font-semibold text-gray-900">{getPeriodLabel(periodMode)}</div><div>Sell-in Sony Umsatz</div><div className="font-semibold text-gray-900">{formatCurrency(autoSonyRevenue)}</div><div>Vorjahr</div><div className="font-semibold text-gray-900">{formatCurrency(autoSonyRevenuePrevYear)}</div><div>YoY</div><div className="font-semibold text-gray-900">{formatPercent(yoyPercent)}</div></div></div>{renderSelloutInputGrid({ mode: "create" })}<div className="rounded-2xl border border-gray-200 bg-white p-4"><div className="mb-3 text-sm font-semibold text-gray-900">Letzter gespeicherter Besuch</div><div className="grid grid-cols-2 gap-2 text-xs text-gray-600"><div>Periode</div><div className="font-semibold text-gray-900">{latestVisitSellout.period || "–"}{latestVisitSellout.periodStart || latestVisitSellout.periodEnd ? ` · ${formatDate(latestVisitSellout.periodStart)} – ${formatDate(latestVisitSellout.periodEnd)}` : ""}</div><div>Sell-in Sony</div><div className="font-semibold text-gray-900">{formatCurrency(latestVisitSellout.sellInSony)}</div><div>Sell-out Total</div><div className="font-semibold text-gray-900">{formatCurrency(latestVisitSellout.total)}</div><div>Sell-out Sony</div><div className="font-semibold text-gray-900">{formatCurrency(latestVisitSellout.sony)} · {formatPercent(latestVisitSellout.sonyShare)}</div><div>TV Sony</div><div className="font-semibold text-gray-900">{formatCurrency(latestVisitSellout.tvSony)} / {formatCurrency(latestVisitSellout.tvTotal)} · {formatPercent(latestVisitSellout.tvShare)}</div>
+            <div>TV Qty Sony</div>
+            <div className="font-semibold text-gray-900">
+              {formatInteger(latestVisitSellout.tvSonyQty)} / {formatInteger(latestVisitSellout.tvTotalQty)} · {formatPercent(latestVisitSellout.tvQtyShare)}
+            </div><div>Soundbar Sony</div><div className="font-semibold text-gray-900">{formatCurrency(latestVisitSellout.sbSony)} / {formatCurrency(latestVisitSellout.sbTotal)} · {formatPercent(latestVisitSellout.sbShare)}</div>
+            <div>Soundbar Qty Sony</div>
+            <div className="font-semibold text-gray-900">
+              {formatInteger(latestVisitSellout.sbSonyQty)} / {formatInteger(latestVisitSellout.sbTotalQty)} · {formatPercent(latestVisitSellout.sbQtyShare)}
+            </div>
+            <div>Rest Sony</div><div className="font-semibold text-gray-900">{formatCurrency(latestVisitSellout.restSony)} / {formatCurrency(latestVisitSellout.restTotal)} · {formatPercent(latestVisitSellout.restShare)}</div></div></div><div className="flex justify-end"><Button type="button" onClick={addVisit} disabled={addingVisit}>{addingVisit ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Plus className="mr-2 h-4 w-4" />}Besuchsreport speichern</Button></div></div></div></Card>
+        </>
+      )}
+      {activeTab === "contacts" && (
+        <Card className="rounded-2xl border border-gray-200 p-5">
+          <SectionHeader
+            icon={<UserRound className="h-5 w-5 text-indigo-600" />}
+            title="Kontakte"
+            subtitle="Interne Ansprechpartner dieses Händlers."
+          />
+
+          {dealerUsers.length === 0 ? (
+            <p className="text-sm text-gray-500">
+              Für diesen Händler sind noch keine Kontakte erfasst.
+            </p>
+          ) : (
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
+              {dealerUsers.map((user) => (
+                <div
+                  key={user.id}
+                  className="rounded-2xl border border-gray-200 bg-gray-50 p-4"
+                >
+                  <div className="font-semibold text-gray-900">
+                    {user.display_name || user.user_email}
+                  </div>
+                  <div className="mt-1 text-sm text-gray-500">
+                    {user.role || "Keine Rolle"}
+                  </div>
+                  <div className="mt-1 text-sm text-gray-500">
+                    {user.user_email}
+                  </div>
+
+                  <div className="mt-3">
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      onClick={() => setEditingUser(user)}
+                    >
+                      Bearbeiten
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </Card>
+      )}
+      {activeTab === "displays" && (
+        <>
+          <Card className="rounded-2xl border border-gray-200 p-5"><SectionHeader icon={<MonitorSmartphone className="h-5 w-5 text-sky-600" />} title="Display-Tracker" subtitle="Gehört zum Kundenbesuch: prüfen, ergänzen und Status aktualisieren." /><div className="grid grid-cols-1 gap-4 xl:grid-cols-[1.4fr_120px_180px_1fr_auto]"><div><FieldLabel>Produkt</FieldLabel><Input value={displayForm.product_name_snapshot} onChange={(e) => setDisplayForm((prev) => ({ ...prev, product_name_snapshot: e.target.value }))} placeholder="z. B. XR-65A95L" /></div><div><FieldLabel>Menge</FieldLabel><Input value={displayForm.ordered_qty} onChange={(e) => setDisplayForm((prev) => ({ ...prev, ordered_qty: e.target.value }))} /></div><div><FieldLabel>Im Laden ausgestellt?</FieldLabel><select value={displayForm.is_displayed} onChange={(e) => setDisplayForm((prev) => ({ ...prev, is_displayed: e.target.value as "yes" | "no" | "unknown" }))} className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500"><option value="yes">Ja</option><option value="no">Nein</option><option value="unknown">Unklar</option></select></div><div><FieldLabel>Bemerkung</FieldLabel><Input value={displayForm.note} onChange={(e) => setDisplayForm((prev) => ({ ...prev, note: e.target.value }))} placeholder="z. B. noch im Lager" /></div><div className="flex items-end"><Button type="button" onClick={addDisplayItem} disabled={addingDisplayItem}>{addingDisplayItem ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Plus className="mr-2 h-4 w-4" />}Hinzufügen</Button></div></div><div className="mt-5 overflow-x-auto">{displayItems.length === 0 ? <p className="text-sm text-gray-500">Noch keine Display-Produkte erfasst.</p> : <table className="min-w-full border-separate border-spacing-y-2"><thead><tr className="text-left text-xs uppercase tracking-wide text-gray-500"><th className="px-3 py-2">Produkt</th><th className="px-3 py-2">Menge</th><th className="px-3 py-2">Status</th><th className="px-3 py-2">Geprüft am</th><th className="px-3 py-2">Bemerkung</th><th className="px-3 py-2">Aktion</th></tr></thead><tbody>{displayItems.map((item) => <tr key={item.display_item_id} className="rounded-2xl bg-gray-50 text-sm text-gray-700"><td className="px-3 py-3 font-medium text-gray-900">{item.product_name_snapshot}</td><td className="px-3 py-3">{item.ordered_qty ?? "-"}</td><td className="px-3 py-3">{item.status === "ordered" ? "Bestellt" : item.status === "displayed" ? "Ausgestellt" : item.status === "not_displayed" ? "Nicht ausgestellt" : item.status === "sold_off" ? "Abverkauft" : item.status === "removed" ? "Entfernt" : "-"}</td><td className="px-3 py-3">{formatDate(item.display_checked_at)}</td><td className="px-3 py-3">{item.note || "-"}</td><td className="px-3 py-3"><div className="flex flex-wrap gap-2"><Button type="button" size="sm" className="bg-green-600 hover:bg-green-700" onClick={() => updateDisplayStatus(item.display_item_id, "displayed")}>Ausgestellt</Button><Button type="button" size="sm" variant="outline" onClick={() => updateDisplayStatus(item.display_item_id, "not_displayed")}>Nicht ausgestellt</Button><Button type="button" size="sm" variant="outline" onClick={() => updateDisplayStatus(item.display_item_id, "sold_off")}>Abverkauft</Button><Button type="button" size="sm" variant="outline" onClick={() => updateDisplayStatus(item.display_item_id, "removed")}>Entfernt</Button><Button type="button" size="sm" variant="outline" onClick={() => updateDisplayStatus(item.display_item_id, "ordered")}>Reset</Button></div></td></tr>)}</tbody></table>}</div></Card>
+
+        </>
+      )}
+      {activeTab === "masterdata" && (
+        <>
+          <details className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm"><summary className="flex cursor-pointer list-none items-center justify-between gap-3"><div className="flex items-center gap-2"><Settings2 className="h-5 w-5 text-blue-600" /><div><h2 className="text-lg font-semibold text-gray-900">CRM & Stammdaten bearbeiten</h2><p className="text-sm text-gray-500">Administrative Daten, Segmentierung und technische Felder sind eingeklappt.</p></div></div><Edit3 className="h-4 w-4 text-gray-500" /></summary><div className="mt-6 grid grid-cols-1 gap-6 xl:grid-cols-2"><Card className="rounded-2xl border border-gray-200 p-5"><SectionHeader icon={<UserRound className="h-5 w-5 text-blue-600" />} title="Händler-Stammdaten" subtitle="Nur bei Bedarf öffnen und bearbeiten." /><div className="space-y-5"><div className="rounded-2xl border border-blue-100 bg-blue-50 p-4"><div className="mb-3 text-sm font-semibold text-blue-900">Basisdaten Händler</div><div className="grid grid-cols-1 gap-4 xl:grid-cols-2"><div><FieldLabel>Händlername *</FieldLabel><Input value={dealerForm.name} onChange={(e) => setDealerForm((prev) => ({ ...prev, name: e.target.value }))} /></div><div><FieldLabel>Store Name</FieldLabel><Input value={dealerForm.store_name} onChange={(e) => setDealerForm((prev) => ({ ...prev, store_name: e.target.value }))} /></div><div><FieldLabel>Login-Nr. *</FieldLabel><Input value={dealerForm.login_nr} onChange={(e) => setDealerForm((prev) => ({ ...prev, login_nr: e.target.value }))} /></div><div><FieldLabel>Login-E-Mail *</FieldLabel><Input type="email" value={dealerForm.login_email} onChange={(e) => setDealerForm((prev) => ({ ...prev, login_email: e.target.value }))} /></div><div><FieldLabel>Händler E-Mail</FieldLabel><Input type="email" value={dealerForm.email} onChange={(e) => setDealerForm((prev) => ({ ...prev, email: e.target.value }))} /></div><div><FieldLabel>Ansprechpartner</FieldLabel><Input value={dealerForm.contact_person} onChange={(e) => setDealerForm((prev) => ({ ...prev, contact_person: e.target.value }))} /></div><div><FieldLabel>Telefon</FieldLabel><Input value={dealerForm.phone} onChange={(e) => setDealerForm((prev) => ({ ...prev, phone: e.target.value }))} /></div><div><FieldLabel>Website</FieldLabel><Input value={dealerForm.website} onChange={(e) => setDealerForm((prev) => ({ ...prev, website: e.target.value }))} /></div></div></div><div className="rounded-2xl border border-gray-200 bg-white p-4"><div className="mb-3 text-sm font-semibold text-gray-900">Adresse & Kategorisierung</div><div className="grid grid-cols-1 gap-4 xl:grid-cols-2"><div className="xl:col-span-2"><FieldLabel>Strasse</FieldLabel><Input value={dealerForm.street} onChange={(e) => setDealerForm((prev) => ({ ...prev, street: e.target.value }))} /></div><div><FieldLabel>PLZ</FieldLabel><Input value={dealerForm.plz} onChange={(e) => setDealerForm((prev) => ({ ...prev, plz: e.target.value }))} /></div><div><FieldLabel>Ort</FieldLabel><Input value={dealerForm.city} onChange={(e) => setDealerForm((prev) => ({ ...prev, city: e.target.value }))} /></div><div><FieldLabel>Land</FieldLabel><Input value={dealerForm.country} onChange={(e) => setDealerForm((prev) => ({ ...prev, country: e.target.value }))} /></div><div><FieldLabel>Sprache</FieldLabel><Input value={dealerForm.language} onChange={(e) => setDealerForm((prev) => ({ ...prev, language: e.target.value }))} placeholder="de / fr / it / en" /></div><div><FieldLabel>Distribution</FieldLabel><Input value={dealerForm.distribution} onChange={(e) => setDealerForm((prev) => ({ ...prev, distribution: e.target.value }))} /></div><div><FieldLabel>Kundenklassifizierung</FieldLabel><Input value={dealerForm.customer_classification} onChange={(e) => setDealerForm((prev) => ({ ...prev, customer_classification: e.target.value }))} /></div></div></div><div className="rounded-2xl border border-amber-100 bg-amber-50 p-4"><div className="mb-3 text-sm font-semibold text-amber-900">Zuständigkeit & Mails</div><div className="grid grid-cols-1 gap-4 xl:grid-cols-2"><div><FieldLabel>KAM</FieldLabel><Input value={dealerForm.kam} onChange={(e) => setDealerForm((prev) => ({ ...prev, kam: e.target.value }))} /></div><div><FieldLabel>KAM Name</FieldLabel><Input value={dealerForm.kam_name} onChange={(e) => setDealerForm((prev) => ({ ...prev, kam_name: e.target.value }))} /></div><div><FieldLabel>KAM E-Mail Sony</FieldLabel><Input value={dealerForm.kam_email_sony} onChange={(e) => setDealerForm((prev) => ({ ...prev, kam_email_sony: e.target.value }))} /></div><div><FieldLabel>Mail Dealer</FieldLabel><Input value={dealerForm.mail_dealer} onChange={(e) => setDealerForm((prev) => ({ ...prev, mail_dealer: e.target.value }))} /></div><div><FieldLabel>Mail KAM</FieldLabel><Input value={dealerForm.mail_kam} onChange={(e) => setDealerForm((prev) => ({ ...prev, mail_kam: e.target.value }))} /></div><div><FieldLabel>Mail KAM 2</FieldLabel><Input value={dealerForm.mail_kam2} onChange={(e) => setDealerForm((prev) => ({ ...prev, mail_kam2: e.target.value }))} /></div><div><FieldLabel>Mail BG</FieldLabel><Input value={dealerForm.mail_bg} onChange={(e) => setDealerForm((prev) => ({ ...prev, mail_bg: e.target.value }))} /></div><div><FieldLabel>Mail BG 2</FieldLabel><Input value={dealerForm.mail_bg2} onChange={(e) => setDealerForm((prev) => ({ ...prev, mail_bg2: e.target.value }))} /></div><div className="xl:col-span-2"><FieldLabel>Mail Sony</FieldLabel><Input value={dealerForm.mail_sony} onChange={(e) => setDealerForm((prev) => ({ ...prev, mail_sony: e.target.value }))} /></div></div></div></div></Card>
+
+            <Card className="rounded-2xl border border-gray-200 p-5"><SectionHeader icon={<Tag className="h-5 w-5 text-amber-600" />} title="Segmentierung & Tags" subtitle="Gruppierte Händler- und Mitarbeiter-Tags." /><div className="space-y-5">{TAG_GROUPS.map((group) => <TagCategorySection key={group.key} group={group} tags={groupedTags[group.key]} activeIds={assignedTagIds} onToggle={toggleTag} />)}<div className="rounded-2xl border border-dashed border-gray-300 p-4"><div className="mb-3 text-sm font-medium text-gray-800">Zusätzlichen Tag anlegen</div><div className="grid grid-cols-1 gap-3 md:grid-cols-[1fr_180px_auto]"><Input value={newTagLabel} onChange={(e) => setNewTagLabel(e.target.value)} placeholder="z. B. VIP Event geeignet" /><select value={newTagCategory} onChange={(e) => setNewTagCategory(e.target.value as "interest" | "crm")} className="rounded-md border border-gray-300 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500"><option value="interest">Interesse</option><option value="crm">CRM-Merkmal</option></select><Button type="button" onClick={createCustomTag} disabled={creatingTag}>{creatingTag ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Plus className="mr-2 h-4 w-4" />}Tag erstellen</Button></div></div><div className="rounded-2xl border border-indigo-100 bg-indigo-50 p-4"><div className="mb-3"><div className="text-sm font-semibold text-indigo-900">Verantwortliche & persönliche Tags</div><p className="mt-1 text-xs text-indigo-700">Diese Interessen und CRM-Merkmale gelten für den jeweiligen internen Mitarbeiter beim Händler.</p></div>{dealerUsers.length === 0 ? <p className="text-sm text-indigo-700">Noch keine internen Verantwortlichen für diesen Händler hinterlegt.</p> : <div className="space-y-4">{dealerUsers.map((user) => { const assignedUserTagIds = dealerUserTagAssignments.filter((x) => Number(x.dealer_user_id) === Number(user.id)).map((x) => Number(x.tag_id)); return <div key={user.id} className="rounded-xl border bg-white p-4"><div className="mb-3"><div className="font-semibold text-gray-900">{user.display_name || user.user_email}</div><div className="text-xs text-gray-500">{user.role || "Keine Rolle"} · {user.user_email}</div><div className="mt-2"><Button type="button" size="sm" variant="outline" onClick={() => setEditingUser(user)}>Bearbeiten</Button></div></div><div className="space-y-3">{TAG_GROUPS.map((group) => <TagCategorySection key={`${user.id}-${group.key}`} group={group} tags={groupedTags[group.key]} activeIds={assignedUserTagIds} onToggle={(tagId) => toggleDealerUserTag(Number(user.id), tagId)} small />)}</div></div>; })}</div>}</div></div></Card></div></details>
+
+        </>
+      )}
       {editingUser && <div className="fixed inset-0 z-[90] flex items-center justify-center bg-black/40 p-3"><div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl"><h2 className="mb-4 text-lg font-semibold text-gray-900">Mitarbeiter bearbeiten</h2><div className="space-y-4"><div><FieldLabel>Name</FieldLabel><Input value={editingUser.display_name || ""} onChange={(e) => setEditingUser((prev) => prev ? { ...prev, display_name: e.target.value } : prev)} /></div><div><FieldLabel>E-Mail *</FieldLabel><Input type="email" value={editingUser.user_email} onChange={(e) => setEditingUser((prev) => prev ? { ...prev, user_email: e.target.value } : prev)} /></div><div><FieldLabel>Rolle / Funktion</FieldLabel><Input value={editingUser.role || ""} onChange={(e) => setEditingUser((prev) => prev ? { ...prev, role: e.target.value } : prev)} /></div></div><div className="mt-6 flex flex-wrap justify-between gap-3"><Button type="button" variant="outline" className="border-red-200 text-red-700 hover:bg-red-50" onClick={deleteDealerUser} disabled={savingUser}>Löschen</Button><div className="flex gap-3"><Button type="button" variant="outline" onClick={() => setEditingUser(null)} disabled={savingUser}>Abbrechen</Button><Button type="button" onClick={updateDealerUser} disabled={savingUser}>{savingUser ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}Speichern</Button></div></div></div></div>}
 
       {editingVisit && <div className="fixed inset-0 z-[90] flex items-center justify-center bg-black/40 p-3"><div className="max-h-[90vh] w-full max-w-5xl overflow-y-auto rounded-2xl bg-white p-6 shadow-xl"><div className="mb-5 flex items-start justify-between gap-3"><div><h2 className="text-lg font-semibold text-gray-900">Besuchsrapport bearbeiten</h2><p className="mt-1 text-sm text-gray-500">Gleiche Logik wie bei der Neuerfassung: Sell-in Snapshot separat, Sell-out Werte manuell, Prozente automatisch.</p></div><Button type="button" variant="outline" onClick={() => setEditingVisit(null)} disabled={savingVisitEdit}>Abbrechen</Button></div><div className="grid grid-cols-1 gap-6 xl:grid-cols-[1fr_420px]"><div className="space-y-4"><div className="grid grid-cols-1 gap-4 md:grid-cols-2"><div><FieldLabel>Datum</FieldLabel><Input type="date" value={editingVisit.visit_date} onChange={(e) => setEditingVisit((prev) => prev ? { ...prev, visit_date: e.target.value } : prev)} /></div><div><FieldLabel>Besuch von</FieldLabel><Input value={editingVisit.visited_by || ""} onChange={(e) => setEditingVisit((prev) => prev ? { ...prev, visited_by: e.target.value } : prev)} /></div></div><div><FieldLabel>Kontakt / Teilnehmer</FieldLabel><Textarea value={editingVisit.contact_persons || ""} onChange={(v) => setEditingVisit((prev) => prev ? { ...prev, contact_persons: v } : prev)} rows={3} /></div><div><FieldLabel>Was wurde besprochen?</FieldLabel><Textarea value={editingVisit.discussed || ""} onChange={(v) => setEditingVisit((prev) => prev ? { ...prev, discussed: v } : prev)} rows={4} /></div><div><FieldLabel>Was wurde vereinbart?</FieldLabel><Textarea value={editingVisit.agreed || ""} onChange={(v) => setEditingVisit((prev) => prev ? { ...prev, agreed: v } : prev)} rows={3} /></div><div className="grid grid-cols-1 gap-4 md:grid-cols-2"><div><FieldLabel>Nächste Schritte</FieldLabel><Textarea value={editingVisit.next_steps || ""} onChange={(v) => setEditingVisit((prev) => prev ? { ...prev, next_steps: v } : prev)} rows={3} /></div><div><FieldLabel>Offene Punkte</FieldLabel><Textarea value={editingVisit.open_points || ""} onChange={(v) => setEditingVisit((prev) => prev ? { ...prev, open_points: v } : prev)} rows={3} /></div></div><div className="grid grid-cols-1 gap-4 md:grid-cols-2"><div><FieldLabel>Was lief gut?</FieldLabel><Textarea value={editingVisit.what_went_well || ""} onChange={(v) => setEditingVisit((prev) => prev ? { ...prev, what_went_well: v } : prev)} rows={3} /></div><div><FieldLabel>Was lief weniger gut?</FieldLabel><Textarea value={editingVisit.what_went_less_well || ""} onChange={(v) => setEditingVisit((prev) => prev ? { ...prev, what_went_less_well: v } : prev)} rows={3} /></div><div><FieldLabel>Konkurrenz / Marktinfos</FieldLabel><Textarea value={editingVisit.competition_market_info || ""} onChange={(v) => setEditingVisit((prev) => prev ? { ...prev, competition_market_info: v } : prev)} rows={3} /></div><div><FieldLabel>Branding / Sichtbarkeit</FieldLabel><Textarea value={editingVisit.branding_visibility || ""} onChange={(v) => setEditingVisit((prev) => prev ? { ...prev, branding_visibility: v } : prev)} rows={3} /></div></div></div><div className="space-y-4"><div className="rounded-2xl border border-gray-200 bg-white p-4"><div className="mb-3 text-sm font-semibold text-gray-900">Sell-in Snapshot</div><p className="mb-3 text-xs text-gray-500">Dieser Wert ist bewusst separat: Er zeigt den Sony Sell-in aus euren Bestellungen zum Zeitpunkt des Rapports.</p><FieldLabel>Sell-in Sony Umsatz Snapshot</FieldLabel><Input value={numberToInput(editingVisit.sony_sales_snapshot)} onChange={(e) => setEditingVisit((prev) => prev ? { ...prev, sony_sales_snapshot: toNumberOrNull(e.target.value) } : prev)} /></div>{renderSelloutInputGrid({
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    mode: "edit",
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    editingVisit,
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    setEditingVisit,
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  })}
-<div className="flex justify-end gap-3"><Button type="button" variant="outline" onClick={() => setEditingVisit(null)} disabled={savingVisitEdit}>Abbrechen</Button><Button type="button" onClick={updateVisit} disabled={savingVisitEdit}>{savingVisitEdit ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}Änderungen speichern</Button></div></div></div></div></div>}
+        mode: "edit",
+        editingVisit,
+        setEditingVisit,
+      })}
+        <div className="flex justify-end gap-3"><Button type="button" variant="outline" onClick={() => setEditingVisit(null)} disabled={savingVisitEdit}>Abbrechen</Button><Button type="button" onClick={updateVisit} disabled={savingVisitEdit}>{savingVisitEdit ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}Änderungen speichern</Button></div></div></div></div></div>}
 
       {toast && <div className="fixed right-4 top-4 z-[90]"><div className={`rounded px-4 py-2 text-sm text-white shadow-md ${toast.type === "success" ? "bg-green-600" : "bg-red-600"}`}>{toast.message}</div></div>}
     </div>
