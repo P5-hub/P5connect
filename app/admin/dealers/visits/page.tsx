@@ -12,9 +12,12 @@ import {
   ChevronRight,
   Clock3,
   Loader2,
+  Plus,
   RefreshCcw,
+  Save,
   Search,
   Store,
+  X,
 } from "lucide-react";
 
 type Dealer = {
@@ -23,6 +26,23 @@ type Dealer = {
   login_nr: string | null;
   kam: string | null;
   city: string | null;
+};
+
+type DealerUser = {
+  id: number;
+  dealer_id: number;
+  user_email: string;
+  display_name: string | null;
+  role: string | null;
+};
+
+type DealerTask = {
+  task_id: number;
+  dealer_id: number;
+  title: string;
+  due_date: string | null;
+  status: "open" | "done" | "cancelled";
+  assigned_to: string | null;
 };
 
 type VisitReport = {
@@ -47,6 +67,17 @@ type VisitRow = VisitReport & {
   isoYear: number;
   isoWeek: number;
   weekKey: string;
+};
+
+type TaskDraft = {
+  dealer_id: number;
+  dealer_name: string;
+  dealer_kam: string;
+  source_visit_report_id: number;
+  title: string;
+  description: string;
+  due_date: string;
+  assigned_to: string;
 };
 
 type WeekGroup = {
@@ -108,6 +139,8 @@ export default function AdminDealerVisitsPage() {
   const [loading, setLoading] = useState(true);
   const [visits, setVisits] = useState<VisitReport[]>([]);
   const [dealers, setDealers] = useState<Dealer[]>([]);
+  const [dealerUsers, setDealerUsers] = useState<DealerUser[]>([]);
+  const [tasks, setTasks] = useState<DealerTask[]>([]);
 
   const currentYear = new Date().getFullYear();
 
@@ -117,12 +150,20 @@ export default function AdminDealerVisitsPage() {
   const [search, setSearch] = useState("");
   const [openPointsOnly, setOpenPointsOnly] = useState(false);
   const [expandedWeekKey, setExpandedWeekKey] = useState<string | null>(null);
+  const [taskDraft, setTaskDraft] = useState<TaskDraft | null>(null);
+  const [savingTask, setSavingTask] = useState(false);
+  const [toast, setToast] = useState<{ type: "success" | "error"; message: string } | null>(null);
+
+  const showToast = (type: "success" | "error", message: string) => {
+    setToast({ type, message });
+    setTimeout(() => setToast(null), 3500);
+  };
 
   const loadData = useCallback(async () => {
     setLoading(true);
 
     try {
-      const [visitsRes, dealersRes] = await Promise.all([
+      const [visitsRes, dealersRes, dealerUsersRes, tasksRes] = await Promise.all([
         supabase
           .from("dealer_visit_reports")
           .select(`
@@ -148,13 +189,26 @@ export default function AdminDealerVisitsPage() {
           .from("dealers")
           .select("dealer_id, name, login_nr, kam, city")
           .order("name", { ascending: true }),
+
+        supabase
+          .from("dealer_users")
+          .select("id, dealer_id, user_email, display_name, role")
+          .order("display_name", { ascending: true }),
+
+        supabase
+          .from("dealer_tasks")
+          .select("task_id, dealer_id, title, due_date, status, assigned_to"),
       ]);
 
       if (visitsRes.error) throw visitsRes.error;
       if (dealersRes.error) throw dealersRes.error;
+      if (dealerUsersRes.error) throw dealerUsersRes.error;
+      if (tasksRes.error) throw tasksRes.error;
 
       setVisits((visitsRes.data ?? []) as VisitReport[]);
       setDealers((dealersRes.data ?? []) as Dealer[]);
+      setDealerUsers((dealerUsersRes.data ?? []) as DealerUser[]);
+      setTasks((tasksRes.data ?? []) as DealerTask[]);
     } catch (error) {
       console.error("Fehler beim Laden der Besuchsberichte:", error);
       setVisits([]);
@@ -173,6 +227,18 @@ export default function AdminDealerVisitsPage() {
     dealers.forEach((dealer) => map.set(Number(dealer.dealer_id), dealer));
     return map;
   }, [dealers]);
+
+  const dealerUsersByDealerId = useMemo(() => {
+    const map = new Map<number, DealerUser[]>();
+
+    dealerUsers.forEach((user) => {
+      const dealerId = Number(user.dealer_id);
+      if (!map.has(dealerId)) map.set(dealerId, []);
+      map.get(dealerId)!.push(user);
+    });
+
+    return map;
+  }, [dealerUsers]);
 
   const visitRows = useMemo<VisitRow[]>(() => {
     return visits.map((visit) => {
@@ -295,10 +361,81 @@ export default function AdminDealerVisitsPage() {
   }, [filteredVisits]);
 
   const totalVisits = filteredVisits.length;
-  const totalDealers = new Set(filteredVisits.map((visit) => visit.dealer_id)).size;
-  const totalOpenPoints = filteredVisits.filter(
-    (visit) => isMeaningfulText(visit.open_points) || isMeaningfulText(visit.next_steps)
+
+  const totalDealers = new Set(
+    filteredVisits.map((visit) => visit.dealer_id)
+  ).size;
+
+  const averageVisitsPerWeek =
+    weekGroups.length > 0 ? totalVisits / weekGroups.length : 0;
+
+  const filteredDealerIds = new Set(
+    filteredVisits.map((visit) => Number(visit.dealer_id))
+  );
+
+  const openTasksForFilteredDealers = tasks.filter(
+    (task) =>
+      task.status === "open" &&
+      filteredDealerIds.has(Number(task.dealer_id))
   ).length;
+
+  const openTaskFromOpenPoints = (visit: VisitRow) => {
+    const openPoints = String(visit.open_points || "").trim();
+
+    if (!openPoints) {
+      showToast("error", "Dieser Besuchsrapport hat keine offenen Punkte.");
+      return;
+    }
+
+  setTaskDraft({
+    dealer_id: Number(visit.dealer_id),
+    dealer_name: visit.dealer?.name || `Dealer #${visit.dealer_id}`,
+    dealer_kam: visit.dealer?.kam || "",
+    source_visit_report_id: Number(visit.visit_report_id),
+    title: `Offener Punkt: ${visit.dealer?.name || `Dealer #${visit.dealer_id}`}`,
+    description: openPoints,
+    due_date: "",
+    assigned_to: "",
+  });
+  };
+
+  const createTaskFromDraft = async () => {
+    if (!taskDraft) return;
+
+    const title = taskDraft.title.trim();
+
+    if (!title) {
+      showToast("error", "Bitte einen Task-Titel eingeben.");
+      return;
+    }
+
+    try {
+      setSavingTask(true);
+
+      const { data: userData } = await supabase.auth.getUser();
+      const currentUser = userData?.user?.email ?? "admin";
+
+      const { error } = await supabase.from("dealer_tasks").insert({
+        dealer_id: taskDraft.dealer_id,
+        title,
+        description: taskDraft.description.trim() || null,
+        due_date: taskDraft.due_date || null,
+        status: "open",
+        assigned_to: taskDraft.assigned_to.trim() || null,
+        created_by: currentUser,
+      });
+
+      if (error) throw error;
+
+      showToast("success", "Task wurde aus offenem Punkt erstellt.");
+      setTaskDraft(null);
+    } catch (error) {
+      console.error("Fehler beim Erstellen Task aus Besuchsrapport:", error);
+      showToast("error", "Task konnte nicht erstellt werden.");
+    } finally {
+      setSavingTask(false);
+    }
+  };
 
   const resetFilters = () => {
     setYearFilter(String(currentYear));
@@ -337,10 +474,32 @@ export default function AdminDealerVisitsPage() {
       </div>
 
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        <StatCard title="Besuche" value={String(totalVisits)} />
-        <StatCard title="Besuchte Händler" value={String(totalDealers)} />
-        <StatCard title="Kalenderwochen" value={String(weekGroups.length)} />
-        <StatCard title="Offene Punkte / nächste Schritte" value={String(totalOpenPoints)} />
+        <StatCard
+          title="Besuche"
+          value={String(totalVisits)}
+          subtitle="im gewählten Filter"
+        />
+
+        <StatCard
+          title="Ø Besuche / Woche"
+          value={averageVisitsPerWeek.toLocaleString("de-CH", {
+            minimumFractionDigits: 1,
+            maximumFractionDigits: 1,
+          })}
+          subtitle={`über ${weekGroups.length} KW`}
+        />
+
+        <StatCard
+          title="Besuchte Händler"
+          value={String(totalDealers)}
+          subtitle="unique Händler"
+        />
+
+        <StatCard
+          title="Offene Tasks"
+          value={String(openTasksForFilteredDealers)}
+          subtitle="bei den gefilterten Händlern"
+        />
       </div>
 
       <Card className="rounded-2xl border border-gray-200 p-5">
@@ -459,81 +618,112 @@ export default function AdminDealerVisitsPage() {
                   </button>
 
                   {expanded && (
-                    <div className="rounded-2xl border border-indigo-100 bg-indigo-50/40 p-4">
-                      <div className="overflow-x-auto">
-                        <table className="min-w-full">
-                          <thead>
-                            <tr className="text-left text-xs uppercase tracking-wide text-gray-500">
-                              <th className="px-2 py-2">Datum</th>
-                              <th className="px-2 py-2">Händler</th>
-                              <th className="px-2 py-2">Besuch von</th>
-                              <th className="px-2 py-2">Kontakt</th>
-                              <th className="px-2 py-2">Besprochen</th>
-                              <th className="px-2 py-2">Vereinbart / nächste Schritte</th>
-                              <th className="px-2 py-2">Offene Punkte</th>
-                              <th className="px-2 py-2 text-right">Aktion</th>
-                            </tr>
-                          </thead>
+                    <div className="space-y-4 rounded-2xl border border-indigo-100 bg-indigo-50/40 p-4">
+                      {group.visits.map((visit) => {
+                        const hasNextSteps = isMeaningfulText(visit.next_steps);
+                        const hasOpenPoints = isMeaningfulText(visit.open_points);
 
-                          <tbody>
-                            {group.visits.map((visit) => (
-                              <tr
-                                key={visit.visit_report_id}
-                                className="border-t border-indigo-100 bg-white align-top text-sm"
-                              >
-                                <td className="whitespace-nowrap px-2 py-3 text-gray-700">
-                                  {formatDate(visit.visit_date)}
-                                </td>
-
-                                <td className="min-w-[180px] px-2 py-3">
-                                  <div className="font-medium text-gray-900">
+                        return (
+                          <div
+                            key={visit.visit_report_id}
+                            className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm"
+                          >
+                            <div className="flex flex-wrap items-start justify-between gap-3">
+                              <div>
+                                <div className="flex flex-wrap items-center gap-2">
+                                  <div className="text-sm font-semibold text-gray-900">
                                     {visit.dealer?.name || `Dealer #${visit.dealer_id}`}
                                   </div>
-                                  <div className="text-xs text-gray-500">
-                                    Login: {visit.dealer?.login_nr || "–"} · {visit.dealer?.city || "–"}
-                                  </div>
-                                </td>
 
-                                <td className="min-w-[140px] px-2 py-3 text-gray-700">
-                                  {visit.visited_by || visit.dealer?.kam || "–"}
-                                </td>
+                                  {(hasNextSteps || hasOpenPoints) ? (
+                                    <span className="rounded-full bg-orange-100 px-2 py-0.5 text-xs font-medium text-orange-700">
+                                      Offene Punkte
+                                    </span>
+                                  ) : null}
+                                </div>
 
-                                <td className="min-w-[220px] whitespace-pre-wrap px-2 py-3 text-gray-700">
+                                <div className="mt-1 text-xs text-gray-500">
+                                  {formatDate(visit.visit_date)} · Login:{" "}
+                                  {visit.dealer?.login_nr || "–"} · {visit.dealer?.city || "–"}
+                                </div>
+
+                                <div className="mt-1 text-xs text-gray-500">
+                                  Besuch von: {visit.visited_by || visit.dealer?.kam || "–"}
+                                </div>
+                              </div>
+
+                              <div className="flex flex-wrap justify-end gap-2">
+                                {hasOpenPoints ? (
+                                  <Button
+                                    type="button"
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={() => openTaskFromOpenPoints(visit)}
+                                    className="border-orange-200 text-orange-700 hover:bg-orange-50"
+                                  >
+                                    <Plus className="mr-2 h-4 w-4" />
+                                    Task aus offenen Punkten
+                                  </Button>
+                                ) : null}
+
+                                <Link href={`/admin/dealers/${visit.dealer_id}`}>
+                                  <Button type="button" size="sm" variant="outline">
+                                    <Store className="mr-2 h-4 w-4" />
+                                    Händlerakte
+                                  </Button>
+                                </Link>
+                              </div>
+                            </div>
+
+                            <div className="mt-4 grid grid-cols-1 gap-4 xl:grid-cols-2">
+                              <div className="rounded-xl border border-gray-100 bg-gray-50 p-3">
+                                <div className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                                  Kontakt / Teilnehmer
+                                </div>
+                                <div className="mt-2 whitespace-pre-wrap text-sm text-gray-700">
                                   {visit.contact_persons || "–"}
-                                </td>
+                                </div>
+                              </div>
 
-                                <td className="min-w-[260px] whitespace-pre-wrap px-2 py-3 text-gray-700">
+                              <div className="rounded-xl border border-gray-100 bg-gray-50 p-3">
+                                <div className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                                  Besprochen
+                                </div>
+                                <div className="mt-2 whitespace-pre-wrap text-sm text-gray-700">
                                   {visit.discussed || "–"}
-                                </td>
+                                </div>
+                              </div>
 
-                                <td className="min-w-[260px] whitespace-pre-wrap px-2 py-3 text-gray-700">
-                                  <div>
-                                    <span className="font-medium text-gray-900">Vereinbart:</span>{" "}
-                                    {visit.agreed || "–"}
-                                  </div>
-                                  <div className="mt-2">
-                                    <span className="font-medium text-gray-900">Nächste Schritte:</span>{" "}
-                                    {visit.next_steps || "–"}
-                                  </div>
-                                </td>
+                              <div className="rounded-xl border border-blue-100 bg-blue-50 p-3">
+                                <div className="text-xs font-semibold uppercase tracking-wide text-blue-700">
+                                  Vereinbart
+                                </div>
+                                <div className="mt-2 whitespace-pre-wrap text-sm text-blue-900">
+                                  {visit.agreed || "–"}
+                                </div>
+                              </div>
 
-                                <td className="min-w-[260px] whitespace-pre-wrap px-2 py-3 text-gray-700">
+                              <div className="rounded-xl border border-indigo-100 bg-indigo-50 p-3">
+                                <div className="text-xs font-semibold uppercase tracking-wide text-indigo-700">
+                                  Nächste Schritte
+                                </div>
+                                <div className="mt-2 whitespace-pre-wrap text-sm text-indigo-900">
+                                  {visit.next_steps || "–"}
+                                </div>
+                              </div>
+
+                              <div className="rounded-xl border border-orange-100 bg-orange-50 p-3 xl:col-span-2">
+                                <div className="text-xs font-semibold uppercase tracking-wide text-orange-700">
+                                  Offene Punkte
+                                </div>
+                                <div className="mt-2 whitespace-pre-wrap text-sm text-orange-900">
                                   {visit.open_points || "–"}
-                                </td>
-
-                                <td className="whitespace-nowrap px-2 py-3 text-right">
-                                  <Link href={`/admin/dealers/${visit.dealer_id}`}>
-                                    <Button type="button" size="sm" variant="outline">
-                                      <Store className="mr-2 h-4 w-4" />
-                                      Händlerakte
-                                    </Button>
-                                  </Link>
-                                </td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
                     </div>
                   )}
                 </Fragment>
@@ -542,6 +732,168 @@ export default function AdminDealerVisitsPage() {
           </div>
         )}
       </Card>
+      {taskDraft && (
+        <div className="fixed inset-0 z-[90] flex items-center justify-center bg-black/40 p-3">
+          <div className="w-full max-w-2xl rounded-2xl bg-white p-6 shadow-xl">
+            <div className="mb-5 flex items-start justify-between gap-4">
+              <div>
+                <h2 className="text-xl font-semibold text-gray-900">
+                  Task aus offenem Punkt erstellen
+                </h2>
+                <p className="mt-1 text-sm text-gray-500">
+                  Der Text aus dem Besuchsrapport wurde übernommen und kann vor dem Speichern angepasst werden.
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setTaskDraft(null)}
+                className="rounded-full p-2 text-gray-500 hover:bg-gray-100"
+                disabled={savingTask}
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              <div className="rounded-xl border border-gray-200 bg-gray-50 p-3 text-sm text-gray-700">
+                <div className="font-medium text-gray-900">{taskDraft.dealer_name}</div>
+                <div className="text-xs text-gray-500">
+                  Quelle: Besuchsrapport #{taskDraft.source_visit_report_id}
+                </div>
+              </div>
+
+              <div>
+                <label className="mb-1 block text-sm font-medium text-gray-700">
+                  Titel *
+                </label>
+                <input
+                  value={taskDraft.title}
+                  onChange={(event) =>
+                    setTaskDraft((prev) =>
+                      prev ? { ...prev, title: event.target.value } : prev
+                    )
+                  }
+                  className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+
+              <div>
+                <label className="mb-1 block text-sm font-medium text-gray-700">
+                  Beschreibung
+                </label>
+                <textarea
+                  value={taskDraft.description}
+                  onChange={(event) =>
+                    setTaskDraft((prev) =>
+                      prev ? { ...prev, description: event.target.value } : prev
+                    )
+                  }
+                  rows={5}
+                  className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                <div>
+                  <label className="mb-1 block text-sm font-medium text-gray-700">
+                    Fällig am
+                  </label>
+                  <input
+                    type="date"
+                    value={taskDraft.due_date}
+                    onChange={(event) =>
+                      setTaskDraft((prev) =>
+                        prev ? { ...prev, due_date: event.target.value } : prev
+                      )
+                    }
+                    className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="mb-1 block text-sm font-medium text-gray-700">
+                    Zuständig
+                  </label>
+                  <div>
+                    <label className="mb-1 block text-sm font-medium text-gray-700">
+                      Zuständig
+                    </label>
+
+                    <select
+                      value={taskDraft.assigned_to}
+                      onChange={(event) =>
+                        setTaskDraft((prev) =>
+                          prev ? { ...prev, assigned_to: event.target.value } : prev
+                        )
+                      }
+                      className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500"
+                    >
+                      <option value="">Nicht zugewiesen / KAM-Fallback</option>
+
+                      {taskDraft.dealer_kam ? (
+                        <option value={taskDraft.dealer_kam}>
+                          {taskDraft.dealer_kam} · KAM
+                        </option>
+                      ) : null}
+
+                      {(dealerUsersByDealerId.get(Number(taskDraft.dealer_id)) ?? []).map((user) => (
+                        <option key={user.id} value={user.user_email}>
+                          {user.display_name || user.user_email}
+                          {user.role ? ` · ${user.role}` : ""}
+                        </option>
+                      ))}
+                    </select>
+
+                    <p className="mt-1 text-xs text-gray-500">
+                      Wenn leer, wird in der Task-Übersicht automatisch der hinterlegte KAM des Händlers angezeigt.
+                    </p>
+                  </div>
+                  <p className="mt-1 text-xs text-gray-500">
+                    Wenn leer, wird später automatisch der hinterlegte KAM des Händlers verwendet.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-6 flex flex-wrap justify-end gap-3">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setTaskDraft(null)}
+                disabled={savingTask}
+              >
+                Abbrechen
+              </Button>
+
+              <Button
+                type="button"
+                onClick={createTaskFromDraft}
+                disabled={savingTask}
+              >
+                {savingTask ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <Save className="mr-2 h-4 w-4" />
+                )}
+                Task speichern
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {toast && (
+        <div className="fixed right-4 top-4 z-[100]">
+          <div
+            className={`rounded px-4 py-2 text-sm text-white shadow-md ${
+              toast.type === "success" ? "bg-green-600" : "bg-red-600"
+            }`}
+          >
+            {toast.message}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

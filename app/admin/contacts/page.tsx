@@ -7,6 +7,7 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
   Clock3,
+  Download,
   Filter,
   Loader2,
   Plus,
@@ -329,6 +330,86 @@ export default function AdminContactsPage() {
   const contactsWithTags = contactRows.filter((row) => row.tags.length > 0).length;
   const contactsWithOpenTasks = contactRows.filter((row) => row.openTasks > 0).length;
   const openTasksTotal = contactRows.reduce((sum, row) => sum + row.openTasks, 0);
+  const escapeCsvValue = (value: unknown) => {
+    const text = String(value ?? "");
+    return `"${text.replace(/"/g, '""')}"`;
+  };
+
+  const exportFilteredContactsCsv = () => {
+    if (filteredRows.length === 0) {
+      showToast("error", "Keine Kontakte zum Exportieren vorhanden.");
+      return;
+    }
+
+    const headers = [
+      "Kontaktname",
+      "E-Mail",
+      "Telefon",
+      "Mobile",
+      "Geburtstag",
+      "Rolle",
+      "Haendler",
+      "Dealer ID",
+      "Login Nr",
+      "Ort",
+      "KAM",
+      "Interessen",
+      "CRM Merkmale",
+      "Bemerkungen",
+      "Offene Tasks",
+    ];
+
+    const rows = filteredRows.map((row) => {
+      const interestLabels = row.tags
+        .filter((tag) => tag.category === "interest")
+        .map((tag) => tag.label)
+        .join(", ");
+
+      const crmLabels = row.tags
+        .filter((tag) => tag.category === "crm" || tag.category === "custom")
+        .map((tag) => tag.label)
+        .join(", ");
+
+      return [
+        row.user.display_name || "",
+        row.user.user_email || "",
+        row.user.phone || "",
+        row.user.mobile || "",
+        row.user.birthday ? formatDate(row.user.birthday) : "",
+        row.user.role || "",
+        row.dealer?.name || "",
+        row.user.dealer_id,
+        row.dealer?.login_nr || "",
+        row.dealer?.city || "",
+        row.dealer?.kam || "",
+        interestLabels,
+        crmLabels,
+        row.user.notes || "",
+        row.openTasks,
+      ];
+    });
+
+    const csvContent = [headers, ...rows]
+      .map((row) => row.map(escapeCsvValue).join(";"))
+      .join("\r\n");
+
+    const blob = new Blob([`\uFEFF${csvContent}`], {
+      type: "text/csv;charset=utf-8;",
+    });
+
+    const date = new Date().toISOString().slice(0, 10);
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+
+    link.href = url;
+    link.download = `kontakte_export_${date}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+
+    showToast("success", `${filteredRows.length} Kontakte exportiert.`);
+  };
 
   const resetFilters = () => {
     setSearch("");
@@ -611,6 +692,16 @@ export default function AdminContactsPage() {
           <Button type="button" variant="outline" onClick={loadData}>
             <RefreshCcw className="mr-2 h-4 w-4" />
             Aktualisieren
+          </Button>
+
+          <Button
+            type="button"
+            variant="outline"
+            onClick={exportFilteredContactsCsv}
+            disabled={loading || filteredRows.length === 0}
+          >
+            <Download className="mr-2 h-4 w-4" />
+            CSV exportieren
           </Button>
 
           <Button type="button" onClick={openCreateModal}>
