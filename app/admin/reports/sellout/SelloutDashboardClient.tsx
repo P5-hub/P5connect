@@ -858,6 +858,8 @@ export default function SelloutDashboardClient() {
         ).sort();
     }, [products]);
 
+
+    
     const gruppeOptions = useMemo<string[]>(() => {
         return Array.from(
             new Set(
@@ -923,7 +925,49 @@ export default function SelloutDashboardClient() {
         onlyStockProducts,
         onlyPriceIssues,
     ]);
-
+    const activeSummary = useMemo(() => {
+        if (tab === "products") {
+            const visibleProductKeys = new Set(
+                filteredProducts.map((product) => getProductKey(product))
+            );
+    
+            const visibleRows = selloutRows.filter((row) =>
+                visibleProductKeys.has(getProductKey(row))
+            );
+    
+            return aggregateSelloutRows(
+                visibleRows,
+                selectedYear,
+                normalizedWeekTo
+            ).summary;
+        }
+    
+        if (tab === "dealers") {
+            const visibleDealerIds = new Set(
+                filteredDealers.map((dealer) => dealer.dealer_id)
+            );
+    
+            const visibleRows = selloutRows.filter((row) =>
+                visibleDealerIds.has(row.dealer_id)
+            );
+    
+            return aggregateSelloutRows(
+                visibleRows,
+                selectedYear,
+                normalizedWeekTo
+            ).summary;
+        }
+    
+        return summary;
+    }, [
+        tab,
+        filteredProducts,
+        filteredDealers,
+        selloutRows,
+        selectedYear,
+        normalizedWeekTo,
+        summary,
+    ]);
     const priceIssueCountByProduct = useMemo(() => {
         const map = new Map<string, number>();
 
@@ -1088,7 +1132,7 @@ export default function SelloutDashboardClient() {
         }
     };
 
-    const hasZeroPriceSales = Number(summary?.zero_price_qty ?? 0) > 0;
+    const hasZeroPriceSales = Number(activeSummary?.zero_price_qty ?? 0) > 0;
 
     const previousSoldQty = comparePreviousYear
         ? Number(previousSummary?.sold_qty ?? 0)
@@ -1231,11 +1275,11 @@ export default function SelloutDashboardClient() {
                     <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-6">
                         <StatCard
                             title="Verkaufte Stück"
-                            value={formatInteger(summary?.sold_qty)}
+                            value={formatInteger(activeSummary?.sold_qty)}
                             subtitle={
                                 comparePreviousYear
                                     ? getComparisonText(
-                                        Number(summary?.sold_qty ?? 0),
+                                        Number(activeSummary?.sold_qty ?? 0),
                                         previousSoldQty,
                                         (value) => formatInteger(value)
                                     )
@@ -1245,17 +1289,17 @@ export default function SelloutDashboardClient() {
                         <StatCard
                             title="Ø Stück / Woche"
                             value={formatDecimal(
-                                Number(summary?.sold_qty ?? 0) / selectedWeekCount
+                                Number(activeSummary?.sold_qty ?? 0) / selectedWeekCount
                             )}
                             subtitle={`${selectedWeekCount} KW Schnitt`}
                         />
                         <StatCard
                             title="Sell-out Umsatz"
-                            value={formatCurrency(summary?.sellout_revenue)}
+                            value={formatCurrency(activeSummary?.sellout_revenue)}
                             subtitle={
                                 comparePreviousYear
                                     ? getComparisonText(
-                                        Number(summary?.sellout_revenue ?? 0),
+                                        Number(activeSummary?.sellout_revenue ?? 0),
                                         previousRevenue,
                                         (value) => formatCurrency(value)
                                     )
@@ -1265,18 +1309,18 @@ export default function SelloutDashboardClient() {
                         <StatCard
                             title="Ø Umsatz / Woche"
                             value={formatCurrency(
-                                Number(summary?.sellout_revenue ?? 0) /
+                                Number(activeSummary?.sellout_revenue ?? 0) /
                                 selectedWeekCount
                             )}
                             subtitle={`${selectedWeekCount} KW Schnitt`}
                         />
                         <StatCard
                             title="Lagerbestand"
-                            value={formatInteger(summary?.latest_stock_qty)}
+                            value={formatInteger(activeSummary?.latest_stock_qty)}
                             subtitle={
                                 comparePreviousYear
                                     ? getComparisonText(
-                                        Number(summary?.latest_stock_qty ?? 0),
+                                        Number(activeSummary?.latest_stock_qty ?? 0),
                                         previousStockQty,
                                         (value) => formatInteger(value)
                                     )
@@ -1285,18 +1329,18 @@ export default function SelloutDashboardClient() {
                         />
                         <StatCard
                             title="Preisqualität"
-                            value={`${formatInteger(summary?.priced_qty)} / ${formatInteger(
-                                summary?.sold_qty
+                            value={`${formatInteger(activeSummary?.priced_qty)} / ${formatInteger(
+                                activeSummary?.sold_qty
                             )}`}
                             subtitle={
                                 comparePreviousYear
                                     ? getComparisonText(
-                                        Number(summary?.priced_qty ?? 0),
+                                        Number(activeSummary?.priced_qty ?? 0),
                                         previousPricedQty,
                                         (value) => formatInteger(value)
                                     )
                                     : `${formatInteger(
-                                        summary?.zero_price_qty
+                                        activeSummary?.zero_price_qty
                                     )} Stk. ohne Preis`
                             }
                         />
