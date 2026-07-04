@@ -56,6 +56,9 @@ type SubmissionRecord = {
   tv_serial_number?: string | null;
   soundbar_serial_number?: string | null;
   subwoofer_serial_number?: string | null;
+  smart_nr?: string | null;
+  credit_note_number?: string | null;
+  admin_note?: string | null;
 };
 
 type ProjectFile = {
@@ -96,6 +99,10 @@ export default function UniversalDetailPage({
   const supabase = createClient();
   const [isAdmin, setIsAdmin] = useState(false);
   const theme = useTheme();
+
+  const [smartNr, setSmartNr] = useState("");
+  const [creditNoteNumber, setCreditNoteNumber] = useState("");
+  const [adminNote, setAdminNote] = useState("");
 
   const [record, setRecord] = useState<SubmissionRecord | null>(null);
   const [dealerPreview, setDealerPreview] = useState<string | null>(null);
@@ -222,6 +229,10 @@ export default function UniversalDetailPage({
 
         const anyData: any = data;
 
+        setSmartNr(anyData.smart_nr ?? "");
+        setCreditNoteNumber(anyData.credit_note_number ?? "");
+        setAdminNote(anyData.admin_note ?? "");
+
         const paths = normalizeInvoicePaths(anyData.invoice_file_url);
         setInvoicePaths(paths);
         setInvoiceUrls({});
@@ -263,7 +274,10 @@ export default function UniversalDetailPage({
           products: anyData.products,
           dealers: dealer,
           project_id: null,
-          invoice_file_url: anyData.invoice_file_url,          
+          invoice_file_url: anyData.invoice_file_url,     
+          smart_nr: anyData.smart_nr,
+          credit_note_number: anyData.credit_note_number,
+          admin_note: anyData.admin_note,     
         });
 
         setProjectFiles([]);
@@ -446,6 +460,39 @@ export default function UniversalDetailPage({
     if (error) return toast.error(t("adminUniversalDetail.errors.statusUpdate"));
     toast.success(t("adminUniversalDetail.success.statusUpdated"));
     setRecord((r) => (r ? { ...r, status: newStatus } : r));
+  };
+
+  const saveSofortrabattAdminData = async () => {
+    if (!record?.submission_id) return;
+
+    const { error } = await supabase
+      .from("sofortrabatt_claims")
+      .update({
+        smart_nr: smartNr,
+        credit_note_number: creditNoteNumber,
+        admin_note: adminNote,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("claim_id", record.submission_id);
+
+    if (error) {
+      console.error(error);
+      toast.error("Admin-Angaben konnten nicht gespeichert werden.");
+      return;
+    }
+
+    toast.success("Admin-Angaben gespeichert.");
+
+    setRecord((prev) =>
+      prev
+        ? {
+            ...prev,
+            smart_nr: smartNr,
+            credit_note_number: creditNoteNumber,
+            admin_note: adminNote,
+          }
+        : prev
+    );
   };
 
   const handlePreviewMail = async () => {
@@ -921,6 +968,57 @@ export default function UniversalDetailPage({
                       : t("adminUniversalDetail.labels.classicPromo")}
                   </p>
                 </div>
+              </div>
+
+              <div className="rounded-xl border p-4 bg-gray-50">
+                <h4 className="font-semibold mb-4">Admin-Angaben</h4>
+
+                <div className="grid grid-cols-2 gap-4 mb-4">
+                  <div>
+                    <label className="block text-xs text-gray-600 mb-1">
+                      Smart Nr.
+                    </label>
+                    <input
+                      value={smartNr}
+                      onChange={(e) => setSmartNr(e.target.value)}
+                      placeholder="z. B. CH10688203940575"
+                      className="w-full rounded-md border px-3 py-2 text-sm"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs text-gray-600 mb-1">
+                      Gutschriftsnummer
+                    </label>
+                    <input
+                      value={creditNoteNumber}
+                      onChange={(e) => setCreditNoteNumber(e.target.value)}
+                      placeholder="z. B. GS-2026-001"
+                      className="w-full rounded-md border px-3 py-2 text-sm"
+                    />
+                  </div>
+                </div>
+
+                <div className="mb-4">
+                  <label className="block text-xs text-gray-600 mb-1">
+                    Interne Admin-Notiz
+                  </label>
+                  <textarea
+                    value={adminNote}
+                    onChange={(e) => setAdminNote(e.target.value)}
+                    rows={4}
+                    className="w-full rounded-md border px-3 py-2 text-sm"
+                    placeholder="Interne Notiz..."
+                  />
+                </div>
+
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={saveSofortrabattAdminData}
+                >
+                  Admin-Angaben speichern
+                </Button>
               </div>
 
               <div className="rounded-xl border p-4">
