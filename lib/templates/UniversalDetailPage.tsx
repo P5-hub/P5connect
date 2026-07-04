@@ -494,6 +494,126 @@ export default function UniversalDetailPage({
         : prev
     );
   };
+  const handleSofortrabattInvoiceUpload = async (file: File) => {
+    if (!record?.submission_id) return;
+
+    try {
+      setUploading(true);
+
+      const formData = new FormData();
+      formData.append("claim_id", String(record.submission_id));
+      formData.append("file", file);
+
+      const res = await fetch("/api/admin/sofortrabatt/upload-invoice", {
+        method: "POST",
+        body: formData,
+      });
+
+      const data = await res.json().catch(() => null);
+
+      if (!res.ok) {
+        throw new Error(data?.error || "Beleg konnte nicht hochgeladen werden.");
+      }
+
+      const nextPaths = Array.isArray(data?.invoice_file_url)
+        ? data.invoice_file_url
+        : [...invoicePaths, data.path].filter(Boolean);
+
+      setInvoicePaths(nextPaths);
+
+      if (data?.path) {
+        const url = await loadInvoiceUrl(data.path);
+        if (url) {
+          setInvoiceUrls((prev) => ({
+            ...prev,
+            [data.path]: url,
+          }));
+        }
+      }
+
+      setRecord((prev) =>
+        prev
+          ? {
+              ...prev,
+              invoice_file_url: JSON.stringify(nextPaths),
+            }
+          : prev
+      );
+
+      toast.success("Beleg hochgeladen.");
+    } catch (e: any) {
+      console.error(e);
+      toast.error(e?.message || "Beleg konnte nicht hochgeladen werden.");
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const handleSofortrabattInvoiceDelete = async (path: string) => {
+    if (!record?.submission_id) return;
+
+    const confirmed = confirm(
+      `Diesen Beleg wirklich löschen?\n\n${path.split("/").pop() || path}`
+    );
+
+    if (!confirmed) return;
+
+    try {
+      setUploading(true);
+
+      const res = await fetch("/api/admin/sofortrabatt/delete-invoice", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          claim_id: record.submission_id,
+          path,
+        }),
+      });
+
+      const text = await res.text();
+      let data: any = null;
+
+      try {
+        data = text ? JSON.parse(text) : null;
+      } catch {
+        data = null;
+      }
+
+      if (!res.ok) {
+        throw new Error(data?.error || "Beleg konnte nicht gelöscht werden.");
+      }
+
+      const nextPaths = Array.isArray(data?.invoice_file_url)
+        ? data.invoice_file_url
+        : invoicePaths.filter((p) => p !== path);
+
+      setInvoicePaths(nextPaths);
+
+      setInvoiceUrls((prev) => {
+        const copy = { ...prev };
+        delete copy[path];
+        return copy;
+      });
+
+      setRecord((prev) =>
+        prev
+          ? {
+              ...prev,
+              invoice_file_url: JSON.stringify(nextPaths),
+            }
+          : prev
+      );
+
+      toast.success("Beleg gelöscht.");
+    } catch (e: any) {
+      console.error(e);
+      toast.error(e?.message || "Beleg konnte nicht gelöscht werden.");
+    } finally {
+      setUploading(false);
+    }
+  };
 
   const handlePreviewMail = async () => {
     try {
@@ -1097,9 +1217,38 @@ export default function UniversalDetailPage({
                 </div>
               )}
 
-              <div className="space-y-2">
+              <div className="rounded-xl border p-4 bg-white space-y-3">
+                <h4 className="font-semibold">
+                  {t("adminUniversalDetail.labels.invoices")}
+                </h4>
+
+                <label className="flex items-center justify-center border-2 border-dashed rounded-xl px-4 py-6 text-xs cursor-pointer hover:bg-gray-50">
+                  <input
+                    type="file"
+                    className="hidden"
+                    accept=".pdf,.jpg,.jpeg,.png"
+                    disabled={uploading}
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) handleSofortrabattInvoiceUpload(file);
+                      e.currentTarget.value = "";
+                    }}
+                  />
+
+                  <div className="text-center space-y-1">
+                    <div className="text-sm font-medium">
+                      {uploading ? "Lade Beleg hoch…" : "➕ Beleg hochladen"}
+                    </div>
+                    <div className="text-[11px] text-gray-500">
+                      PDF, JPG oder PNG
+                    </div>
+                  </div>
+                </label>
+
                 {invoicePaths.length === 0 ? (
-                  <p className="text-xs text-gray-500">{t("adminUniversalDetail.empty.noInvoice")}</p>
+                  <p className="text-xs text-gray-500">
+                    {t("adminUniversalDetail.empty.noInvoice")}
+                  </p>
                 ) : (
                   <div className="flex flex-col gap-2">
                     {invoicePaths.map((path, idx) => {
@@ -1111,32 +1260,48 @@ export default function UniversalDetailPage({
                           className="flex items-center justify-between gap-2 rounded-lg border bg-white px-3 py-2"
                         >
                           <span className="text-xs truncate">
-                            📎 {t("adminUniversalDetail.labels.invoice")} {idx + 1}: {path.split("/").pop() || path}
+                            📎 {t("adminUniversalDetail.labels.invoice")} {idx + 1}:{" "}
+                            {path.split("/").pop() || path}
                           </span>
 
-                          {url ? (
+                          <div className="flex items-center gap-2">
+                            {url ? (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => window.open(url, "_blank")}
+                              >
+                                {t("adminUniversalDetail.actions.show")}
+                              </Button>
+                            ) : (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={async () => {
+                                  const nextUrl = await loadInvoiceUrl(path);
+                                  if (nextUrl) {
+                                    setInvoiceUrls((prev) => ({
+                                      ...prev,
+                                      [path]: nextUrl,
+                                    }));
+                                    window.open(nextUrl, "_blank");
+                                  }
+                                }}
+                              >
+                                {t("adminUniversalDetail.actions.load")}
+                              </Button>
+                            )}
+
                             <Button
                               size="sm"
                               variant="outline"
-                              onClick={() => window.open(url, "_blank")}
+                              disabled={uploading}
+                              onClick={() => handleSofortrabattInvoiceDelete(path)}
+                              className="text-red-600 hover:text-red-700"
                             >
-                              {t("adminUniversalDetail.actions.show")}
+                              Löschen
                             </Button>
-                          ) : (
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={async () => {
-                                const nextUrl = await loadInvoiceUrl(path);
-                                if (nextUrl) {
-                                  setInvoiceUrls((prev) => ({ ...prev, [path]: nextUrl }));
-                                  window.open(nextUrl, "_blank");
-                                }
-                              }}
-                            >
-                              {t("adminUniversalDetail.actions.load")}
-                            </Button>
-                          )}
+                          </div>
                         </div>
                       );
                     })}
