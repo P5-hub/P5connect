@@ -162,6 +162,7 @@ export default function SupportDetailPage() {
   const [savingDecision, setSavingDecision] = useState(false);
   const [filesLoading, setFilesLoading] = useState(false);
   const [savingAdminDetails, setSavingAdminDetails] = useState(false);
+  const [uploadingFile, setUploadingFile] = useState(false);
 
   const [editableItems, setEditableItems] = useState<Produkt[]>([]);
   const [originalItems, setOriginalItems] = useState<Produkt[]>([]);
@@ -979,6 +980,142 @@ export default function SupportDetailPage() {
       setSavingAdminDetails(false);
     }
   };
+  const reloadSupportFiles = async () => {
+    if (!data?.submission?.submission_id) return;
+
+    setFilesLoading(true);
+
+    try {
+      const { data: submissionFiles, error: filesError } = await supabase
+        .from("submission_files")
+        .select("id, file_name, file_path, bucket")
+        .eq("submission_id", data.submission.submission_id)
+        .order("id", { ascending: true });
+
+      if (filesError) {
+        console.error("submissionFilesReloadError:", filesError);
+        toast.error("Belege konnten nicht neu geladen werden.");
+        return;
+      }
+
+      const resolvedFiles: SubmissionFileWithUrl[] = await Promise.all(
+        (submissionFiles ?? []).map(async (file) => {
+          const bucket = file.bucket || SUPPORT_BUCKET;
+
+          const { data: signed, error: signedErr } = await supabase.storage
+            .from(bucket)
+            .createSignedUrl(file.file_path, 60 * 30);
+
+          return {
+            ...file,
+            signedUrl: signedErr ? null : signed?.signedUrl ?? null,
+          };
+        })
+      );
+
+      setData((prev) =>
+        prev
+          ? {
+              ...prev,
+              files: resolvedFiles,
+            }
+          : prev
+      );
+    } finally {
+      setFilesLoading(false);
+    }
+  };
+
+  const handleSupportFileUpload = async (file: File) => {
+    if (!data?.submission?.submission_id) return;
+
+    try {
+      setUploadingFile(true);
+
+      const formData = new FormData();
+      formData.append("submission_id", String(data.submission.submission_id));
+      formData.append("file", file);
+
+      const res = await fetch("/api/admin/support/upload-file", {
+        method: "POST",
+        body: formData,
+      });
+
+      const text = await res.text();
+      let json: any = null;
+
+      try {
+        json = text ? JSON.parse(text) : null;
+      } catch {
+        json = null;
+      }
+
+      if (!res.ok) {
+        throw new Error(
+          json?.error || "Support-Beleg konnte nicht hochgeladen werden."
+        );
+      }
+
+      toast.success("Support-Beleg hochgeladen.");
+      await reloadSupportFiles();
+    } catch (err: any) {
+      console.error("handleSupportFileUpload error:", err);
+      toast.error(err?.message || "Support-Beleg konnte nicht hochgeladen werden.");
+    } finally {
+      setUploadingFile(false);
+    }
+  };
+
+  const handleSupportFileDelete = async (file: SubmissionFileWithUrl) => {
+    if (!file?.id || file.id < 0) {
+      toast.error("Dieser alte Beleg kann nicht automatisch gelöscht werden.");
+      return;
+    }
+
+    const confirmed = confirm(
+      `Diesen Support-Beleg wirklich löschen?\n\n${file.file_name}`
+    );
+
+    if (!confirmed) return;
+
+    try {
+      setUploadingFile(true);
+
+      const res = await fetch("/api/admin/support/delete-file", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          file_id: file.id,
+        }),
+      });
+
+      const text = await res.text();
+      let json: any = null;
+
+      try {
+        json = text ? JSON.parse(text) : null;
+      } catch {
+        json = null;
+      }
+
+      if (!res.ok) {
+        throw new Error(
+          json?.error || "Support-Beleg konnte nicht gelöscht werden."
+        );
+      }
+
+      toast.success("Support-Beleg gelöscht.");
+      await reloadSupportFiles();
+    } catch (err: any) {
+      console.error("handleSupportFileDelete error:", err);
+      toast.error(err?.message || "Support-Beleg konnte nicht gelöscht werden.");
+    } finally {
+      setUploadingFile(false);
+    }
+  };
+
   const insertSubmissionLog = async ({
     action,
     oldStatus,
@@ -1437,39 +1574,76 @@ export default function SupportDetailPage() {
             </div>
           )}
 
+        <div className="rounded-xl border border-teal-200 bg-teal-50/40 p-4 space-y-3">
+          <div className="flex items-center justify-between gap-3">
+            <p className="text-sm font-semibold text-teal-700">
+              {uiText.receipts}
+            </p>
+
+            <label className="inline-flex items-center rounded-md border bg-white px-3 py-2 text-xs cursor-pointer hover:bg-teal-50">
+              <input
+                type="file"
+                className="hidden"
+                accept=".pdf,.jpg,.jpeg,.png"
+                disabled={uploadingFile}
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) handleSupportFileUpload(file);
+                  e.currentTarget.value = "";
+                }}
+              />
+
+              {uploadingFile ? "Lade hoch…" : "➕ Beleg hochladen"}
+            </label>
+          </div>
+
           {filesLoading ? (
             <p className="text-sm text-gray-500">{uiText.receiptsLoading}</p>
           ) : files && files.length > 0 ? (
-            <div className="space-y-2">
-              <p className="text-sm font-semibold">{uiText.receipts}</p>
-
-              {files.map((file, index) =>
-                file.signedUrl ? (
-                  <a
-                    key={`${file.id}-${index}`}
-                    href={file.signedUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className={`block ${theme.color} hover:underline text-sm`}
-                  >
+            <div className="flex flex-col gap-2">
+              {files.map((file, index) => (
+                <div
+                  key={`${file.id}-${index}`}
+                  className="flex items-center justify-between gap-2 rounded-lg border bg-white px-3 py-2 text-sm"
+                >
+                  <span className="flex-1 truncate">
                     📎 {file.file_name || `${uiText.receipts} ${index + 1}`}
-                  </a>
-                ) : (
-                  <div
-                    key={`${file.id}-${index}`}
-                    className="p-3 bg-gray-50 rounded-md text-sm text-gray-500 italic"
-                  >
-                    {file.file_name || `${uiText.receipts} ${index + 1}`}{" "}
-                    {uiText.fileLinkFailedSuffix}
+                  </span>
+
+                  <div className="flex items-center gap-2">
+                    {file.signedUrl ? (
+                      <a
+                        href={file.signedUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className={`${theme.color} hover:underline text-xs`}
+                      >
+                        Anzeigen
+                      </a>
+                    ) : (
+                      <span className="text-xs text-gray-400 italic">
+                        Kein Link
+                      </span>
+                    )}
+
+                    <button
+                      type="button"
+                      onClick={() => handleSupportFileDelete(file)}
+                      disabled={uploadingFile}
+                      className="text-xs text-red-600 hover:text-red-800"
+                    >
+                      Löschen
+                    </button>
                   </div>
-                )
-              )}
+                </div>
+              ))}
             </div>
           ) : (
-            <div className="p-3 bg-gray-50 rounded-md text-sm text-gray-500 italic">
+            <div className="p-3 bg-white rounded-md text-sm text-gray-500 italic border">
               {uiText.noReceipt}
             </div>
           )}
+        </div>
 
           {logs && logs.length > 0 && (
             <div className="text-sm space-y-2 border rounded p-3">

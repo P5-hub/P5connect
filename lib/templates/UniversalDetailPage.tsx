@@ -401,7 +401,10 @@ export default function UniversalDetailPage({
   );
 
   useEffect(() => {
-    if (typeFilter !== "bestellung") {
+    const supportsSubmissionFiles =
+      typeFilter === "bestellung" || record?.typ === "support";
+
+    if (!supportsSubmissionFiles) {
       setOrderFiles([]);
       return;
     }
@@ -416,14 +419,14 @@ export default function UniversalDetailPage({
         .order("created_at", { ascending: true });
 
       if (error) {
-        console.error("❌ Fehler beim Laden der Bestell-Dateien:", error);
+        console.error("❌ Fehler beim Laden der Submission-Dateien:", error);
         setOrderFiles([]);
         return;
       }
 
       setOrderFiles(data ?? []);
     })();
-  }, [record?.submission_id, typeFilter, supabase]);
+  }, [record?.submission_id, record?.typ, typeFilter, supabase]);
 
   const normalizedProducts = useMemo<SofortrabattProduct[]>(() => {
     if (!record?.products) return [];
@@ -610,6 +613,91 @@ export default function UniversalDetailPage({
     } catch (e: any) {
       console.error(e);
       toast.error(e?.message || "Beleg konnte nicht gelöscht werden.");
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const handleSupportFileUpload = async (file: File) => {
+    if (!record?.submission_id) return;
+
+    try {
+      setUploading(true);
+
+      const formData = new FormData();
+      formData.append("submission_id", String(record.submission_id));
+      formData.append("file", file);
+
+      const res = await fetch("/api/admin/support/upload-file", {
+        method: "POST",
+        body: formData,
+      });
+
+      const text = await res.text();
+      let data: any = null;
+
+      try {
+        data = text ? JSON.parse(text) : null;
+      } catch {
+        data = null;
+      }
+
+      if (!res.ok) {
+        throw new Error(data?.error || "Support-Beleg konnte nicht hochgeladen werden.");
+      }
+
+      if (data?.file) {
+        setOrderFiles((prev) => [...prev, data.file]);
+      }
+
+      toast.success("Support-Beleg hochgeladen.");
+    } catch (e: any) {
+      console.error(e);
+      toast.error(e?.message || "Support-Beleg konnte nicht hochgeladen werden.");
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const handleSupportFileDelete = async (file: SubmissionFile) => {
+    const confirmed = confirm(
+      `Diesen Support-Beleg wirklich löschen?\n\n${file.file_name}`
+    );
+
+    if (!confirmed) return;
+
+    try {
+      setUploading(true);
+
+      const res = await fetch("/api/admin/support/delete-file", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          file_id: file.id,
+        }),
+      });
+
+      const text = await res.text();
+      let data: any = null;
+
+      try {
+        data = text ? JSON.parse(text) : null;
+      } catch {
+        data = null;
+      }
+
+      if (!res.ok) {
+        throw new Error(data?.error || "Support-Beleg konnte nicht gelöscht werden.");
+      }
+
+      setOrderFiles((prev) => prev.filter((f) => f.id !== file.id));
+
+      toast.success("Support-Beleg gelöscht.");
+    } catch (e: any) {
+      console.error(e);
+      toast.error(e?.message || "Support-Beleg konnte nicht gelöscht werden.");
     } finally {
       setUploading(false);
     }
@@ -1044,7 +1132,87 @@ export default function UniversalDetailPage({
               </div>
             </div>
           )}
+          {record?.typ === "support" && (
+            <div className="mt-6 max-w-xl">
+              <div className="rounded-xl border border-teal-200 bg-teal-50/40 p-4">
+                <h4 className="text-sm font-semibold text-teal-700 mb-3">
+                  Support-Belege
+                </h4>
 
+                <label className="flex items-center justify-center border-2 border-dashed rounded-xl px-4 py-6 mb-3 text-xs cursor-pointer bg-white hover:bg-teal-50">
+                  <input
+                    type="file"
+                    className="hidden"
+                    accept=".pdf,.jpg,.jpeg,.png"
+                    disabled={uploading}
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) handleSupportFileUpload(file);
+                      e.currentTarget.value = "";
+                    }}
+                  />
+
+                  <div className="text-center space-y-1">
+                    <div className="text-sm font-medium">
+                      {uploading ? "Lade Beleg hoch…" : "➕ Support-Beleg hochladen"}
+                    </div>
+                    <div className="text-[11px] text-gray-500">
+                      PDF, JPG oder PNG
+                    </div>
+                  </div>
+                </label>
+
+                {orderFiles.length === 0 ? (
+                  <p className="text-xs text-gray-500">
+                    Kein Beleg hochgeladen.
+                  </p>
+                ) : (
+                  <div className="flex flex-col gap-2">
+                    {orderFiles.map((file) => (
+                      <div
+                        key={file.id}
+                        className="flex items-center justify-between gap-2 text-sm px-3 py-2 rounded-lg border bg-white hover:bg-teal-50 transition"
+                      >
+                        <span className="flex-1 truncate">
+                          📄 {file.file_name}
+                        </span>
+
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => previewOrderFile(file)}
+                            className="text-xs px-2 hover:text-blue-700"
+                            title="Anzeigen"
+                          >
+                            👁️
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => downloadOrderFile(file)}
+                            className="text-xs px-2 hover:text-green-700"
+                            title="Download"
+                          >
+                            ⬇️
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => handleSupportFileDelete(file)}
+                            className="text-xs px-2 text-red-600 hover:text-red-800"
+                            title="Löschen"
+                            disabled={uploading}
+                          >
+                            🗑️
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
           {record?.typ === "sofortrabatt" && (
             <div className="mt-6 space-y-6 text-sm text-gray-700">
               <div className="rounded-xl border p-4 bg-gray-50">
