@@ -123,6 +123,15 @@ type CampaignGroupPriceRow = {
   active: boolean;
 };
 
+type StandardGroupPriceRow = {
+  product_id: number;
+  pricing_group_id: number;
+  display_price_netto: number | null;
+  display_discount_percent: number | null;
+  max_display_qty_per_dealer: number | null;
+  active: boolean;
+};
+
 const MWST_RATE = 8.1;
 const TOAST_DURATION = 4000;
 
@@ -270,6 +279,88 @@ export default function BestellungForm() {
   const [campaignSearch, setCampaignSearch] = useState("");
   const [campaignGroupFilter, setCampaignGroupFilter] = useState("all");
   const [campaignCategoryFilter, setCampaignCategoryFilter] = useState("all");
+  const [dealerGroups, setDealerGroups] = useState<DealerPricingGroup[]>([]);
+  const [standardGroupPrices, setStandardGroupPrices] = useState<StandardGroupPriceRow[]>([]);
+
+  useEffect(() => {
+    const loadDealerGroups = async () => {
+      if (!effectiveDealerId) {
+        setDealerGroups([]);
+        return;
+      }
+
+      const { data, error } = await supabase
+        .from("dealer_pricing_group_memberships")
+        .select(`
+          pricing_group_id,
+          dealer_pricing_groups (
+            pricing_group_id,
+            code,
+            name
+          )
+        `)
+        .eq("dealer_id", effectiveDealerId)
+        .eq("active", true);
+
+      if (error) {
+        console.error("Fehler beim Laden der Händlergruppen:", error);
+        setDealerGroups([]);
+        return;
+      }
+
+      const rows = ((data || []) as any[])
+        .map((row) => {
+          const groupData = Array.isArray(row.dealer_pricing_groups)
+            ? row.dealer_pricing_groups[0]
+            : row.dealer_pricing_groups;
+
+          return {
+            pricing_group_id: Number(row.pricing_group_id),
+            code: groupData?.code ?? "",
+            name: groupData?.name ?? "",
+          };
+        })
+        .filter((row) => row.pricing_group_id && row.code);
+
+      setDealerGroups(rows);
+    };
+
+    loadDealerGroups();
+  }, [supabase, effectiveDealerId]);
+
+  useEffect(() => {
+    const loadStandardGroupPrices = async () => {
+      if (!dealerGroups.length) {
+        setStandardGroupPrices([]);
+        return;
+      }
+
+      const pricingGroupIds = dealerGroups.map((g) => g.pricing_group_id);
+
+      const { data, error } = await supabase
+        .from("standard_product_group_prices")
+        .select(`
+          product_id,
+          pricing_group_id,
+          display_price_netto,
+          display_discount_percent,
+          max_display_qty_per_dealer,
+          active
+        `)
+        .eq("active", true)
+        .in("pricing_group_id", pricingGroupIds);
+
+      if (error) {
+        console.error("Fehler beim Laden der Standard-Displaypreise:", error);
+        setStandardGroupPrices([]);
+        return;
+      }
+
+      setStandardGroupPrices((data || []) as StandardGroupPriceRow[]);
+    };
+
+    loadStandardGroupPrices();
+  }, [supabase, dealerGroups]);
 
   useEffect(() => {
     const loadCampaign = async () => {
@@ -830,6 +921,89 @@ export default function BestellungForm() {
     return null;
   };
 
+  const getStandardDisplayConfig = (product: ProductLike) => {
+    const matchingRows = standardGroupPrices.filter(
+      (row) => Number(row.product_id) === Number(product.product_id)
+    );
+
+    if (!matchingRows.length) {
+      return null;
+    }
+
+    const matchedGroups = matchingRows
+      .map((row) =>
+        dealerGroups.find(
+          (group) => Number(group.pricing_group_id) === Number(row.pricing_group_id)
+        )
+      )
+      .filter(Boolean) as DealerPricingGroup[];
+
+    const explicitDisplayPrice =
+      matchingRows
+        .map((row) =>
+          row.display_price_netto != null ? Number(row.display_price_netto) : null
+        )
+        .filter((value): value is number => value != null && value > 0)
+        .sort((a, b) => a - b)[0] ?? null;
+
+    const displayFactorPercent =
+      matchingRows
+        .map((row) =>
+          row.display_discount_percent != null
+            ? Number(row.display_discount_percent)
+            : null
+        )
+        .filter((value): value is number => value != null && value > 0)
+        .sort((a, b) => a - b)[0] ?? null;
+
+    const maxDisplayQtyPerDealer =
+      matchingRows
+        .map((row) =>
+          row.max_display_qty_per_dealer != null
+            ? Number(row.max_display_qty_per_dealer)
+            : null
+        )
+        .filter((value): value is number => value != null && value > 0)
+        .sort((a, b) => b - a)[0] ?? 1;
+
+    if (!displayFactorPercent && !explicitDisplayPrice) {
+      return null;
+    }
+
+    let displayPriceNetto: number | null = explicitDisplayPrice;
+
+    if (!displayPriceNetto && displayFactorPercent) {
+      const pricing = calcCampaignPrice({
+        upe_brutto: Number(product.retail_price ?? 0),
+        dealer_invoice_price: Number(product.dealer_invoice_price ?? 0),
+        vrg_amount: Number(product.vrg ?? 0),
+        mwst_rate: MWST_RATE,
+        mode: "display",
+        messe_price_netto: null,
+        display_factor_percent: displayFactorPercent,
+      });
+
+      displayPriceNetto =
+        pricing.display_price_netto != null
+          ? safeNum(pricing.display_price_netto)
+          : pricing.final_unit_price != null
+          ? safeNum(pricing.final_unit_price)
+          : null;
+    }
+
+    if (!displayPriceNetto || displayPriceNetto <= 0) {
+      return null;
+    }
+
+    return {
+      displayPriceNetto: safeNum(displayPriceNetto),
+      displayFactorPercent: displayFactorPercent ?? 50,
+      maxDisplayQtyPerDealer,
+      matchedGroupCodes: matchedGroups.map((g) => g.code),
+      matchedGroupNames: matchedGroups.map((g) => g.name),
+    };
+  };
+  
   const addCampaignAwareItem = (
     product: ProductLike,
     options?: {
@@ -842,6 +1016,9 @@ export default function BestellungForm() {
 
     const canUseCampaign = Boolean(activeCampaign && campaignRow);
     const useCampaign = requestedMode === "campaign" && canUseCampaign;
+    const standardDisplayConfig = !useCampaign
+      ? getStandardDisplayConfig(product)
+      : null;
     const requestedQty = Math.max(1, Number(product.quantity ?? 1));
 
     const orderMode: "standard" | "messe" | "monatsaktion" =
@@ -876,11 +1053,15 @@ export default function BestellungForm() {
     const displayFactorPercent =
       useCampaign && campaignRow?.display_discount_percent != null
         ? safeNum(campaignRow.display_discount_percent)
+        : standardDisplayConfig?.displayFactorPercent != null
+        ? safeNum(standardDisplayConfig.displayFactorPercent)
         : 50;
 
     const explicitDisplayPriceNetto =
       useCampaign && campaignRow?.display_price_netto != null
         ? safeNum(campaignRow.display_price_netto)
+        : !useCampaign && standardDisplayConfig?.displayPriceNetto != null
+        ? safeNum(standardDisplayConfig.displayPriceNetto)
         : null;
 
     const maxQtyPerDealer =
@@ -946,11 +1127,12 @@ export default function BestellungForm() {
         : pricing.messe_price_netto != null
         ? safeNum(pricing.messe_price_netto)
         : null;
+    const safeFinalUnitPrice = safeNum(finalUnitPrice ?? 0);    
 
     addItem("bestellung", {
       ...product,
       quantity: requestedQty,
-      price: safeNum(finalUnitPrice > 0 ? finalUnitPrice : 0),
+      price: safeNum((finalUnitPrice ?? 0) > 0 ? finalUnitPrice ?? 0 : 0),
       price_manual_override: manualOverride,
       price_manual_override_value: manualPrice,
 
@@ -980,7 +1162,7 @@ export default function BestellungForm() {
       max_display_qty_per_dealer:
         useCampaign && campaignRow?.max_display_qty_per_dealer != null
           ? Number(campaignRow.max_display_qty_per_dealer)
-          : null,
+          : standardDisplayConfig?.maxDisplayQtyPerDealer ?? null,
 
       max_messe_qty_per_dealer:
         useCampaign && campaignRow?.max_messe_qty_per_dealer != null
@@ -1011,19 +1193,23 @@ export default function BestellungForm() {
 
       matched_group_codes: useCampaign
         ? campaignRow?.matched_group_codes || []
+        : standardDisplayConfig?.matchedGroupCodes?.length
+        ? standardDisplayConfig.matchedGroupCodes
         : product.pricing_group_code
         ? [product.pricing_group_code]
         : [],
 
       matched_group_names: useCampaign
         ? campaignRow?.matched_group_names || []
+        : standardDisplayConfig?.matchedGroupNames?.length
+        ? standardDisplayConfig.matchedGroupNames
         : product.pricing_group_name
         ? [product.pricing_group_name]
         : [],
 
       has_group_override: useCampaign
         ? campaignRow?.has_group_override || false
-        : !!product.has_group_price,
+        : !!standardDisplayConfig || !!product.has_group_price,
 
       has_group_price: !useCampaign ? !!product.has_group_price : false,
       pricing_group_code: !useCampaign ? product.pricing_group_code ?? null : null,
@@ -1031,7 +1217,11 @@ export default function BestellungForm() {
       toppreise_allowed: product.toppreise_allowed ?? true,
 
       pricing_snapshot: {
-        source: useCampaign ? "campaign" : "standard",
+        source: useCampaign
+        ? "campaign"
+        : standardDisplayConfig
+        ? "standard_group_price"
+        : "standard",
         campaign_id: useCampaign ? activeCampaign?.campaign_id ?? null : null,
         campaign_name: useCampaign ? activeCampaign?.name ?? null : null,
         order_mode: orderMode,
@@ -1046,7 +1236,7 @@ export default function BestellungForm() {
         display_factor_percent: displayFactorPercent,
         display_price_netto: finalDisplayPriceNetto,
         messe_price_netto: finalMessePriceNetto,
-        final_unit_price: safeNum(finalUnitPrice),
+        final_unit_price: safeNum(finalUnitPrice ?? 0),
         display_discount_vs_hrp_percent:
           useCampaign && pricing.display_discount_vs_hrp_percent != null
             ? safeNum(pricing.display_discount_vs_hrp_percent)
@@ -1066,6 +1256,10 @@ export default function BestellungForm() {
         has_group_override: useCampaign
           ? campaignRow?.has_group_override || false
           : !!product.has_group_price,
+
+        max_display_qty_per_dealer: useCampaign
+          ? campaignRow?.max_display_qty_per_dealer ?? null
+          : standardDisplayConfig?.maxDisplayQtyPerDealer ?? null,  
 
         has_group_price: !useCampaign ? !!product.has_group_price : false,
         pricing_group_code: !useCampaign ? product.pricing_group_code ?? null : null,

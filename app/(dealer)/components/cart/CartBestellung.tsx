@@ -495,9 +495,10 @@ function ProductCard({
       : null;
 
   const maxDisplayQtyPerDealer =
-    (item as any).campaign_id &&
     (item as any).max_display_qty_per_dealer != null
       ? Number((item as any).max_display_qty_per_dealer)
+      : (item as any).pricing_snapshot?.max_display_qty_per_dealer != null
+      ? Number((item as any).pricing_snapshot.max_display_qty_per_dealer)
       : null;
 
   const maxMesseQtyPerDealer =
@@ -769,12 +770,48 @@ function ProductCard({
   const handleQuantityChange = (inputValue: string) => {
     const nextQty = Math.max(1, toQtyInt(inputValue));
 
-    if (!isCampaignItem) {
+  if (!isCampaignItem) {
+    if (
+      isDisplayItem &&
+      maxDisplayQtyPerDealer != null &&
+      maxDisplayQtyPerDealer > 0 &&
+      nextQty > maxDisplayQtyPerDealer
+    ) {
       updateItem("bestellung", index, {
-        quantity: nextQty,
+        quantity: maxDisplayQtyPerDealer,
       });
+
+      toast.warning(
+        tr(
+          "bestellung.toast.displayLimitReachedTitle",
+          "Display-Limit erreicht"
+        ),
+        {
+          description: tr(
+            "bestellung.toast.displayLimitReachedText",
+            "Für {product} sind maximal {max} Display-Stück gültig. Bereits bestellt: {ordered}. Noch frei für diese Position: {free}.",
+            {
+              product:
+                item.product_name ||
+                (item as any).sony_article ||
+                tr("bestellung.cartSheet.product.unknown", "dieses Produkt"),
+              max: maxDisplayQtyPerDealer,
+              ordered: isCampaignItem ? persistedSummary.display : historicalDisplayQty,
+              free: 0,
+            }
+          ),
+          duration: TOAST_DURATION,
+        }
+      );
+
       return;
     }
+
+    updateItem("bestellung", index, {
+      quantity: nextQty,
+    });
+    return;
+  }
 
     const allowedQty =
       allowedCampaignQtyForThisRow != null
@@ -970,12 +1007,25 @@ function ProductCard({
             className="h-10 text-center text-sm"
           />
 
-          {!(item as any).overflow_from_display &&
+          {isCampaignItem &&
+            !(item as any).overflow_from_display &&
             campaignLimitInfoLines.map((line, idx) => (
               <p key={idx} className={`mt-1 text-[11px] ${line.color}`}>
                 {line.text}
               </p>
             ))}
+
+          {!isCampaignItem &&
+            displayAllowed &&
+            maxDisplayQtyPerDealer != null &&
+            maxDisplayQtyPerDealer > 0 && (
+              <p className="mt-1 text-[11px] text-slate-600">
+                Display max. {maxDisplayQtyPerDealer}
+                {hasHistoricalDisplayOrder
+                  ? ` · bereits früher bestellt ${historicalDisplayQty}`
+                  : ""}
+              </p>
+            )}
 
           {isCampaignItem &&
             allowedCampaignQtyForThisRow != null &&
@@ -1038,8 +1088,8 @@ function ProductCard({
         </div>
       </div>
 
-      {(item as any).campaign_id &&
-        ((item as any).messe_price_netto != null || displayAllowed) &&
+      {(((item as any).campaign_id && (item as any).messe_price_netto != null) ||
+        displayAllowed) &&
         !(item as any).overflow_from_campaign && (
           <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-4 text-xs">
             <div className="mb-3 flex items-center justify-between">
@@ -1140,33 +1190,63 @@ function ProductCard({
                     }
 
                     if (checked && hasHistoricalDisplayOrder) {
-                      const existingComment = String((item as any).comment ?? "").trim();
-
-                      if (!existingComment) {
-                        toast.error(
-                          tr(
-                            "bestellung.toast.displayAlreadyOrderedTitle",
-                            "Display bereits bestellt"
+                      toast.warning(
+                        tr(
+                          "bestellung.toast.displayAlreadyOrderedTitle",
+                          "Display bereits bestellt"
+                        ),
+                        {
+                          description: tr(
+                            "bestellung.toast.displayAlreadyOrderedText",
+                            "Für {product} wurde bereits mindestens ein Display bestellt. Bitte im Kommentarfeld begründen, weshalb ein zusätzliches Display benötigt wird.",
+                            {
+                              product:
+                                item.product_name ||
+                                (item as any).sony_article ||
+                                tr("bestellung.cartSheet.product.unknown", "dieses Produkt"),
+                            }
                           ),
-                          {
-                            description: tr(
-                              "bestellung.toast.displayAlreadyOrderedText",
-                              "Für {product} wurde bereits mindestens ein Display bestellt. Bitte im Kommentarfeld begründen, weshalb ein zusätzliches Display benötigt wird.",
-                              {
-                                product:
-                                  item.product_name ||
-                                  (item as any).sony_article ||
-                                  tr("bestellung.cartSheet.product.unknown", "dieses Produkt"),
-                              }
-                            ),
-                            duration: TOAST_DURATION,
-                          }
-                        );
-                        return;
-                      }
+                          duration: TOAST_DURATION,
+                        }
+                      );
                     }
 
                     const currentQty = Number((item as any).quantity ?? 1);
+
+                    if (
+                      !isCampaignItem &&
+                      checked &&
+                      maxDisplayQtyPerDealer != null &&
+                      maxDisplayQtyPerDealer > 0 &&
+                      currentQty > maxDisplayQtyPerDealer
+                    ) {
+                      updateItem("bestellung", index, {
+                        quantity: maxDisplayQtyPerDealer,
+                      });
+
+                      toast.warning(
+                        tr(
+                          "bestellung.toast.displayLimitReachedTitle",
+                          "Display-Limit erreicht"
+                        ),
+                        {
+                          description: tr(
+                            "bestellung.toast.displayLimitReachedText",
+                            "Für {product} sind maximal {max} Display-Stück gültig. Bereits bestellt: {ordered}. Noch frei für diese Position: {free}.",
+                            {
+                              product:
+                                item.product_name ||
+                                (item as any).sony_article ||
+                                tr("bestellung.cartSheet.product.unknown", "dieses Produkt"),
+                              max: maxDisplayQtyPerDealer,
+                              ordered: isCampaignItem ? persistedSummary.display : historicalDisplayQty,
+                              free: 0,
+                            }
+                          ),
+                          duration: TOAST_DURATION,
+                        }
+                      );
+                    }
 
                     const nextDisplayQty =
                       persistedSummary.display +
@@ -1177,6 +1257,7 @@ function ProductCard({
                       persistedSummary.total + summaryOtherRows.total + currentQty;
 
                     if (
+                      isCampaignItem &&
                       checked &&
                       maxDisplayQtyPerDealer != null &&
                       maxDisplayQtyPerDealer > 0 &&
@@ -1209,6 +1290,7 @@ function ProductCard({
                     }
 
                     if (
+                      isCampaignItem &&
                       checked &&
                       maxTotalQtyPerDealer != null &&
                       maxTotalQtyPerDealer > 0 &&
@@ -1279,7 +1361,9 @@ function ProductCard({
                         resolved.display_discount_vs_hrp_percent,
                       pricing_snapshot: {
                         ...((item as any).pricing_snapshot ?? {}),
-                        source: (item as any).campaign_id ? "campaign" : "standard",
+                        source: (item as any).campaign_id
+                          ? "campaign"
+                          : (item as any).pricing_snapshot?.source ?? "standard_group_price",
                         campaign_id: (item as any).campaign_id ?? null,
                         campaign_name: (item as any).campaign_name ?? null,
                         order_mode: (item as any).order_mode ?? "standard",
@@ -1556,12 +1640,20 @@ export default function CartBestellung() {
 
   const tr = useCallback<TranslateFn>(
     (key, fallback, params) => {
+      const interpolate = (text: string) => {
+        if (!params) return text;
+
+        return Object.entries(params).reduce((result, [paramKey, paramValue]) => {
+          return result.replaceAll(`{${paramKey}}`, String(paramValue));
+        }, text);
+      };
+
       try {
         const value = t(key, params);
-        if (!value || value === key) return fallback;
-        return value;
+        if (!value || value === key) return interpolate(fallback);
+        return interpolate(value);
       } catch {
-        return fallback;
+        return interpolate(fallback);
       }
     },
     [t]
@@ -2369,9 +2461,12 @@ export default function CartBestellung() {
         return;
       }
 
+      const itemIsDisplay =
+        !!item.is_display_item ||
+        String(item.pricing_mode || "").toLowerCase() === "display";
+
       if (
-        item.campaign_id &&
-        item.is_display_item &&
+        itemIsDisplay &&
         (historicalDisplayMap[Number(item.product_id)] || 0) > 0 &&
         !String(item.comment ?? "").trim()
       ) {
@@ -2396,8 +2491,66 @@ export default function CartBestellung() {
         );
         return;
       }
+      if (itemIsDisplay) {
+        const productId = Number(item.product_id);
+
+        const displayQtyInCart = cart
+          .filter((cartItem: any) => {
+            const cartItemIsDisplay =
+              !!cartItem.is_display_item ||
+              String(cartItem.pricing_mode || "").toLowerCase() === "display";
+
+            return (
+              cartItemIsDisplay &&
+              Number(cartItem.product_id) === productId
+            );
+          })
+          .reduce(
+            (sum: number, cartItem: any) =>
+              sum + Number(cartItem.quantity ?? 0),
+            0
+          );
+
+        const maxDisplayQty =
+          item.max_display_qty_per_dealer ??
+          item.pricing_snapshot?.max_display_qty_per_dealer ??
+          null;
+
+        if (
+          maxDisplayQty != null &&
+          Number(maxDisplayQty) > 0 &&
+          displayQtyInCart > Number(maxDisplayQty)
+        ) {
+          toast.error(
+            tr(
+              "bestellung.toast.displayLimitReachedTitle",
+              "Display-Limit erreicht"
+            ),
+            {
+              description: tr(
+                "bestellung.toast.displayLimitReachedText",
+                "Für {product} sind maximal {max} Display-Stück gültig. Bereits bestellt: {ordered}. Noch frei für diese Position: {free}.",
+                {
+                  product:
+                    item.product_name ||
+                    item.sony_article ||
+                    tr("bestellung.cartSheet.product.unknown", "dieses Produkt"),
+                  max: Number(maxDisplayQty),
+                  ordered: displayQtyInCart,
+                  free: 0,
+                }
+              ),
+              duration: TOAST_DURATION,
+            }
+          );
+
+          return;
+        }
+      }
     }
 
+
+    
     const allCodes = new Set<string>();
     for (const item of cart as any[]) {
       const code = item.allowedDistis?.length
