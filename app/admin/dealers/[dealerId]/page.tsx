@@ -205,7 +205,21 @@ type AutoMetricRow = {
   dealer_id: number | null;
 };
 
-type PeriodMode = "month" | "quarter" | "halfyear" | "year" | "ytd_calendar" | "ytd_fiscal";
+type PeriodMode =
+  | "custom"
+  | "month"
+  | "last_month"
+  | "quarter"
+  | "last_quarter"
+  | "calendar_halfyear"
+  | "last_calendar_halfyear"
+  | "fiscal_halfyear"
+  | "last_fiscal_halfyear"
+  | "calendar_year"
+  | "last_calendar_year"
+  | "fiscal_year"
+  | "last_fiscal_year";
+
 type TopProduct = { label: string; qty: number; revenue: number };
 
 type DealerSelloutWeek = {
@@ -428,6 +442,22 @@ function formatDate(value: string | null | undefined) {
   return new Date(value).toLocaleDateString("de-CH");
 }
 
+function formatShortDate(value: Date | string | null | undefined) {
+  if (!value) return "–";
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) return "–";
+
+  return date.toLocaleDateString("de-CH", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  });
+}
+
+function formatDateRangeLabel(start: Date, end: Date) {
+  return `${formatShortDate(start)} – ${formatShortDate(end)}`;
+}
+
 function toDateInputValue(value: Date) {
   return value.toISOString().slice(0, 10);
 }
@@ -469,29 +499,119 @@ function shiftOneYear(date: Date) {
 
 function getPeriodLabel(periodMode: PeriodMode) {
   switch (periodMode) {
-    case "month": return "Monat";
-    case "quarter": return "Quartal";
-    case "halfyear": return "Halbjahr";
-    case "year": return "Jahr";
-    case "ytd_calendar": return "YTD Kalenderjahr";
-    case "ytd_fiscal": return "YTD Fiscal Year";
-    default: return "Zeitraum";
+    case "custom":
+      return "Benutzerdefiniert";
+    case "month":
+      return "Monat bis heute";
+    case "last_month":
+      return "Letzter Monat";
+    case "quarter":
+      return "Quartal bis heute";
+    case "last_quarter":
+      return "Letztes Quartal";
+    case "calendar_halfyear":
+      return "Kalender Halbjahr bis heute";
+    case "last_calendar_halfyear":
+      return "Letztes Kalender Halbjahr";
+    case "fiscal_halfyear":
+      return "Fiskal Halbjahr bis heute";
+    case "last_fiscal_halfyear":
+      return "Letztes Fiskal Halbjahr";
+    case "calendar_year":
+      return "Kalenderjahr bis heute";
+    case "last_calendar_year":
+      return "Letztes Kalenderjahr";
+    case "fiscal_year":
+      return "Fiskaljahr bis heute";
+    case "last_fiscal_year":
+      return "Letztes Fiskaljahr";
+    default:
+      return "Zeitraum";
   }
 }
 
-function getDateRange(periodMode: PeriodMode, now = new Date()) {
+function getDateRange(
+  periodMode: PeriodMode,
+  now = new Date(),
+  customStart?: string,
+  customEnd?: string
+) {
   const current = new Date(now);
   const year = current.getFullYear();
-  const month = current.getMonth() + 1;
+  const currentMonth = current.getMonth();
+
   let start: Date;
   let end = endOfDay(current);
 
-  if (periodMode === "month") start = new Date(year, current.getMonth(), 1);
-  else if (periodMode === "quarter") start = new Date(year, Math.floor(current.getMonth() / 3) * 3, 1);
-  else if (periodMode === "halfyear") start = new Date(year, current.getMonth() < 6 ? 0 : 6, 1);
-  else if (periodMode === "year") { start = new Date(year, 0, 1); end = new Date(year, 11, 31, 23, 59, 59, 999); }
-  else if (periodMode === "ytd_calendar") start = new Date(year, 0, 1);
-  else start = new Date(month >= FISCAL_YEAR_START_MONTH ? year : year - 1, FISCAL_YEAR_START_MONTH - 1, 1);
+  if (periodMode === "custom") {
+    start = customStart ? new Date(`${customStart}T00:00:00`) : new Date(year, currentMonth, 1);
+    end = customEnd ? endOfDay(new Date(`${customEnd}T00:00:00`)) : endOfDay(current);
+  } else if (periodMode === "month") {
+    start = new Date(year, currentMonth, 1);
+  } else if (periodMode === "last_month") {
+    start = new Date(year, currentMonth - 1, 1);
+    end = endOfDay(new Date(year, currentMonth, 0));
+  } else if (periodMode === "quarter") {
+    start = new Date(year, Math.floor(currentMonth / 3) * 3, 1);
+  } else if (periodMode === "last_quarter") {
+    const currentQuarterStartMonth = Math.floor(currentMonth / 3) * 3;
+    start = new Date(year, currentQuarterStartMonth - 3, 1);
+    end = endOfDay(new Date(year, currentQuarterStartMonth, 0));
+  } else if (periodMode === "calendar_halfyear") {
+    start = new Date(year, currentMonth < 6 ? 0 : 6, 1);
+  } else if (periodMode === "last_calendar_halfyear") {
+    if (currentMonth < 6) {
+      start = new Date(year - 1, 6, 1);
+      end = endOfDay(new Date(year - 1, 11, 31));
+    } else {
+      start = new Date(year, 0, 1);
+      end = endOfDay(new Date(year, 5, 30));
+    }
+  } else if (periodMode === "fiscal_halfyear") {
+    const fiscalStartMonth = FISCAL_YEAR_START_MONTH - 1; // April = 3
+    const fiscalSecondHalfStartMonth = fiscalStartMonth + 6; // Oktober = 9
+
+    if (currentMonth >= fiscalStartMonth && currentMonth < fiscalSecondHalfStartMonth) {
+      start = new Date(year, fiscalStartMonth, 1);
+    } else if (currentMonth >= fiscalSecondHalfStartMonth) {
+      start = new Date(year, fiscalSecondHalfStartMonth, 1);
+    } else {
+      start = new Date(year - 1, fiscalSecondHalfStartMonth, 1);
+    }
+  } else if (periodMode === "last_fiscal_halfyear") {
+    const fiscalStartMonth = FISCAL_YEAR_START_MONTH - 1; // April = 3
+    const fiscalSecondHalfStartMonth = fiscalStartMonth + 6; // Oktober = 9
+
+    if (currentMonth >= fiscalStartMonth && currentMonth < fiscalSecondHalfStartMonth) {
+      // Aktuell Apr–Sep, letztes Fiskal-Halbjahr war Okt–März
+      start = new Date(year - 1, fiscalSecondHalfStartMonth, 1);
+      end = endOfDay(new Date(year, fiscalStartMonth, 0));
+    } else if (currentMonth >= fiscalSecondHalfStartMonth) {
+      // Aktuell Okt–März, letztes Fiskal-Halbjahr war Apr–Sep
+      start = new Date(year, fiscalStartMonth, 1);
+      end = endOfDay(new Date(year, fiscalSecondHalfStartMonth, 0));
+    } else {
+      // Jan–März gehört noch zur zweiten Fiskalhälfte des Vorjahres
+      start = new Date(year - 1, fiscalStartMonth, 1);
+      end = endOfDay(new Date(year - 1, fiscalSecondHalfStartMonth, 0));
+    }
+  } else if (periodMode === "calendar_year") {
+    start = new Date(year, 0, 1);
+  } else if (periodMode === "last_calendar_year") {
+    start = new Date(year - 1, 0, 1);
+    end = endOfDay(new Date(year - 1, 11, 31));
+  } else if (periodMode === "fiscal_year") {
+    const fiscalStartMonth = FISCAL_YEAR_START_MONTH - 1;
+    start = new Date(currentMonth >= fiscalStartMonth ? year : year - 1, fiscalStartMonth, 1);
+  } else if (periodMode === "last_fiscal_year") {
+    const fiscalStartMonth = FISCAL_YEAR_START_MONTH - 1;
+    const currentFiscalStartYear = currentMonth >= fiscalStartMonth ? year : year - 1;
+
+    start = new Date(currentFiscalStartYear - 1, fiscalStartMonth, 1);
+    end = endOfDay(new Date(currentFiscalStartYear, fiscalStartMonth, 0));
+  } else {
+    start = new Date(year, currentMonth, 1);
+  }
 
   return { start: startOfDay(start), end };
 }
@@ -517,6 +637,8 @@ function buildVisitPayloadFromForm({
   contactPersons,
   autoSonyRevenue,
   periodMode,
+  customPeriodStart,
+  customPeriodEnd,
   form,
 }: {
   dealerId: number;
@@ -524,6 +646,8 @@ function buildVisitPayloadFromForm({
   contactPersons: string | null;
   autoSonyRevenue: number;
   periodMode: PeriodMode;
+  customPeriodStart?: string;
+  customPeriodEnd?: string;
   form: VisitFormState;
 }) {
   const selloutTotal = toNumberOrNull(form.sellout_total_sales);
@@ -538,7 +662,7 @@ function buildVisitPayloadFromForm({
   const sbSonyQty = toNumberOrNull(form.sb_sony_qty);
   const restTotal = toNumberOrNull(form.rest_total_sales);
   const restSony = toNumberOrNull(form.rest_sony_sales);
-  const sellinRange = getDateRange(periodMode);
+  const sellinRange = getDateRange(periodMode, new Date(), customPeriodStart, customPeriodEnd);
 
   return {
     dealer_id: dealerId,
@@ -699,7 +823,9 @@ export default function AdminDealerDetailPage() {
   const [newTagLabel, setNewTagLabel] = useState("");
   const [newTagCategory, setNewTagCategory] = useState<"interest" | "crm">("crm");
 
-  const [periodMode, setPeriodMode] = useState<PeriodMode>("quarter");
+  const [periodMode, setPeriodMode] = useState<PeriodMode>("month");
+  const [customPeriodStart, setCustomPeriodStart] = useState("");
+  const [customPeriodEnd, setCustomPeriodEnd] = useState("");
   const [autoSonyRevenue, setAutoSonyRevenue] = useState(0);
   const [autoSonyRevenuePrevYear, setAutoSonyRevenuePrevYear] = useState(0);
   const [autoDisplayOrderCount, setAutoDisplayOrderCount] = useState(0);
@@ -740,6 +866,16 @@ export default function AdminDealerDetailPage() {
   const displayActiveCount = useMemo(() => displayItems.filter((item) => item.status === "ordered" || item.status === "displayed").length, [displayItems]);
   const displayDisplayedCount = useMemo(() => displayItems.filter((item) => item.status === "displayed").length, [displayItems]);
   const latestVisit = visits[0] ?? null;
+
+  const autoKpiDateRange = useMemo(
+    () => getDateRange(periodMode, new Date(), customPeriodStart, customPeriodEnd),
+    [periodMode, customPeriodStart, customPeriodEnd]
+  );
+
+  const autoKpiPeriodLabel = useMemo(
+    () => `${getPeriodLabel(periodMode)} · ${formatDateRangeLabel(autoKpiDateRange.start, autoKpiDateRange.end)}`,
+    [periodMode, autoKpiDateRange]
+  );
 
   const loadData = useCallback(async () => {
     if (!dealerId || Number.isNaN(dealerId)) { setLoading(false); return; }
@@ -813,7 +949,7 @@ export default function AdminDealerDetailPage() {
     if (!dealerId || Number.isNaN(dealerId)) return;
     setLoadingAutoKpis(true);
     try {
-      const { start, end } = getDateRange(periodMode);
+      const { start, end } = getDateRange(periodMode, new Date(), customPeriodStart, customPeriodEnd);
       const prevYearStart = shiftOneYear(start);
       const prevYearEnd = shiftOneYear(end);
       const { data, error } = await supabase.from("submission_items").select(`item_id,product_id,sony_article,product_name,menge,preis,pricing_mode,is_display_item,submission:submission_id (dealer_id,typ,status,created_at,datum)`);
@@ -844,7 +980,7 @@ export default function AdminDealerDetailPage() {
       setAutoTopProducts([...productMap.values()].sort((a, b) => b.revenue !== a.revenue ? b.revenue - a.revenue : b.qty - a.qty).slice(0, 3));
     } catch (error) { console.error("Unbekannter Fehler Auto KPI:", error); }
     finally { setLoadingAutoKpis(false); }
-  }, [dealerId, periodMode, supabase]);
+  }, [dealerId, periodMode, customPeriodStart, customPeriodEnd, supabase]);
 
   const loadDealerSelloutKpis = useCallback(async () => {
     if (!dealerId || Number.isNaN(dealerId)) return;
@@ -1122,6 +1258,8 @@ export default function AdminDealerDetailPage() {
         contactPersons: buildVisitContactPersonsText(),
         autoSonyRevenue,
         periodMode,
+        customPeriodStart,
+        customPeriodEnd,
         form: visitForm,
       });
       const { error } = await supabase.from("dealer_visit_reports").insert(payload);
@@ -1471,7 +1609,104 @@ export default function AdminDealerDetailPage() {
       </Card>
       {activeTab === "overview" && (
         <>
-          <Card className="rounded-2xl border border-gray-200 p-5"><SectionHeader icon={<BarChart3 className="h-5 w-5 text-emerald-600" />} title="Auto KPI / Sell-in" subtitle="Automatischer Überblick aus euren Bestellungen. Dieser Umsatz ist Sell-in, nicht Sell-out." action={<div className="flex items-center gap-2"><span className="text-sm text-gray-500">Zeitraum</span><select value={periodMode} onChange={(e) => setPeriodMode(e.target.value as PeriodMode)} className="rounded-md border border-gray-300 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500"><option value="month">Monat</option><option value="quarter">Quartal</option><option value="halfyear">Halbjahr</option><option value="year">Jahr</option><option value="ytd_calendar">YTD Kalenderjahr</option><option value="ytd_fiscal">YTD Fiscal Year</option></select></div>} />{loadingAutoKpis ? <div className="flex items-center gap-2 rounded-xl border bg-white p-4 text-sm text-gray-500"><Loader2 className="h-4 w-4 animate-spin" />Auto KPI werden geladen...</div> : <div className="space-y-4"><div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-6"><StatCard title="Sell-in Sony Umsatz" value={formatCurrency(autoSonyRevenue)} subtitle={getPeriodLabel(periodMode)} /><StatCard title="Vorjahr" value={formatCurrency(autoSonyRevenuePrevYear)} subtitle="Gleicher Zeitraum" /><StatCard title="YoY" value={formatPercent(yoyPercent)} subtitle="Sell-in Sony Umsatz" /><StatCard title="Display-Bestellungen" value={formatInteger(autoDisplayOrderCount)} subtitle={getPeriodLabel(periodMode)} /><StatCard title="Bestellpositionen" value={formatInteger(autoPositionsCount)} subtitle={getPeriodLabel(periodMode)} /><StatCard title="Displays aktiv" value={formatInteger(displayActiveCount)} subtitle={`${formatInteger(displayDisplayedCount)} ausgestellt`} /></div><div className="grid grid-cols-1 gap-3 xl:grid-cols-3">{[0, 1, 2].map((idx) => { const product = autoTopProducts[idx]; return <div key={idx} className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm"><div className="flex items-center gap-2 text-sm font-medium text-gray-700"><Trophy className="h-4 w-4 text-amber-500" />Top Produkt {idx + 1}</div><div className="mt-2 text-base font-semibold text-gray-900">{product?.label || "–"}</div><div className="mt-1 text-sm text-gray-500">Menge: {product ? formatInteger(product.qty) : "–"}</div><div className="text-sm text-gray-500">Sell-in Umsatz: {product ? formatCurrency(product.revenue) : "–"}</div></div>; })}</div></div>}</Card>
+          <Card className="rounded-2xl border border-gray-200 p-5">
+            <SectionHeader
+              icon={<BarChart3 className="h-5 w-5 text-emerald-600" />}
+              title="Auto KPI / Sell-in"
+              subtitle="Automatischer Überblick aus euren Bestellungen. Dieser Umsatz ist Sell-in, nicht Sell-out."
+              action={
+                <div className="flex flex-wrap items-center justify-end gap-2">
+                  <span className="text-sm text-gray-500">Zeitraum</span>
+
+                  <select
+                    value={periodMode}
+                    onChange={(e) => setPeriodMode(e.target.value as PeriodMode)}
+                    className="rounded-md border border-gray-300 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="custom">Benutzerdefiniert</option>
+                    <option value="month">Monat bis heute</option>
+                    <option value="last_month">Letzter Monat</option>
+                    <option value="quarter">Quartal bis heute</option>
+                    <option value="last_quarter">Letztes Quartal</option>
+                    <option value="calendar_halfyear">Kalender Halbjahr bis heute</option>
+                    <option value="last_calendar_halfyear">Letztes Kalender Halbjahr</option>
+                    <option value="fiscal_halfyear">Fiskal Halbjahr bis heute</option>
+                    <option value="last_fiscal_halfyear">Letztes Fiskal Halbjahr</option>
+                    <option value="calendar_year">Kalenderjahr bis heute</option>
+                    <option value="last_calendar_year">Letztes Kalenderjahr</option>
+                    <option value="fiscal_year">Fiskaljahr bis heute</option>
+                    <option value="last_fiscal_year">Letztes Fiskaljahr</option>
+                  </select>
+
+                  {periodMode === "custom" ? (
+                    <>
+                      <Input
+                        type="date"
+                        value={customPeriodStart}
+                        onChange={(e) => setCustomPeriodStart(e.target.value)}
+                        className="w-[150px] text-sm"
+                      />
+                      <Input
+                        type="date"
+                        value={customPeriodEnd}
+                        onChange={(e) => setCustomPeriodEnd(e.target.value)}
+                        className="w-[150px] text-sm"
+                      />
+                    </>
+                  ) : null}
+                </div>
+              }
+            />
+
+            <div className="mb-4 rounded-xl border border-blue-100 bg-blue-50 px-4 py-3 text-sm text-blue-800">
+              Ausgewerteter Zeitraum:{" "}
+              <span className="font-semibold">
+                {formatDateRangeLabel(autoKpiDateRange.start, autoKpiDateRange.end)}
+              </span>
+            </div>
+
+            {loadingAutoKpis ? (
+              <div className="flex items-center gap-2 rounded-xl border bg-white p-4 text-sm text-gray-500">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Auto KPI werden geladen.
+              </div>
+            ) : (
+              <div className="space-y-4">
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-6">
+                  <StatCard title="Sell-in Sony Umsatz" value={formatCurrency(autoSonyRevenue)} subtitle={autoKpiPeriodLabel} />
+                  <StatCard title="Vorjahr" value={formatCurrency(autoSonyRevenuePrevYear)} subtitle="Gleicher Zeitraum Vorjahr" />
+                  <StatCard title="YoY" value={formatPercent(yoyPercent)} subtitle="Sell-in Sony Umsatz" />
+                  <StatCard title="Display-Bestellungen" value={formatInteger(autoDisplayOrderCount)} subtitle={autoKpiPeriodLabel} />
+                  <StatCard title="Bestellpositionen" value={formatInteger(autoPositionsCount)} subtitle={autoKpiPeriodLabel} />
+                  <StatCard title="Displays aktiv" value={formatInteger(displayActiveCount)} subtitle={`${formatInteger(displayDisplayedCount)} ausgestellt`} />
+                </div>
+
+                <div className="grid grid-cols-1 gap-3 xl:grid-cols-3">
+                  {[0, 1, 2].map((idx) => {
+                    const product = autoTopProducts[idx];
+
+                    return (
+                      <div key={idx} className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
+                        <div className="flex items-center gap-2 text-sm font-medium text-gray-700">
+                          <Trophy className="h-4 w-4 text-amber-500" />
+                          Top Produkt {idx + 1}
+                        </div>
+                        <div className="mt-2 text-base font-semibold text-gray-900">
+                          {product?.label || "–"}
+                        </div>
+                        <div className="mt-1 text-sm text-gray-500">
+                          Menge: {product ? formatInteger(product.qty) : "–"}
+                        </div>
+                        <div className="text-sm text-gray-500">
+                          Sell-in Umsatz: {product ? formatCurrency(product.revenue) : "–"}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+          </Card>
 
           <Card className="rounded-2xl border border-emerald-100 bg-emerald-50/40 p-5">
             <SectionHeader
