@@ -1709,6 +1709,7 @@ export default function BestellungForm() {
         <ProductList
           CardComponent={ProductCard}
           cardProps={{
+            dealerPricingGroups: dealerGroups,
             onAddToCart: (product: any) => {
               addCampaignAwareItem(product, { mode: "standard" });
             },

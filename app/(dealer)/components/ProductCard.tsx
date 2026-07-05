@@ -6,25 +6,41 @@ import { Input } from "@/components/ui/input";
 import { ShoppingCart, Check } from "lucide-react";
 import { motion } from "framer-motion";
 import { useI18n } from "@/lib/i18n/I18nProvider";
+import {
+  calcBestpriceEkFromMarketPrice,
+  getBestpriceFactorFromDealerGroups,
+  getBestpriceMwstFactor,
+  parseMoneyInput,
+  type DealerPricingGroupLike,
+} from "@/lib/helpers/bestpriceGuarantee";
 
 export default function ProductCardSonyPro({
   product,
   onAddToCart,
+  dealerPricingGroups = [],
 }: {
   product: any;
   onAddToCart: (item: any) => void;
+  dealerPricingGroups?: DealerPricingGroupLike[];
 }) {
   const { t } = useI18n();
 
   const initialPrice = Number(product.dealer_invoice_price ?? 0); 
+  const bestpriceFactor = getBestpriceFactorFromDealerGroups(dealerPricingGroups);
 
   const [qty, setQty] = useState(1);
   const [price, setPrice] = useState(initialPrice);
   const [priceInput, setPriceInput] = useState(initialPrice.toFixed(2));
+  const [grossPriceInput, setGrossPriceInput] = useState("");
+  const [calculationMode, setCalculationMode] = useState<"manual" | "gross">(
+    "manual"
+  );
 
   useEffect(() => {
     setPrice(initialPrice);
     setPriceInput(initialPrice.toFixed(2));
+    setGrossPriceInput("");
+    setCalculationMode("manual");
     setQty(1);
   }, [product.product_id, initialPrice]);
 
@@ -57,10 +73,25 @@ export default function ProductCardSonyPro({
         ...product,
         quantity: qty,
 
-        // 🔴 WICHTIG: manual price override
+        // 🔴 WICHTIG: finaler EK netto
         price: price,
         price_manual_override: true,
         price_manual_override_value: price,
+
+        // Zusatzinfo, wie der Preis berechnet wurde
+        price_calculation_mode: calculationMode,
+        price_gross_input:
+          calculationMode === "gross" ? parseMoneyInput(grossPriceInput) : null,
+        price_calculation_factor:
+          calculationMode === "gross" ? bestpriceFactor.factor : null,
+        price_calculation_discount_percent:
+          calculationMode === "gross" ? bestpriceFactor.discountPercent : null,
+        price_calculation_mwst_factor:
+          calculationMode === "gross" ? getBestpriceMwstFactor() : null,
+        price_calculation_group_code:
+          calculationMode === "gross" ? bestpriceFactor.groupCode : null,
+        price_calculation_group_name:
+          calculationMode === "gross" ? bestpriceFactor.groupName : null,
       });
     };
 
@@ -191,7 +222,7 @@ export default function ProductCardSonyPro({
           </div>
 
           {/* INPUTS */}
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
             <div>
               <label className="text-[11px] text-gray-500 mb-1 block">
                 {t("productCard.amount")}
@@ -207,24 +238,84 @@ export default function ProductCardSonyPro({
 
             <div>
               <label className="text-[11px] text-gray-500 mb-1 block">
+                Bestpreisgarantie-Kalkulation
+              </label>
+              <Input
+                value={grossPriceInput}
+                placeholder="Marktpreis z.B. 999.00"
+                onChange={(e) => {
+                  const cleaned = e.target.value.replace(/[^0-9.,]/g, "");
+                  setGrossPriceInput(cleaned);
+
+                  const gross = parseMoneyInput(cleaned);
+                  const calculatedEk = calcBestpriceEkFromMarketPrice({
+                    marketPriceGross: gross,
+                    factor: bestpriceFactor.factor,
+                  });
+
+                  if (calculatedEk > 0) {
+                    setPrice(calculatedEk);
+                    setPriceInput(calculatedEk.toFixed(2));
+                    setCalculationMode("gross");
+                  }
+                }}
+                onBlur={(e) => {
+                  const gross = parseMoneyInput(e.target.value);
+
+                  if (!gross || gross <= 0) {
+                    setGrossPriceInput("");
+                    setCalculationMode("manual");
+                    return;
+                  }
+
+                  const calculatedEk = calcBestpriceEkFromMarketPrice({
+                    marketPriceGross: gross,
+                    factor: bestpriceFactor.factor,
+                  });
+
+                  setGrossPriceInput(gross.toFixed(2));
+                  setPrice(calculatedEk);
+                  setPriceInput(calculatedEk.toFixed(2));
+                  setCalculationMode("gross");
+                }}
+                className="text-center"
+              />
+            </div>
+
+            <div>
+              <label className="text-[11px] text-gray-500 mb-1 block">
                 {t("productCard.priceNet")}
               </label>
               <Input
                 value={priceInput}
-                onChange={(e) =>
-                  setPriceInput(e.target.value.replace(/[^0-9.,]/g, ""))
-                }
+                onChange={(e) => {
+                  setPriceInput(e.target.value.replace(/[^0-9.,]/g, ""));
+                  setCalculationMode("manual");
+                }}
                 onBlur={(e) => {
                   const parsed = Number(e.target.value.replace(",", "."));
                   const valid = Number.isFinite(parsed) ? parsed : 0;
 
                   setPrice(valid);
                   setPriceInput(valid.toFixed(2));
+                  setCalculationMode("manual");
                 }}
                 className="text-center"
               />
             </div>
           </div>
+
+          {calculationMode === "gross" && grossPriceInput && (
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-2 text-center text-xs text-blue-700 font-medium">
+              Bestpreisgarantie berechnet aus Marktpreis {grossPriceInput} CHF:{" "}
+              {price.toFixed(2)} CHF EK netto
+              <span className="block text-[11px] font-normal text-blue-600">
+                Kalkulationssatz: {bestpriceFactor.groupName} ·{" "}
+                {bestpriceFactor.discountPercent}% / Faktor{" "}
+                {bestpriceFactor.factor.toFixed(2)}
+              </span>
+            </div>
+          )}
 
           {savingUnit > 0 && (
             <div className="bg-green-50 border border-green-200 rounded-lg p-2 text-center text-xs text-green-700 font-semibold">
