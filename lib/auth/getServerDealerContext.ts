@@ -29,7 +29,9 @@ export async function getServerDealerContext() {
   const roleFromProfile =
     user.app_metadata?.role ?? user.user_metadata?.role ?? null;
 
-  const isAdmin = roleFromProfile === "admin";
+  const isAdmin =
+    roleFromProfile === "admin" || roleFromProfile === "superadmin";
+
   const actingDealerIdRaw = cookieStore.get("acting_dealer_id")?.value ?? null;
 
   if (isAdmin && actingDealerIdRaw) {
@@ -38,7 +40,15 @@ export async function getServerDealerContext() {
     if (Number.isFinite(actingDealerId) && actingDealerId > 0) {
       const { data: actingDealer } = await supabase
         .from("dealers")
-        .select("*")
+        .select(`
+          *,
+          dealer_pricing_groups (
+            pricing_group_id,
+            code,
+            name,
+            sofortrabatt_enabled
+          )
+        `)
         .eq("dealer_id", actingDealerId)
         .maybeSingle();
 
@@ -59,7 +69,15 @@ export async function getServerDealerContext() {
 
   const { data: ownDealer } = await supabase
     .from("dealers")
-    .select("*")
+    .select(`
+      *,
+      dealer_pricing_groups (
+        pricing_group_id,
+        code,
+        name,
+        sofortrabatt_enabled
+      )
+    `)
     .eq("auth_user_id", user.id)
     .maybeSingle();
 

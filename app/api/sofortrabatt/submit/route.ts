@@ -1,6 +1,6 @@
   import { NextRequest, NextResponse } from "next/server";
   import { createClient } from "@supabase/supabase-js";
-  import { getApiDealerContext } from "@/lib/auth/getApiDealerContext";
+  import { canUseSofortrabatt } from "@/lib/auth/canUseSofortrabatt";
 
   /* --------------------------------------------------
     Supabase Service Client
@@ -298,22 +298,13 @@
   -------------------------------------------- */
   export async function POST(req: NextRequest) {
     try {
-      const auth = await getApiDealerContext(req);
+      const access = await canUseSofortrabatt(req);
 
-      if (!auth.ok) {
-        return auth.response;
+      if (!access.ok) {
+        return access.response;
       }
 
-      const { ctx } = auth;
-
-      if (!ctx.effectiveDealerId) {
-        return NextResponse.json(
-          { error: "No effective dealer context found" },
-          { status: 403 }
-        );
-      }
-
-      const dealer_id = ctx.effectiveDealerId;
+      const dealer_id = access.dealerId;
 
       const formData = await req.formData();
 

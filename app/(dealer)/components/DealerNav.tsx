@@ -16,6 +16,13 @@ type Dealer = {
   store_name?: string | null;
   company_name?: string | null;
   name?: string | null;
+  pricing_group_id?: number | null;
+  dealer_pricing_groups?: {
+    pricing_group_id: number;
+    code: string | null;
+    name: string | null;
+    sofortrabatt_enabled: boolean | null;
+  } | null;
 };
 
 export default function DealerNav() {
@@ -42,8 +49,14 @@ export default function DealerNav() {
   const { state, openCart } = useCart();
   const bestellungCount = state.bestellung.length;
 
-  const dealer = useDealer() as Dealer | null;
+  const dealer = useDealer() as Dealer | null | undefined;
   const { impersonating } = useDealerMeta();
+
+  const canUseSofortrabatt =
+    dealer?.dealer_pricing_groups?.sofortrabatt_enabled === true;
+    console.log("DealerNav dealer:", dealer);
+    console.log("DealerNav pricing group:", dealer?.dealer_pricing_groups);
+    console.log("canUseSofortrabatt:", canUseSofortrabatt);
 
   const langRef = useRef<HTMLDivElement | null>(null);
 
@@ -74,11 +87,17 @@ export default function DealerNav() {
     { href: "/verkauf", key: "nav.sales", color: "text-green-600" },
     { href: "/projekt", key: "nav.project", color: "text-purple-600" },
     { href: "/support", key: "nav.support", color: "text-orange-600" },
-    {
-      href: "/sofortrabatt",
-      key: "nav.instantDiscount",
-      color: "text-pink-600",
-    },
+
+    ...(canUseSofortrabatt
+      ? [
+          {
+            href: "/sofortrabatt",
+            key: "nav.instantDiscount",
+            color: "text-pink-600",
+          },
+        ]
+      : []),
+
     { href: "/infos", key: "nav.info", color: "text-gray-600" },
   ];
 

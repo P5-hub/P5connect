@@ -25,6 +25,8 @@ export default function ProductCardSonyPro({
 }) {
   const { t } = useI18n();
 
+
+
   const initialPrice = Number(product.dealer_invoice_price ?? 0); 
   const bestpriceFactor = getBestpriceFactorFromDealerGroups(dealerPricingGroups);
 
@@ -309,11 +311,6 @@ export default function ProductCardSonyPro({
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-2 text-center text-xs text-blue-700 font-medium">
               Bestpreisgarantie berechnet aus Marktpreis {grossPriceInput} CHF:{" "}
               {price.toFixed(2)} CHF EK netto
-              <span className="block text-[11px] font-normal text-blue-600">
-                Kalkulationssatz: {bestpriceFactor.groupName} ·{" "}
-                {bestpriceFactor.discountPercent}% / Faktor{" "}
-                {bestpriceFactor.factor.toFixed(2)}
-              </span>
             </div>
           )}
 
