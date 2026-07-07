@@ -65,10 +65,21 @@ export default async function DealerServerWrapper({
       ? selectedMembership?.dealer_pricing_groups[0]
       : selectedMembership?.dealer_pricing_groups;
 
+    const pricingGroupList = activeMemberships
+      .map((membership: any) => {
+        const group = Array.isArray(membership.dealer_pricing_groups)
+          ? membership.dealer_pricing_groups[0]
+          : membership.dealer_pricing_groups;
+
+        return group;
+      })
+      .filter(Boolean);
+
     return {
       ...dealer,
       pricing_group_id: selectedMembership?.pricing_group_id ?? null,
       dealer_pricing_groups: pricingGroup ?? null,
+      dealer_pricing_group_list: pricingGroupList,
     };
   }
 

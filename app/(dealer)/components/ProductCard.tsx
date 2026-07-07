@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { ShoppingCart, Check } from "lucide-react";
 import { motion } from "framer-motion";
 import { useI18n } from "@/lib/i18n/I18nProvider";
+import { useDealer } from "@/app/(dealer)/DealerContext";
 import {
   calcBestpriceEkFromMarketPrice,
   getBestpriceFactorFromDealerGroups,
@@ -24,12 +25,26 @@ export default function ProductCardSonyPro({
   dealerPricingGroups?: DealerPricingGroupLike[];
 }) {
   const { t } = useI18n();
+  const dealer = useDealer();
 
+  const contextDealerGroups =
+    dealer?.dealer_pricing_group_list?.length
+      ? dealer.dealer_pricing_group_list
+      : dealer?.dealer_pricing_groups
+      ? [dealer.dealer_pricing_groups]
+      : [];
 
+  const effectiveDealerPricingGroups =
+    dealerPricingGroups.length > 0
+      ? dealerPricingGroups
+      : contextDealerGroups;
 
-  const initialPrice = Number(product.dealer_invoice_price ?? 0); 
-  const bestpriceFactor = getBestpriceFactorFromDealerGroups(dealerPricingGroups);
-
+  const initialPrice = Number(product.dealer_invoice_price ?? 0);
+  const bestpriceFactor = getBestpriceFactorFromDealerGroups(
+    effectiveDealerPricingGroups
+  );
+console.log("Bestprice effective groups:", effectiveDealerPricingGroups);
+console.log("Bestprice factor:", bestpriceFactor);
   const [qty, setQty] = useState(1);
   const [price, setPrice] = useState(initialPrice);
   const [priceInput, setPriceInput] = useState(initialPrice.toFixed(2));

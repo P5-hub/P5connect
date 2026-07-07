@@ -44,6 +44,10 @@ const BESTPRICE_FACTORS_BY_GROUP_CODE: Record<
     discountPercent: 6,
     factor: 0.94,
   },
+  azone: {
+    discountPercent: 6,
+    factor: 0.94,
+  },
   standard: {
     discountPercent: 16,
     factor: 0.84,
@@ -80,16 +84,26 @@ export function getBestpriceFactorForGroupCode(
 }
 
 export function getBestpriceFactorFromDealerGroups(
-  dealerGroups: DealerPricingGroupLike[] | null | undefined
+  dealerGroups:
+    | DealerPricingGroupLike
+    | DealerPricingGroupLike[]
+    | null
+    | undefined
 ): BestpriceFactorResult {
-  if (!dealerGroups || dealerGroups.length === 0) {
+  if (!dealerGroups) {
     return DEFAULT_BESTPRICE_FACTOR;
   }
 
-  const validGroups = dealerGroups
-    .map((group) =>
-      getBestpriceFactorForGroupCode(group.code, group.name)
-    )
+  const groupsArray = Array.isArray(dealerGroups)
+    ? dealerGroups
+    : [dealerGroups];
+
+  if (groupsArray.length === 0) {
+    return DEFAULT_BESTPRICE_FACTOR;
+  }
+
+  const validGroups = groupsArray
+    .map((group) => getBestpriceFactorForGroupCode(group.code, group.name))
     .filter((group) => group.factor > 0);
 
   if (validGroups.length === 0) {
