@@ -54,9 +54,7 @@ export default function DealerNav() {
 
   const canUseSofortrabatt =
     dealer?.dealer_pricing_groups?.sofortrabatt_enabled === true;
-    console.log("DealerNav dealer:", dealer);
-    console.log("DealerNav pricing group:", dealer?.dealer_pricing_groups);
-    console.log("canUseSofortrabatt:", canUseSofortrabatt);
+
 
   const langRef = useRef<HTMLDivElement | null>(null);
 

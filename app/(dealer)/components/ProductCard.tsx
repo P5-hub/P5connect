@@ -43,8 +43,7 @@ export default function ProductCardSonyPro({
   const bestpriceFactor = getBestpriceFactorFromDealerGroups(
     effectiveDealerPricingGroups
   );
-console.log("Bestprice effective groups:", effectiveDealerPricingGroups);
-console.log("Bestprice factor:", bestpriceFactor);
+
   const [qty, setQty] = useState(1);
   const [price, setPrice] = useState(initialPrice);
   const [priceInput, setPriceInput] = useState(initialPrice.toFixed(2));
