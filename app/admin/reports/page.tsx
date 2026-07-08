@@ -9,6 +9,7 @@ import {
   Loader2,
   BarChart3,
   Target,
+  PackageSearch,
   FileSpreadsheet,
 } from "lucide-react";
 import { useI18n } from "@/lib/i18n/I18nProvider";
@@ -111,7 +112,7 @@ export default function ReportsPage() {
       </div>
 
       {/* ================= REPORT NAVIGATION ================= */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <div className="border border-blue-100 bg-blue-50 rounded-xl p-4 shadow-sm">
           <div className="flex items-center gap-2 text-blue-800 font-semibold">
             <BarChart3 className="w-5 h-5" />
@@ -125,6 +126,22 @@ export default function ReportsPage() {
             Aktuelle Ansicht
           </div>
         </div>
+
+        <Link
+          href="/admin/reports/sellin"
+          className="border border-blue-100 bg-blue-50 rounded-xl p-4 hover:bg-blue-100 transition shadow-sm block"
+        >
+          <div className="flex items-center gap-2 text-blue-800 font-semibold">
+            <PackageSearch className="w-5 h-5" />
+            Sell-in Dashboard
+          </div>
+          <p className="text-sm text-blue-700 mt-2">
+            Bestellungen nach Produkt, Händler und Konditionsart analysieren.
+          </p>
+          <div className="mt-3 inline-flex items-center gap-2 text-xs font-medium text-blue-700 bg-white/70 border border-blue-100 rounded-full px-3 py-1">
+            Öffnen
+          </div>
+        </Link>
 
         <Link
           href="/admin/reports/sellout"
