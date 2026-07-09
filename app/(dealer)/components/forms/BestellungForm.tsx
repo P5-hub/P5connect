@@ -223,9 +223,11 @@ function CampaignValueRow({
 
 function CampaignBadge({
   mode,
+  campaignType,
   t,
 }: {
   mode: CampaignProductRow["pricing_mode"];
+  campaignType?: ActiveCampaign["campaign_type"];
   t: (key: string, params?: Record<string, string | number>) => string;
 }) {
   const config =
@@ -241,7 +243,10 @@ function CampaignBadge({
         }
       : mode === "messe"
       ? {
-          label: t("bestellung.campaign.badge.messe"),
+          label:
+            campaignType === "promotion"
+              ? t("bestellung.campaign.badge.promotion")
+              : t("bestellung.campaign.badge.messe"),
           className: "border-emerald-200 bg-emerald-50 text-emerald-700",
         }
       : {
@@ -375,7 +380,7 @@ export default function BestellungForm() {
             "campaign_id, name, campaign_type, allow_display_orders, start_date, end_date"
           )
           .eq("active", true)
-          .eq("campaign_type", "messe")
+          .in("campaign_type", ["messe", "monatsaktion", "promotion"])
           .lte("start_date", today)
           .gte("end_date", today)
           .order("start_date", { ascending: false })
@@ -1021,8 +1026,10 @@ export default function BestellungForm() {
       : null;
     const requestedQty = Math.max(1, Number(product.quantity ?? 1));
 
-    const orderMode: "standard" | "messe" | "monatsaktion" =
-      useCampaign && activeCampaign?.campaign_type === "messe" ? "messe" : "standard";
+    const orderMode: "standard" | "messe" | "monatsaktion" | "promotion" =
+      useCampaign && activeCampaign?.campaign_type
+        ? activeCampaign.campaign_type
+        : "standard";
 
     const derivedPricingMode: "standard" | "messe" | "display" = useCampaign
       ? campaignRow?.pricing_mode === "display"
@@ -1306,7 +1313,13 @@ export default function BestellungForm() {
           <InfoCard
             tone="indigo"
             icon={<Store className="h-4 w-4 text-indigo-600" strokeWidth={2} />}
-            title={t("bestellung.campaign.activeTradefairCampaign")}
+            title={
+              activeCampaign.campaign_type === "promotion"
+                ? t("bestellung.campaign.activePromotion")
+                : activeCampaign.campaign_type === "messe"
+                ? t("bestellung.campaign.activeTradefairCampaign")
+                : t("bestellung.campaign.activeCampaign")
+            }
           >
             <div className="flex h-full flex-col justify-between gap-2">
               <div>
@@ -1499,7 +1512,9 @@ export default function BestellungForm() {
           }
           onClick={() => setProductViewMode("campaign")}
         >
-          {t("bestellung.viewMode.campaignOnly")}
+          {activeCampaign?.campaign_type === "promotion"
+            ? t("bestellung.viewMode.promotionOnly")
+            : t("bestellung.viewMode.campaignOnly")}
         </Button>
 
         <Button
@@ -1526,10 +1541,14 @@ export default function BestellungForm() {
 
               <div className="min-w-0">
                 <h2 className="text-sm font-semibold leading-tight text-slate-900">
-                  {t("bestellung.campaign.campaignProducts")}
+                  {activeCampaign.campaign_type === "promotion"
+                    ? t("bestellung.campaign.promotionProducts")
+                    : t("bestellung.campaign.campaignProducts")}
                 </h2>
                 <p className="text-xs text-slate-600">
-                  {t("bestellung.campaign.campaignProductsIntro")}
+                  {activeCampaign.campaign_type === "promotion"
+                    ? t("bestellung.campaign.promotionProductsIntro")
+                    : t("bestellung.campaign.campaignProductsIntro")}
                 </p>
               </div>
             </div>
@@ -1594,7 +1613,9 @@ export default function BestellungForm() {
 
           {filteredCampaignProducts.length === 0 ? (
             <div className="rounded-3xl border border-dashed border-slate-200 bg-white/80 px-4 py-10 text-center text-sm text-slate-500">
-              {t("bestellung.campaign.noCampaignProducts")}
+              {activeCampaign.campaign_type === "promotion"
+                ? t("bestellung.campaign.noPromotionProducts")
+                : t("bestellung.campaign.noCampaignProducts")}
             </div>
           ) : (
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
@@ -1624,7 +1645,11 @@ export default function BestellungForm() {
                         </div>
 
                         <div className="shrink-0">
-                          <CampaignBadge mode={cp.pricing_mode} t={t} />
+                          <CampaignBadge
+                            mode={cp.pricing_mode}
+                            campaignType={activeCampaign?.campaign_type}
+                            t={t}
+                          />
                         </div>
                       </div>
 
@@ -1638,7 +1663,11 @@ export default function BestellungForm() {
                           value={formatCurrency(cp.dealer_invoice_price)}
                         />
                         <CampaignValueRow
-                          label={t("bestellung.campaign.pricing.messePriceNet")}
+                          label={
+                            activeCampaign.campaign_type === "promotion"
+                              ? t("bestellung.campaign.pricing.promotionPriceNet")
+                              : t("bestellung.campaign.pricing.messePriceNet")
+                          }
                           value={formatCurrency(cp.messe_price_netto)}
                           valueClassName="font-semibold text-sky-700"
                         />

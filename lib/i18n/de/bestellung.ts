@@ -21,6 +21,7 @@ export const bestellung = {
   viewMode: {
     both: "Beide anzeigen",
     campaignOnly: "Nur Messeprodukte",
+    promotionOnly: "Nur Promotionsprodukte",
     standardOnly: "Nur Standardprodukte",
   },
 
@@ -119,18 +120,23 @@ export const bestellung = {
   campaign: {
     campaign: "Kampagne",
     activeTradefairCampaign: "Aktive Messekampagne",
+    activePromotion: "Aktive Promotion",
+    activeCampaign: "Aktive Kampagne",
     validFromTo: "Gültig von {start} bis {end}",
 
     campaignProductsCount: "{count} Aktionsprodukte",
     campaignProducts: "Messeprodukte",
-    campaignProductsIntro:
-      "Diese Produkte sind aktuell Teil der Messeaktion.",
+    promotionProducts: "Promotionsprodukte",
+    campaignProductsIntro: "Diese Produkte sind aktuell Teil der Messeaktion.",
+    promotionProductsIntro: "Diese Produkte sind aktuell Teil der Promotion.",
     noCampaignProducts: "Keine Messeprodukte gefunden.",
+    noPromotionProducts: "Keine Promotionsprodukte gefunden.",
 
     badge: {
       display: "Display",
       mixed: "Messe + Display",
       messe: "Messepreis",
+      promotion: "Promotionspreis",
       standard: "Aktion",
     },
 
@@ -138,10 +144,12 @@ export const bestellung = {
       upeGross: "UPE brutto",
       dealerPrice: "Händlerpreis",
       messePriceNet: "Messepreis netto",
+      promotionPriceNet: "Promotionspreis netto",
       displayPriceNet: "Displaypreis netto",
       pricingMode: "Pricing-Modus",
       pricingModeDisplay: "Display",
       pricingModeMesse: "Messe",
+      pricingModePromotion: "Promotion",
       pricingModeStandard: "Standard",
       discountVsHrp: "Rabatt vs. HRP",
     },
@@ -296,6 +304,7 @@ export const bestellung = {
       specialDistribution: "Spezialvertrieb",
       bonusRelevant: "Bonusrelevant",
       normalPrice: "Normalpreis",
+      messePrice: "Messepreis",
 
       quantity: "Anzahl",
       price: "Preis (CHF)",

@@ -20,7 +20,8 @@ export const bestellung = {
 
   viewMode: {
     both: "Show both",
-    campaignOnly: "Campaign products only",
+    campaignOnly: "Trade fair products only",
+    promotionOnly: "Promotion products only",
     standardOnly: "Standard products only",
   },
 
@@ -44,26 +45,21 @@ export const bestellung = {
     invalidQuantityText: "Please enter a valid quantity for {product}.",
 
     missingDistributorTitle: "❌ Distributor missing",
-    missingDistributorText:
-      "Please select a distributor for {product}.",
+    missingDistributorText: "Please select a distributor for {product}.",
 
     missingProviderTitle: "❌ Provider missing",
     missingProviderText:
       'Please enter the retailer name for "Other" for {product}.',
 
-    missingDisplayReasonTitle:
-      "Reason for additional display missing",
+    missingDisplayReasonTitle: "Reason for additional display missing",
     missingDisplayReasonText:
       "Please explain in the comment field why an additional display is needed for {product}.",
 
-    unknownDistributorCodeTitle:
-      "❌ Unknown distributor code",
-    unknownDistributorCodeText:
-      'Distributor "{code}" could not be found.',
+    unknownDistributorCodeTitle: "❌ Unknown distributor code",
+    unknownDistributorCodeText: 'Distributor "{code}" could not be found.',
 
     orderSavedTitle: "✅ Order saved",
-    orderSavedText:
-      "The order has been submitted successfully.",
+    orderSavedText: "The order has been submitted successfully.",
 
     orderSaveErrorTitle: "❌ Error while saving",
     orderSaveErrorText: "Unknown error",
@@ -88,14 +84,12 @@ export const bestellung = {
     campaignLimitReachedText:
       "{allowed} unit(s) for {product} are still possible at the {modeLower} price. Already ordered: {ordered}. {overflow} unit(s) were automatically added as a separate line at the regular price.",
 
-    campaignExhaustedTitle:
-      "{mode} quota exhausted",
+    campaignExhaustedTitle: "{mode} quota exhausted",
     campaignExhaustedText:
       "No {modeLower} quota is left for {product}. Already ordered: {ordered}. The full quantity was automatically moved to regular price.",
 
     orderNotPossibleTitle: "Order not possible",
-    orderNotPossibleText:
-      "The order could not be saved.",
+    orderNotPossibleText: "The order could not be saved.",
 
     uploadFailed: "File upload failed",
     fileUploadFailed: "File upload failed",
@@ -109,28 +103,33 @@ export const bestellung = {
     cheapestProvider: "Lowest-price provider",
     providerName: "Please enter provider name",
     providerNamePlaceholder: "Retailer name",
-    providerNameRequiredHint:
-      'Required field when "Other" is selected.',
-    cheapestPriceGross:
-      "Lowest price (incl. VAT)",
+    providerNameRequiredHint: 'Required field when "Other" is selected.',
+    cheapestPriceGross: "Lowest price (incl. VAT)",
     other: "Other",
   },
 
   campaign: {
     campaign: "Campaign",
     activeTradefairCampaign: "Active trade fair campaign",
+    activePromotion: "Active promotion",
+    activeCampaign: "Active campaign",
     validFromTo: "Valid from {start} to {end}",
 
     campaignProductsCount: "{count} campaign products",
-    campaignProducts: "Campaign products",
+    campaignProducts: "Trade fair products",
+    promotionProducts: "Promotion products",
     campaignProductsIntro:
-      "These products are currently part of the campaign.",
-    noCampaignProducts: "No campaign products found.",
+      "These products are currently part of the trade fair campaign.",
+    promotionProductsIntro:
+      "These products are currently part of the promotion.",
+    noCampaignProducts: "No trade fair products found.",
+    noPromotionProducts: "No promotion products found.",
 
     badge: {
       display: "Display",
       mixed: "Trade fair + display",
       messe: "Trade fair price",
+      promotion: "Promotion price",
       standard: "Campaign",
     },
 
@@ -138,10 +137,12 @@ export const bestellung = {
       upeGross: "RRP gross",
       dealerPrice: "Dealer price",
       messePriceNet: "Trade fair price net",
+      promotionPriceNet: "Promotion price net",
       displayPriceNet: "Display price net",
       pricingMode: "Pricing mode",
       pricingModeDisplay: "Display",
       pricingModeMesse: "Trade fair",
+      pricingModePromotion: "Promotion",
       pricingModeStandard: "Standard",
       discountVsHrp: "Discount vs. HRP",
     },
@@ -213,8 +214,7 @@ export const bestellung = {
     distributor: {
       title: "Main distributor",
       placeholder: "Please select",
-      defaultHint:
-        "By default via ElectronicPartner Schweiz AG.",
+      defaultHint: "By default via ElectronicPartner Schweiz AG.",
     },
 
     order: {
@@ -224,19 +224,15 @@ export const bestellung = {
       deliveryScheduled: "Scheduled",
       deliveryPlaceholder: "Please choose",
       deliveryDateOptional: "Delivery date (optional)",
-      comment:
-        "Important information for the order (comment)",
-      commentPlaceholder:
-        "e.g. 'Must be delivered no later than 15.10.'…",
+      comment: "Important information for the order (comment)",
+      commentPlaceholder: "e.g. 'Must be delivered no later than 15.10.'…",
       referenceNumber: "Your order/reference no.",
       referencePlaceholder: "e.g. 45001234",
     },
 
     altDelivery: {
-      title:
-        "Different delivery address / direct delivery",
-      useAdditionalAddress:
-        "Use additional delivery address",
+      title: "Different delivery address / direct delivery",
+      useAdditionalAddress: "Use additional delivery address",
       name: "Name / Company",
       street: "Street / No.",
       zip: "ZIP",
@@ -280,8 +276,7 @@ export const bestellung = {
       totalSavings: "Total savings: {amount}",
       savings: "Total savings: {amount} CHF",
       missingToNext: "{amount} left until {tier}",
-      highestTierReached:
-        "Highest bonus tier reached",
+      highestTierReached: "Highest bonus tier reached",
       send: "Submit order",
       sending: "Sending…",
       continueShopping: "Continue shopping",
@@ -301,49 +296,44 @@ export const bestellung = {
       price: "Price (CHF)",
       ekNormal: "Regular dealer price",
       normalEk: "Regular dealer price",
-      saved:
-        "{amount} CHF saved ({percent}%)",
+      saved: "{amount} CHF saved ({percent}%)",
 
       pricingMode: "Pricing mode",
       pricingModeDisplay: "Display",
       pricingModeMesse: "Trade fair",
+      pricingModePromotion: "Promotion",
       pricingModeStandard: "Standard",
+      messePrice: "Trade fair price",
 
       modeDisplay: "Display",
       modeMesse: "Trade fair",
+      modePromotion: "Promotion",
       modeStandard: "Standard",
       modeCampaign: "Campaign",
 
       upeGross: "RRP gross",
       displayPriceNet: "Display price net",
       messePriceNet: "Trade fair price net",
+      promotionPriceNet: "Promotion price net",
       discountVsHrp: "Discount vs. HRP",
 
-      orderAsDisplay:
-        "Order as display",
+      orderAsDisplay: "Order as display",
 
-      reasonForAdditionalDisplay:
-        "Reason for additional display",
+      reasonForAdditionalDisplay: "Reason for additional display",
       reasonPlaceholder:
         "e.g. second location, renovation, new retail area …",
       reasonHint:
         "A display has already been ordered for this product. Please explain the additional need.",
 
-      cheapestProvider:
-        "Lowest-price provider",
-      providerName:
-        "Please enter provider name",
-      providerNamePlaceholder:
-        "Retailer name",
-      providerNameHint:
-        'Required field when "Other" is selected.',
+      cheapestProvider: "Lowest-price provider",
+      providerName: "Please enter provider name",
+      providerNamePlaceholder: "Retailer name",
+      providerNameHint: 'Required field when "Other" is selected.',
 
-      cheapestPriceGross:
-        "Lowest price (incl. VAT)",
+      cheapestPriceGross: "Lowest price (incl. VAT)",
 
       distributor: "Distributor",
-      distributorPlaceholder:
-        "Please select",
+      distributorPlaceholder: "Please select",
 
       remove: "Remove",
       other: "Other",
@@ -359,6 +349,6 @@ export const bestellung = {
 
   loading: {
     dealerData: "Loading dealer data…",
-    campaign: "Loading trade fair campaign…",
+    campaign: "Loading campaign…",
   },
 } as const;

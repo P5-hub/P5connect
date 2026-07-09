@@ -1096,13 +1096,16 @@ function ProductCard({
               <span className="font-semibold text-slate-900">
                 {tr("bestellung.cartSheet.product.pricingMode", "Pricing-Modus")}
               </span>
-              <span className="font-semibold text-slate-700">
-                {(item as any).pricing_mode === "display"
-                  ? tr("bestellung.cartSheet.product.pricingModeDisplay", "Display")
-                  : (item as any).pricing_mode === "messe"
-                  ? tr("bestellung.cartSheet.product.pricingModeMesse", "Messe")
-                  : tr("bestellung.cartSheet.product.pricingModeStandard", "Standard")}
-              </span>
+                <span className="font-semibold text-slate-700">
+                  {(item as any).pricing_mode === "display"
+                    ? tr("bestellung.cartSheet.product.pricingModeDisplay", "Display")
+                    : (item as any).pricing_mode === "messe" &&
+                      (item as any).order_mode === "promotion"
+                    ? tr("bestellung.cartSheet.product.pricingModePromotion", "Promotion")
+                    : (item as any).pricing_mode === "messe"
+                    ? tr("bestellung.cartSheet.product.pricingModeMesse", "Messe")
+                    : tr("bestellung.cartSheet.product.pricingModeStandard", "Standard")}
+                </span>
             </div>
 
             <div className="space-y-1.5">
@@ -1134,10 +1137,15 @@ function ProductCard({
               {(item as any).messe_price_netto != null && (
                 <div className="flex items-center justify-between">
                   <span className="text-slate-600">
-                    {tr(
-                      "bestellung.cartSheet.product.messePriceNet",
-                      "Messepreis netto"
-                    )}
+                    {(item as any).order_mode === "promotion"
+                      ? tr(
+                          "bestellung.cartSheet.product.promotionPriceNet",
+                          "Promotionspreis netto"
+                        )
+                      : tr(
+                          "bestellung.cartSheet.product.messePriceNet",
+                          "Messepreis netto"
+                        )}
                   </span>
                   <span className="font-medium text-slate-900">
                     {safeNum((item as any).messe_price_netto).toFixed(2)} CHF
