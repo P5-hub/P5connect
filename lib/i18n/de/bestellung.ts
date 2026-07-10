@@ -4,7 +4,7 @@ export const bestellung = {
     unknownProduct: "Unbekanntes Produkt",
     remove: "Entfernen",
     reset: "Zurücksetzen",
-    close: "Schließen",
+    close: "Schliessen",
     continueShopping: "Weiter einkaufen",
     addToCart: "In den Warenkorb",
     cartOpen: "Warenkorb öffnen",
@@ -222,7 +222,7 @@ export const bestellung = {
       title: "Haupt-Distributor",
       placeholder: "Bitte auswählen",
       defaultHint:
-        "Standardmäßig über ElectronicPartner Schweiz AG.",
+        "Standardmässig über ElectronicPartner Schweiz AG.",
     },
 
     order: {
@@ -294,7 +294,7 @@ export const bestellung = {
       sending: "Sende…",
       continueShopping: "Weiter einkaufen",
       pieces: "Stück",
-      close: "Schließen",
+      close: "Schliessen",
     },
 
     product: {

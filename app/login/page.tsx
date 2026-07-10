@@ -122,8 +122,14 @@ export default function LoginPage() {
       if (dealer.role === "admin") {
         router.replace("/admin");
       } else {
+        if (typeof window !== "undefined") {
+          sessionStorage.setItem("p5_show_promo_popup", "1");
+        }
+
         router.replace("/bestellung");
       }
+
+      router.refresh();
 
       router.refresh();
     } catch (err: unknown) {

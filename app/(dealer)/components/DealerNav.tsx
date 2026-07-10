@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useState, useMemo, useEffect, useRef } from "react";
-import { Globe, ShoppingCart, Menu, X, Download } from "lucide-react";
+import { Globe, ShoppingCart, Menu, X, Download, Megaphone } from "lucide-react";
 
 import { useI18n } from "@/lib/i18n/I18nProvider";
 import { createClient } from "@/utils/supabase/client";
@@ -37,13 +37,20 @@ export default function DealerNav() {
   const [downloadOpen, setDownloadOpen] = useState(false);
 
   const [hasCampaignPrices, setHasCampaignPrices] = useState(false);
-
+  const [hasPromotionPopup, setHasPromotionPopup] = useState(false);
   const downloadStandardPriceList = (format: "csv" | "xlsx") => {
     window.location.href = `/api/price-lists/standard?format=${format}`;
   };
 
   const downloadCampaignPriceList = (format: "csv" | "xlsx") => {
     window.location.href = `/api/price-lists/campaign?format=${format}`;
+  };
+
+  const previewPromotionPopup = () => {
+    if (typeof window === "undefined") return;
+
+    sessionStorage.setItem("p5_show_promo_popup", "1");
+    window.location.href = "/bestellung?promo=1";
   };
 
   const { state, openCart } = useCart();
@@ -128,6 +135,27 @@ export default function DealerNav() {
     }
   }, [pathname]);
 
+  useEffect(() => {
+    async function checkPromotionPopup() {
+      try {
+        const res = await fetch(`/api/promotions/login-popup?lang=${lang}`, {
+          method: "GET",
+          cache: "no-store",
+        });
+
+        setHasPromotionPopup(res.ok);
+      } catch {
+        setHasPromotionPopup(false);
+      }
+    }
+
+    if (pathname.startsWith("/bestellung") && impersonating) {
+      checkPromotionPopup();
+    } else {
+      setHasPromotionPopup(false);
+    }
+  }, [pathname, impersonating, lang]);
+
   const isActive = (href: string) => pathname.startsWith(href);
 
   const goPassword = () => {
@@ -177,6 +205,16 @@ export default function DealerNav() {
 
           {/* RIGHT (DESKTOP) */}
           <div className="hidden md:flex items-center gap-4">
+            {pathname.startsWith("/bestellung") && impersonating && hasPromotionPopup && (
+              <button
+                type="button"
+                onClick={previewPromotionPopup}
+                className="flex items-center gap-1 rounded-full border border-blue-200 bg-blue-50 px-3 py-1.5 text-sm font-medium text-blue-700 hover:bg-blue-100"
+              >
+                <Megaphone className="h-4 w-4" />
+                {t("nav.promoPreview")}
+              </button>
+            )}
             {/* Preislisten */}
             {pathname.startsWith("/bestellung") && (
               <div className="relative">
@@ -185,7 +223,7 @@ export default function DealerNav() {
                   className="flex items-center gap-1 text-sm text-gray-800 hover:text-black"
                 >
                   <Download className="w-4 h-4" />
-                  Preisliste
+                  {t("nav.priceList")}  
                 </button>
 
                 {downloadOpen && (
@@ -193,42 +231,42 @@ export default function DealerNav() {
 
                     {/* STANDARD */}
                     <div className="px-3 py-2 text-xs font-semibold text-gray-500 border-b">
-                      Standard
+                      {t("nav.standard")}
                     </div>
 
                     <button
                       onClick={() => downloadStandardPriceList("xlsx")}
                       className="block w-full text-left px-3 py-2 text-sm hover:bg-gray-50"
                     >
-                      Standard Excel
+                      {t("nav.standardExcel")}
                     </button>
 
                     <button
                       onClick={() => downloadStandardPriceList("csv")}
                       className="block w-full text-left px-3 py-2 text-sm hover:bg-gray-50"
                     >
-                      Standard CSV
+                      {t("nav.standardCsv")}
                     </button>
 
                     {/* KAMPAGNE */}
                     {hasCampaignPrices && (
                       <>
                         <div className="px-3 py-2 text-xs font-semibold text-gray-500 border-t border-b">
-                          Kampagne
+                          {t("nav.campaign")}
                         </div>
 
                         <button
                           onClick={() => downloadCampaignPriceList("xlsx")}
                           className="block w-full text-left px-3 py-2 text-sm hover:bg-gray-50"
                         >
-                          Kampagne Excel
+                          {t("nav.campaignExcel")}
                         </button>
 
                         <button
                           onClick={() => downloadCampaignPriceList("csv")}
                           className="block w-full text-left px-3 py-2 text-sm hover:bg-gray-50"
                         >
-                          Kampagne CSV
+                          {t("nav.campaignCsv")}
                         </button>
                       </>
                     )}
@@ -380,12 +418,12 @@ export default function DealerNav() {
                 <div className="rounded border p-3">
                   <div className="flex items-center gap-2 text-sm font-medium text-gray-800 mb-2">
                     <Download className="w-4 h-4" />
-                    Preislisten
+                    {t("nav.priceLists")}
                   </div>
 
                   <div className="flex flex-col gap-2">
                     <div className="text-xs font-semibold text-gray-500">
-                      Standard
+                      {t("nav.standard")}
                     </div>
 
                     <button
@@ -395,7 +433,7 @@ export default function DealerNav() {
                       }}
                       className="px-3 py-2 rounded text-sm border text-left hover:bg-gray-50"
                     >
-                      Standard Excel
+                      {t("nav.standardExcel")}
                     </button>
 
                     <button
@@ -405,13 +443,13 @@ export default function DealerNav() {
                       }}
                       className="px-3 py-2 rounded text-sm border text-left hover:bg-gray-50"
                     >
-                      Standard CSV
+                      {t("nav.standardCsv")}
                     </button>
 
                     {hasCampaignPrices && (
                       <>
                         <div className="mt-2 border-t pt-2 text-xs font-semibold text-gray-500">
-                          Kampagne
+                          {t("nav.campaign")}
                         </div>
 
                         <button
@@ -421,7 +459,7 @@ export default function DealerNav() {
                           }}
                           className="px-3 py-2 rounded text-sm border text-left hover:bg-gray-50"
                         >
-                          Kampagne Excel
+                          {t("nav.campaignExcel")}
                         </button>
 
                         <button
@@ -431,7 +469,7 @@ export default function DealerNav() {
                           }}
                           className="px-3 py-2 rounded text-sm border text-left hover:bg-gray-50"
                         >
-                          Kampagne CSV
+                          {t("nav.campaignCsv")}
                         </button>
                       </>
                     )}
@@ -462,7 +500,19 @@ export default function DealerNav() {
                   ))}
                 </div>
               </div>
-
+                {pathname.startsWith("/bestellung") && impersonating && hasPromotionPopup && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMobileOpen(false);
+                      previewPromotionPopup();
+                    }}
+                    className="flex w-full items-center justify-center gap-2 rounded border border-blue-200 bg-blue-50 px-3 py-2 text-sm font-medium text-blue-700 hover:bg-blue-100"
+                  >
+                    <Megaphone className="h-4 w-4" />
+                    Promo Vorschau
+                  </button>
+                )}
               {/* Passwort ändern */}
               <button
                 onClick={goPassword}

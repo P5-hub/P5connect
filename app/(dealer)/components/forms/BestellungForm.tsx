@@ -264,6 +264,51 @@ function CampaignBadge({
   );
 }
 
+function getScreenSizeFromProduct(value: string | null | undefined) {
+  const text = String(value ?? "");
+
+  const match = text.match(/(?:^|[^0-9])(\d{2,3})(?=[A-Z])/i);
+
+  if (!match) return 999;
+
+  const size = Number(match[1]);
+
+  return Number.isFinite(size) ? size : 999;
+}
+
+function compareCampaignProducts(
+  a: CampaignProductRow,
+  b: CampaignProductRow
+) {
+  const groupA = String(a.gruppe ?? "");
+  const groupB = String(b.gruppe ?? "");
+
+  const groupCompare = groupA.localeCompare(groupB, "de-CH", {
+    numeric: true,
+    sensitivity: "base",
+  });
+
+  if (groupCompare !== 0) return groupCompare;
+
+  const sizeA = getScreenSizeFromProduct(
+    a.sony_article || a.product_name || ""
+  );
+  const sizeB = getScreenSizeFromProduct(
+    b.sony_article || b.product_name || ""
+  );
+
+  if (sizeA !== sizeB) return sizeA - sizeB;
+
+  return String(a.sony_article || a.product_name || "").localeCompare(
+    String(b.sony_article || b.product_name || ""),
+    "de-CH",
+    {
+      numeric: true,
+      sensitivity: "base",
+    }
+  );
+}
+
 export default function BestellungForm() {
   const { t } = useI18n();
   const dealer = useDealer();
@@ -851,31 +896,39 @@ export default function BestellungForm() {
   const filteredCampaignProducts = useMemo(() => {
     const search = campaignSearch.trim().toLowerCase();
 
-    return campaignProducts.filter((cp) => {
-      const matchesSearch =
-        !search ||
-        [
-          cp.product_name,
-          cp.sony_article,
-          cp.ean,
-          cp.brand,
-          cp.gruppe,
-          cp.category,
-          ...(cp.matched_group_names || []),
-          ...(cp.matched_group_codes || []),
-        ]
-          .filter(Boolean)
-          .some((value) => String(value).toLowerCase().includes(search));
+    return campaignProducts
+      .filter((cp) => {
+        const matchesSearch =
+          !search ||
+          [
+            cp.product_name,
+            cp.sony_article,
+            cp.ean,
+            cp.brand,
+            cp.gruppe,
+            cp.category,
+            ...(cp.matched_group_names || []),
+            ...(cp.matched_group_codes || []),
+          ]
+            .filter(Boolean)
+            .some((value) => String(value).toLowerCase().includes(search));
 
-      const matchesGroup =
-        campaignGroupFilter === "all" || cp.gruppe === campaignGroupFilter;
+        const matchesGroup =
+          campaignGroupFilter === "all" || cp.gruppe === campaignGroupFilter;
 
-      const matchesCategory =
-        campaignCategoryFilter === "all" || cp.category === campaignCategoryFilter;
+        const matchesCategory =
+          campaignCategoryFilter === "all" ||
+          cp.category === campaignCategoryFilter;
 
-      return matchesSearch && matchesGroup && matchesCategory;
-    });
-  }, [campaignProducts, campaignSearch, campaignGroupFilter, campaignCategoryFilter]);
+        return matchesSearch && matchesGroup && matchesCategory;
+      })
+      .sort(compareCampaignProducts);
+  }, [
+    campaignProducts,
+    campaignSearch,
+    campaignGroupFilter,
+    campaignCategoryFilter,
+  ]);
 
   const getCurrentQtyInCart = (productId: number, mode?: AddMode) => {
     const items = (getItems("bestellung") as any[]) || [];
