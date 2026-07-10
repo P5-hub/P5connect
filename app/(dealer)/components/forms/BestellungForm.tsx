@@ -1202,6 +1202,10 @@ export default function BestellungForm() {
       campaign_id: useCampaign ? activeCampaign?.campaign_id ?? null : null,
       campaign_name: useCampaign ? activeCampaign?.name ?? null : null,
       campaign_name_snapshot: useCampaign ? activeCampaign?.name ?? null : null,
+      campaign_allow_display_orders:
+        useCampaign && activeCampaign
+          ? activeCampaign.allow_display_orders === true
+          : null,
 
       is_display_item: pricingMode === "display",
       bonus_relevant:

@@ -525,6 +525,18 @@ function ProductCard({
   const isMesseItem = effectiveMode === "messe";
   const isLockedCampaignPrice = isMesseItem || isDisplayItem;
   const displayAllowed = canOrderAsDisplay(item);
+  const campaignAllowsDisplay =
+    !isCampaignItem ||
+    (item as any).campaign_allow_display_orders === true ||
+    (item as any).pricing_snapshot?.campaign_allow_display_orders === true;
+
+  const shouldShowDisplayPrice =
+    (item as any).display_price_netto != null &&
+    (
+      !isCampaignItem ||
+      isDisplayItem ||
+      (campaignAllowsDisplay && displayAllowed)
+    );
 
   const historicalDisplayQty =
     historicalDisplayMap[Number((item as any).product_id)] || 0;
@@ -1120,19 +1132,19 @@ function ProductCard({
                 </div>
               )}
 
-              {(item as any).display_price_netto != null && (
-                <div className="flex items-center justify-between">
-                  <span className="text-slate-600">
-                    {tr(
-                      "bestellung.cartSheet.product.displayPriceNet",
-                      "Displaypreis netto"
-                    )}
-                  </span>
-                  <span className="font-medium text-slate-900">
-                    {safeNum((item as any).display_price_netto).toFixed(2)} CHF
-                  </span>
-                </div>
-              )}
+            {shouldShowDisplayPrice && (
+              <div className="flex items-center justify-between">
+                <span className="text-slate-600">
+                  {tr(
+                    "bestellung.cartSheet.product.displayPriceNet",
+                    "Displaypreis netto"
+                  )}
+                </span>
+                <span className="font-medium text-slate-900">
+                  {safeNum((item as any).display_price_netto).toFixed(2)} CHF
+                </span>
+              </div>
+            )}
 
               {(item as any).messe_price_netto != null && (
                 <div className="flex items-center justify-between">
@@ -1172,7 +1184,7 @@ function ProductCard({
               */}
             </div>
 
-            {displayAllowed && (
+            {campaignAllowsDisplay && displayAllowed && (
               <label className="mt-3 flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2">
                 <input
                   type="checkbox"
