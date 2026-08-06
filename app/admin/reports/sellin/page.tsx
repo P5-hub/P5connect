@@ -488,51 +488,90 @@ export default function SellinReportsPage() {
     });
   };
 
-  const exportProductsCsv = () => {
-    const header = [
-      "Produkt",
-      "Produktname",
-      "EAN",
-      "Menge Total",
-      "Standard",
-      "Display",
-      "Messe",
-      "Umsatz",
-      "Händler",
-      "Bestellungen",
-      "Positionen",
-      "Durchschnittspreis",
-      "Min Preis",
-      "Max Preis",
-      "Erste Bestellung",
-      "Letzte Bestellung",
-    ];
+const exportProductsCsv = () => {
+  const selectedDealer =
+    appliedFilters.dealerId === "all"
+      ? null
+      : dealerOptions.find(
+          (dealer) => String(dealer.dealer_id) === appliedFilters.dealerId
+        );
 
-    const rows = products.map((row) => [
-      row.sony_article ?? "",
-      row.product_name ?? "",
-      row.ean ? `="${row.ean}"` : "",
-      row.total_quantity ?? 0,
-      row.standard_quantity ?? 0,
-      row.display_quantity ?? 0,
-      row.messe_quantity ?? 0,
-      row.total_revenue ?? 0,
-      row.unique_dealer_count ?? 0,
-      row.order_count ?? 0,
-      row.position_count ?? 0,
-      row.avg_price ?? 0,
-      row.min_price ?? 0,
-      row.max_price ?? 0,
-      row.first_order_date ?? "",
-      row.last_order_date ?? "",
-    ]);
+  const dealerLabel = selectedDealer
+    ? `${selectedDealer.name ?? `Dealer #${selectedDealer.dealer_id}`}${
+        selectedDealer.login_nr ? ` · ${selectedDealer.login_nr}` : ""
+      }`
+    : "Alle Händler";
 
-    downloadCsv(
-      header,
-      rows,
-      `sellin_produkte_${appliedFilters.fromDate}_${appliedFilters.toDate}.csv`
-    );
-  };
+  const header = [
+    "Händlerfilter",
+    "Händler ID",
+    "Händler Login",
+    "Zeitraum von",
+    "Zeitraum bis",
+    "Kondition Filter",
+    "Produkt",
+    "Produktname",
+    "EAN",
+    "Menge Total",
+    "Standard",
+    "Display",
+    "Messe",
+    "Umsatz",
+    "Händler",
+    "Bestellungen",
+    "Positionen",
+    "Durchschnittspreis",
+    "Min Preis",
+    "Max Preis",
+    "Erste Bestellung",
+    "Letzte Bestellung",
+  ];
+
+  const rows = products.map((row) => [
+    dealerLabel,
+    selectedDealer?.dealer_id ?? "",
+    selectedDealer?.login_nr ?? "",
+    appliedFilters.fromDate,
+    appliedFilters.toDate,
+    appliedFilters.mode === "all" ? "Alle Konditionen" : appliedFilters.mode,
+    row.sony_article ?? "",
+    row.product_name ?? "",
+    row.ean ? `="${row.ean}"` : "",
+    row.total_quantity ?? 0,
+    row.standard_quantity ?? 0,
+    row.display_quantity ?? 0,
+    row.messe_quantity ?? 0,
+    row.total_revenue ?? 0,
+    row.unique_dealer_count ?? 0,
+    row.order_count ?? 0,
+    row.position_count ?? 0,
+    row.avg_price ?? 0,
+    row.min_price ?? 0,
+    row.max_price ?? 0,
+    row.first_order_date ?? "",
+    row.last_order_date ?? "",
+  ]);
+
+  const safeDealerLabel = selectedDealer
+    ? `${selectedDealer.name ?? selectedDealer.dealer_id}`
+        .replaceAll("/", "-")
+        .replaceAll("\\", "-")
+        .replaceAll(":", "-")
+        .replaceAll("*", "-")
+        .replaceAll("?", "-")
+        .replaceAll('"', "")
+        .replaceAll("<", "")
+        .replaceAll(">", "")
+        .replaceAll("|", "")
+        .replaceAll(" ", "_")
+    : "alle_haendler";
+
+  downloadCsv(
+    header,
+    rows,
+    `sellin_produkte_${safeDealerLabel}_${appliedFilters.fromDate}_${appliedFilters.toDate}.csv`
+  );
+};
 
   const exportDealersCsv = () => {
     if (!selectedProduct) return;
@@ -628,17 +667,9 @@ export default function SellinReportsPage() {
             disabled={!products.length}
           >
             <Download className="mr-2 h-4 w-4" />
-            Produkte CSV
-          </Button>
-
-          <Button
-            type="button"
-            variant="outline"
-            onClick={exportDealersCsv}
-            disabled={!selectedProduct || !dealerTotals.length}
-          >
-            <Download className="mr-2 h-4 w-4" />
-            Händler CSV
+            {appliedFilters.dealerId === "all"
+              ? "Produkte CSV"
+              : "Händler-Produkte CSV"}
           </Button>
         </div>
       </div>
@@ -924,7 +955,8 @@ export default function SellinReportsPage() {
                                 loadingDealers={loadingDealers}
                                 loadingOrders={loadingOrders}
                                 onDealerClick={openDealer}
-                              />
+                                onExportDealers={exportDealersCsv}
+                              />                   
                             </td>
                           </tr>
                         ) : null}
@@ -961,6 +993,7 @@ function ProductDealerSection({
   loadingDealers,
   loadingOrders,
   onDealerClick,
+  onExportDealers,
 }: {
   product: SellinProductTotal;
   dealers: SellinDealerTotal[];
@@ -969,10 +1002,11 @@ function ProductDealerSection({
   loadingDealers: boolean;
   loadingOrders: boolean;
   onDealerClick: (dealer: SellinDealerTotal) => void;
+  onExportDealers: () => void;
 }) {
   return (
     <div className="overflow-hidden rounded-xl border border-blue-100 bg-white shadow-sm">
-      <div className="border-b border-blue-100 bg-blue-50 px-4 py-3">
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-blue-100 bg-blue-50 px-4 py-3">
         <div className="flex items-center gap-2">
           <Store className="h-5 w-5 text-blue-600" />
 
@@ -988,6 +1022,21 @@ function ProductDealerSection({
             </div>
           </div>
         </div>
+
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          onClick={(event) => {
+            event.stopPropagation();
+            onExportDealers();
+          }}
+          disabled={!dealers.length}
+          className="bg-white"
+        >
+          <Download className="mr-2 h-4 w-4" />
+          Händlerliste CSV
+        </Button>
       </div>
 
       {loadingDealers ? (
