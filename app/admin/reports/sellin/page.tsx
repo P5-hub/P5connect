@@ -324,7 +324,7 @@ export default function SellinReportsPage() {
           appliedFilters.dealerId === "all"
             ? null
             : Number(appliedFilters.dealerId),
-        p_search: appliedFilters.search.trim() || null,
+        p_search: appliedFilters.search.trim() || null,       
       };
 
       const [productsResult, totalsResult] = await Promise.all([
@@ -396,6 +396,7 @@ export default function SellinReportsPage() {
             appliedFilters.dealerId === "all"
               ? null
               : Number(appliedFilters.dealerId),
+          p_search: appliedFilters.search.trim() || null,
         }
       );
 
@@ -438,6 +439,7 @@ export default function SellinReportsPage() {
             appliedFilters.mode === "all"
               ? null
               : appliedFilters.mode,
+          p_search: appliedFilters.search.trim() || null,
         }
       );
 
@@ -756,7 +758,7 @@ const exportProductsCsv = () => {
               onKeyDown={(event) => {
                 if (event.key === "Enter") applyFilters();
               }}
-              placeholder="Produkt, Artikel oder EAN"
+              placeholder="Produkt, Artikel, EAN oder Bestell-Nr."
               className="w-full rounded-md border border-gray-300 py-2 pl-9 pr-3 text-sm"
             />
           </div>
