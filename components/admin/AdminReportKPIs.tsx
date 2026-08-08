@@ -8,6 +8,36 @@ type KPI = {
   amount: number;
 };
 
+function buildSubmissionSearchFilter(searchKey: string) {
+  const value = searchKey.trim();
+
+  if (!value) return "";
+
+  const filters = [
+    `display_id.ilike.%${value}%`,
+    `dealer_name.ilike.%${value}%`,
+    `product_names.ilike.%${value}%`,
+  ];
+
+  if (/^\d+$/.test(value)) {
+    filters.push(`submission_id.eq.${Number(value)}`);
+  }
+
+  return filters.join(",");
+}
+
+function buildSalesSearchFilter(searchKey: string) {
+  const value = searchKey.trim();
+
+  if (!value) return "";
+
+  return [
+    `display_id.ilike.%${value}%`,
+    `dealer_name.ilike.%${value}%`,
+    `product_name.ilike.%${value}%`,
+  ].join(",");
+}
+
 export default function AdminReportKPIs({
   typ,
   fromDate,
@@ -44,9 +74,11 @@ export default function AdminReportKPIs({
           query = query.lte("created_at", `${toDate}T23:59:59`);
         }
         if (searchKey) {
-          query = query.or(
-            `display_id.ilike.%${searchKey}%,dealer_name.ilike.%${searchKey}%,product_name.ilike.%${searchKey}%`
-          );
+          const searchFilter = buildSalesSearchFilter(searchKey);
+
+          if (searchFilter) {
+            query = query.or(searchFilter);
+          }
         }
 
         const { data, count, error } = await query;
@@ -75,6 +107,9 @@ export default function AdminReportKPIs({
       if (typ) {
         query = query.eq("typ", typ);
       }
+      if (typ === "bestellung") {
+        query = query.eq("status", "approved");
+      }
       if (fromDate) {
         query = query.gte("created_at", `${fromDate}T00:00:00`);
       }
@@ -82,9 +117,11 @@ export default function AdminReportKPIs({
         query = query.lte("created_at", `${toDate}T23:59:59`);
       }
       if (searchKey) {
-        query = query.or(
-          `display_id.ilike.%${searchKey}%,dealer_name.ilike.%${searchKey}%,product_names.ilike.%${searchKey}%`
-        );
+        const searchFilter = buildSubmissionSearchFilter(searchKey);
+
+        if (searchFilter) {
+          query = query.or(searchFilter);
+        }
       }
 
       const { data, count, error } = await query;

@@ -886,11 +886,33 @@ export default function BestellungForm() {
   ]);
 
   const campaignGroups = useMemo(() => {
-    return [...new Set(campaignProducts.map((p) => p.gruppe).filter(Boolean))].sort();
+    return [
+      ...new Set(
+        campaignProducts
+          .map((p) => p.gruppe)
+          .filter((gruppe): gruppe is string => Boolean(gruppe))
+      ),
+    ].sort((a, b) =>
+      a.localeCompare(b, "de-CH", {
+        numeric: true,
+        sensitivity: "base",
+      })
+    );
   }, [campaignProducts]);
 
   const campaignCategories = useMemo(() => {
-    return [...new Set(campaignProducts.map((p) => p.category).filter(Boolean))].sort();
+    return [
+      ...new Set(
+        campaignProducts
+          .map((p) => p.category)
+          .filter((category): category is string => Boolean(category))
+      ),
+    ].sort((a, b) =>
+      a.localeCompare(b, "de-CH", {
+        numeric: true,
+        sensitivity: "base",
+      })
+    );
   }, [campaignProducts]);
 
   const filteredCampaignProducts = useMemo(() => {

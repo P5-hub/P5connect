@@ -143,6 +143,23 @@ function buildEmptyRow(isVerkauf: boolean) {
 
   return base;
 }
+function buildSubmissionSearchFilter(searchKey: string) {
+  const value = searchKey.trim();
+
+  if (!value) return "";
+
+  const filters = [
+    `display_id.ilike.%${value}%`,
+    `dealer_name.ilike.%${value}%`,
+    `product_names.ilike.%${value}%`,
+  ];
+
+  if (/^\d+$/.test(value)) {
+    filters.push(`submission_id.eq.${Number(value)}`);
+  }
+
+  return filters.join(",");
+}
 
 // -----------------------
 // 📤 POST Handler
@@ -164,6 +181,10 @@ export async function POST(req: NextRequest) {
       .from("v_submission_history_header")
       .select("submission_id, source, created_at, display_id")
       .eq("typ", exportType);
+    
+    if (exportType === "bestellung") {
+      headerQuery = headerQuery.eq("status", "approved");
+    }  
 
     if (from) {
       headerQuery = headerQuery.gte("created_at", `${from}T00:00:00`);
@@ -174,11 +195,12 @@ export async function POST(req: NextRequest) {
     }
 
     if (searchKey) {
-      headerQuery = headerQuery.or(
-        `display_id.ilike.%${searchKey}%,dealer_name.ilike.%${searchKey}%,product_names.ilike.%${searchKey}%`
-      );
-    }
+      const searchFilter = buildSubmissionSearchFilter(searchKey);
 
+      if (searchFilter) {
+        headerQuery = headerQuery.or(searchFilter);
+      }
+    }
     headerQuery = headerQuery.order("created_at", { ascending: false });
 
     const { data: headerRows, error: headerError } = await headerQuery;

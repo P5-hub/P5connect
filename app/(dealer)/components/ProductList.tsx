@@ -234,9 +234,30 @@ export default function ProductList<T extends { product: Product }>({
      FILTERS & SORTING
   ==================================================================== */
 
-  const gruppen = Array.from(new Set(products.map((p) => p.gruppe).filter(Boolean)));
+  const gruppen = Array.from(
+    new Set(
+      products
+        .map((p) => p.gruppe)
+        .filter((gruppe): gruppe is string => Boolean(gruppe))
+    )
+  ).sort((a, b) =>
+    a.localeCompare(b, "de-CH", {
+      numeric: true,
+      sensitivity: "base",
+    })
+  );
+  
   const categories = Array.from(
-    new Set(products.map((p) => p.category).filter(Boolean))
+    new Set(
+      products
+        .map((p) => p.category)
+        .filter((category): category is string => Boolean(category))
+    )
+  ).sort((a, b) =>
+    a.localeCompare(b, "de-CH", {
+      numeric: true,
+      sensitivity: "base",
+    })
   );
 
   const sortWithinBlock = (a: Product, b: Product) => {

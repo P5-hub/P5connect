@@ -24,6 +24,36 @@ type Row = {
   source?: string | null;
 };
 
+function buildSubmissionSearchFilter(searchKey: string) {
+  const value = searchKey.trim();
+
+  if (!value) return "";
+
+  const filters = [
+    `display_id.ilike.%${value}%`,
+    `dealer_name.ilike.%${value}%`,
+    `product_names.ilike.%${value}%`,
+  ];
+
+  if (/^\d+$/.test(value)) {
+    filters.push(`submission_id.eq.${Number(value)}`);
+  }
+
+  return filters.join(",");
+}
+
+function buildSalesSearchFilter(searchKey: string) {
+  const value = searchKey.trim();
+
+  if (!value) return "";
+
+  return [
+    `display_id.ilike.%${value}%`,
+    `product_name.ilike.%${value}%`,
+    `dealer_name.ilike.%${value}%`,
+  ].join(",");
+}
+
 const ICONS: Record<string, any> = {
   bestellung: ShoppingCart,
   verkauf: FileSpreadsheet,
@@ -218,9 +248,11 @@ export default function AdminRecentActivity({
         if (toDate) query = query.lte("created_at", `${toDate}T23:59:59`);
 
         if (searchKey) {
-          query = query.or(
-            `display_id.ilike.%${searchKey}%,product_name.ilike.%${searchKey}%,dealer_name.ilike.%${searchKey}%`
-          );
+          const searchFilter = buildSalesSearchFilter(searchKey);
+
+          if (searchFilter) {
+            query = query.or(searchFilter);
+          }
         }
 
         query = query.order("created_at", { ascending: false }).limit(250);
@@ -295,13 +327,18 @@ export default function AdminRecentActivity({
         );
 
       if (typ) query = query.eq("typ", typ);
+      if (typ === "bestellung") {
+        query = query.eq("status", "approved");
+      }
       if (fromDate) query = query.gte("created_at", `${fromDate}T00:00:00`);
       if (toDate) query = query.lte("created_at", `${toDate}T23:59:59`);
 
       if (searchKey) {
-        query = query.or(
-          `display_id.ilike.%${searchKey}%,dealer_name.ilike.%${searchKey}%,product_names.ilike.%${searchKey}%`
-        );
+        const searchFilter = buildSubmissionSearchFilter(searchKey);
+
+        if (searchFilter) {
+          query = query.or(searchFilter);
+        }
       }
 
       query = query.order("created_at", { ascending: false }).limit(50);
