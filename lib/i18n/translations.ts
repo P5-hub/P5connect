@@ -458,6 +458,7 @@ export const translationsByLang = {
         pending: "ausstehend",
         approved: "genehmigt",
         rejected: "abgelehnt",
+        cancelled: "storniert",
         unknown: "—",
       },
     },
@@ -477,6 +478,25 @@ export const translationsByLang = {
         excelTitle: "Verlauf als Excel herunterladen",
         viewAll: "Gesamten Verlauf →",
         pdfTitle: "PDF herunterladen",
+
+        cancelOrder: "Stornieren",
+        cancelling: "Wird storniert …",
+      },
+
+      orderDetails: {
+        loading: "Bestellung wird geladen …",
+        noItems: "Keine Bestellpositionen gefunden.",
+        loadError: "Die Bestelldetails konnten nicht geladen werden.",
+        total: "Total",
+      },
+
+      cancel: {
+        confirm:
+          "Möchtest du die Bestellung {id} wirklich stornieren? Diese Aktion kann nicht rückgängig gemacht werden.",
+        success: "Die Bestellung wurde storniert.",
+        error: "Die Bestellung konnte nicht storniert werden.",
+        alreadyProcessed:
+          "Die Bestellung kann nicht mehr storniert werden. Ihr Status wurde zwischenzeitlich geändert.",
       },
 
       empty: "Keine Einträge gefunden.",
@@ -812,6 +832,7 @@ export const translationsByLang = {
         pending: "pending",
         approved: "approved",
         rejected: "rejected",
+        cancelled: "cancelled",
         unknown: "—",
       },
     },
@@ -831,6 +852,25 @@ export const translationsByLang = {
         excelTitle: "Download history as Excel",
         viewAll: "View full history →",
         pdfTitle: "Download PDF",
+
+        cancelOrder: "Cancel",
+        cancelling: "Cancelling …",
+      },
+
+      orderDetails: {
+        loading: "Loading order …",
+        noItems: "No order items found.",
+        loadError: "The order details could not be loaded.",
+        total: "Total",
+      },
+
+      cancel: {
+        confirm:
+          "Do you really want to cancel order {id}? This action cannot be undone.",
+        success: "The order has been cancelled.",
+        error: "The order could not be cancelled.",
+        alreadyProcessed:
+          "The order can no longer be cancelled because its status has already changed.",
       },
 
       empty: "No entries found.",
@@ -1173,6 +1213,7 @@ export const translationsByLang = {
         pending: "en attente",
         approved: "approuvé",
         rejected: "refusé",
+        cancelled: "annulée",
         unknown: "—",
       },
     },
@@ -1192,6 +1233,25 @@ export const translationsByLang = {
         excelTitle: "Télécharger l’historique en Excel",
         viewAll: "Voir l’historique complet →",
         pdfTitle: "Télécharger le PDF",
+
+        cancelOrder: "Annuler",
+        cancelling: "Annulation …",
+      },
+
+      orderDetails: {
+        loading: "Chargement de la commande …",
+        noItems: "Aucun article trouvé dans la commande.",
+        loadError: "Les détails de la commande n'ont pas pu être chargés.",
+        total: "Total",
+      },
+
+      cancel: {
+        confirm:
+          "Voulez-vous vraiment annuler la commande {id} ? Cette action est irréversible.",
+        success: "La commande a été annulée.",
+        error: "La commande n'a pas pu être annulée.",
+        alreadyProcessed:
+          "La commande ne peut plus être annulée car son statut a déjà été modifié.",
       },
 
       empty: "Aucune entrée trouvée.",
@@ -1530,6 +1590,7 @@ export const translationsByLang = {
         pending: "in sospeso",
         approved: "approvato",
         rejected: "rifiutato",
+        cancelled: "annullato",
         unknown: "—",
       },
     },
@@ -1549,6 +1610,25 @@ export const translationsByLang = {
         excelTitle: "Scarica lo storico in Excel",
         viewAll: "Visualizza lo storico completo →",
         pdfTitle: "Scarica PDF",
+
+        cancelOrder: "Annulla",
+        cancelling: "Annullamento …",
+      },
+
+      orderDetails: {
+        loading: "Caricamento dell'ordine …",
+        noItems: "Nessun articolo trovato nell'ordine.",
+        loadError: "Impossibile caricare i dettagli dell'ordine.",
+        total: "Totale",
+      },
+
+      cancel: {
+        confirm:
+          "Vuoi davvero annullare l'ordine {id}? Questa operazione non può essere annullata.",
+        success: "L'ordine è stato annullato.",
+        error: "Impossibile annullare l'ordine.",
+        alreadyProcessed:
+          "L'ordine non può più essere annullato perché il suo stato è già stato modificato.",
       },
 
       empty: "Nessuna voce trovata.",
@@ -1892,6 +1972,7 @@ export const translationsByLang = {
         pending: "pendenta",
         approved: "approvada",
         rejected: "refusada",
+        cancelled: "annullada",
         unknown: "—",
       },
     },
@@ -1911,8 +1992,25 @@ export const translationsByLang = {
         excelTitle: "Telechargiar l’istorgia sco Excel",
         viewAll: "Veser l’istorgia cumpletta →",
         pdfTitle: "Telechargiar PDF",
+
+        cancelOrder: "Annullar",
+        cancelling: "Vegn annullà …",
+      },
+      orderDetails: {
+        loading: "L'empustaziun vegn chargiada …",
+        noItems: "Naginas posiziuns d'empustaziun chattadas.",
+        loadError: "Ils detagls da l'empustaziun n'han betg pudì vegnir chargiads.",
+        total: "Total",
       },
 
+      cancel: {
+        confirm:
+          "Vuls ti propi annullar l'empustaziun {id}? Questa acziun na po betg vegnir revocada.",
+        success: "L'empustaziun è vegnida annullada.",
+        error: "L'empustaziun n'ha betg pudì vegnir annullada.",
+        alreadyProcessed:
+          "L'empustaziun na po betg pli vegnir annullada, perquai che ses status è gia vegnì midà.",
+      },
       empty: "Naginas entradas chattadas.",
       loadingDetails: "Chargiar detagls…",
       noDetails: "Nagins detagls chattads.",

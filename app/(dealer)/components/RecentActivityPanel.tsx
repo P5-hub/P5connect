@@ -3,7 +3,15 @@
 import { useEffect, useMemo, useState } from "react";
 import { getSupabaseBrowser } from "@/lib/supabaseClient";
 import { useTheme } from "@/lib/theme/ThemeContext";
-import { FileSpreadsheet, Loader2, FileText, ChevronRight } from "lucide-react";
+import {
+  FileSpreadsheet,
+  Loader2,
+  FileText,
+  ChevronRight,
+  ChevronDown,
+  ChevronUp,
+  XCircle,
+} from "lucide-react";
 import { usePathname } from "next/navigation";
 import type { FormType } from "@/types/formTypes";
 import Link from "next/link";
@@ -43,6 +51,19 @@ type Row = {
   created_at: string;
   project_id?: string | null;
   project_name?: string | null;
+};
+
+type OrderItemRow = {
+  item_id: number;
+  submission_id: number;
+  product_id: number | null;
+  product_name: string | null;
+  sony_article: string | null;
+  ean: string | null;
+  menge: number | null;
+  preis: number | null;
+  pricing_mode: string | null;
+  is_display_item: boolean | null;
 };
 
 type ProjectLogRow = {
@@ -103,6 +124,14 @@ export default function RecentActivityPanel({
   const [loading, setLoading] = useState(true);
   const [downloading, setDownloading] = useState(false);
   const [highlightedId, setHighlightedId] = useState<string | null>(null);
+  const [expandedOrderId, setExpandedOrderId] = useState<string | null>(null);
+
+  const [orderItems, setOrderItems] = useState<
+    Record<string, OrderItemRow[]>
+  >({});
+
+  const [loadingOrderId, setLoadingOrderId] = useState<string | null>(null);
+  const [cancellingOrderId, setCancellingOrderId] = useState<string | null>(null);
 
   const [latestProjectActions, setLatestProjectActions] = useState<Record<string, string>>({});
   const [latestSubmissionActions, setLatestSubmissionActions] = useState<Record<string, string>>(
@@ -330,6 +359,12 @@ export default function RecentActivityPanel({
       minute: "2-digit",
     });
 
+  const fmtMoney = (value: number | null | undefined) =>
+    Number(value ?? 0).toLocaleString("de-CH", {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    });
+
   function highlightClass(row: Row) {
     if (highlightedId !== row.submission_id) return "";
 
@@ -387,6 +422,125 @@ export default function RecentActivityPanel({
 
     return t(`activity.status.${row.status ?? "unknown"}`);
   }
+
+  async function toggleOrderDetails(row: Row) {
+    if (row.typ !== "bestellung") return;
+
+    const id = String(row.submission_id);
+
+    if (expandedOrderId === id) {
+      setExpandedOrderId(null);
+      return;
+    }
+
+    setExpandedOrderId(id);
+
+    // Bereits geladen → nicht noch einmal Supabase abfragen
+    if (orderItems[id]) {
+      return;
+    }
+
+    try {
+      setLoadingOrderId(id);
+
+      const { data, error } = await supabase
+        .from("submission_items")
+        .select(`
+          item_id,
+          submission_id,
+          product_id,
+          product_name,
+          sony_article,
+          ean,
+          menge,
+          preis,
+          pricing_mode,
+          is_display_item
+        `)
+        .eq("submission_id", Number(row.submission_id))
+        .order("item_id", { ascending: true });
+
+      if (error) {
+        console.error("❌ Bestellpositionen konnten nicht geladen werden:", error);
+        alert(t("history.orderDetails.loadError"));
+        return;
+      }
+
+      setOrderItems((prev) => ({
+        ...prev,
+        [id]: (data ?? []) as OrderItemRow[],
+      }));
+    } catch (error) {
+      console.error("❌ Fehler beim Laden der Bestellung:", error);
+      alert(t("history.orderDetails.loadError"));
+    } finally {
+      setLoadingOrderId(null);
+    }
+  }
+
+  async function cancelOrder(row: Row) {
+  if (row.typ !== "bestellung") return;
+  if (row.status !== "pending") return;
+
+  const id = String(row.submission_id);
+  const displayId = `${prefixMap[row.typ]}-${row.submission_id}`;
+
+  const confirmed = window.confirm(
+    t("history.cancel.confirm", {
+      id: displayId,
+    })
+  );
+
+  if (!confirmed) return;
+
+  try {
+    setCancellingOrderId(id);
+
+    const { data, error } = await supabase
+      .from("submissions")
+      .update({
+        status: "cancelled",
+      })
+      .eq("submission_id", Number(row.submission_id))
+      .eq("dealer_id", dealerId)
+      .eq("typ", "bestellung")
+      .eq("status", "pending")
+      .select("submission_id, status")
+      .maybeSingle();
+
+    if (error) {
+      console.error("❌ Bestellung konnte nicht storniert werden:", error);
+      alert(t("history.cancel.error"));
+      return;
+    }
+
+    // Kein Datensatz wurde geändert:
+    // zwischenzeitlich z.B. bereits genehmigt
+    if (!data) {
+      alert(t("history.cancel.alreadyProcessed"));
+      await loadData();
+      return;
+    }
+
+    setRows((prev) =>
+      prev.map((existingRow) =>
+        String(existingRow.submission_id) === id
+          ? {
+              ...existingRow,
+              status: "cancelled",
+            }
+          : existingRow
+      )
+    );
+
+    alert(t("history.cancel.success"));
+  } catch (error) {
+    console.error("❌ Fehler bei der Stornierung:", error);
+    alert(t("history.cancel.error"));
+  } finally {
+    setCancellingOrderId(null);
+  }
+}
 
   async function downloadPdf(id: string) {
     const route = pdfRoutes[formType];
@@ -534,14 +688,36 @@ export default function RecentActivityPanel({
         <ul className="space-y-1.5">
           {visible.map((r) => {
             const id = `${prefixMap[r.typ]}-${r.submission_id}`;
+            const rowId = String(r.submission_id);
+
+            const isOrder = r.typ === "bestellung";
+            const isExpanded = expandedOrderId === rowId;
+            const isLoadingDetails = loadingOrderId === rowId;
+            const isCancelling = cancellingOrderId === rowId;
+
+            const items = orderItems[rowId] ?? [];
+
+            const orderTotal = items.reduce((sum, item) => {
+              return (
+                sum +
+                Number(item.menge ?? 0) *
+                  Number(item.preis ?? 0)
+              );
+            }, 0);
 
             return (
               <li
                 key={r.submission_id}
-                className={`relative rounded-lg border-l-4 ${theme.border} p-2 ${highlightClass(r)}`}
+                className={`relative rounded-lg border-l-4 ${theme.border} p-2 ${highlightClass(
+                  r
+                )}`}
               >
-                <div className="flex items-center justify-between text-[13px]">
-                  <div>
+                <div className="flex items-start justify-between gap-3 text-[13px]">
+                  <div className="min-w-0 flex-1">
+                    {/* ---------------------------------------------------------
+                        BESTELLUNG / PROJEKT NUMMER
+                    --------------------------------------------------------- */}
+
                     {r.typ === "projekt" && r.project_id ? (
                       <Link
                         href={`/projekt-bestellung/${r.project_id}?dealer_id=${r.dealer_id}`}
@@ -549,15 +725,38 @@ export default function RecentActivityPanel({
                         title={r.project_name ?? `Projekt ${id}`}
                       >
                         <span className="shrink-0">#{id}</span>
+
                         <span className="truncate text-gray-800">
                           – {r.project_name || "Projekt"}
                         </span>
                       </Link>
+                    ) : isOrder ? (
+                      <button
+                        type="button"
+                        onClick={() => toggleOrderDetails(r)}
+                        className="inline-flex items-center gap-1 font-semibold text-sm text-slate-800 hover:text-blue-700 hover:underline"
+                        aria-expanded={isExpanded}
+                      >
+                        <span>#{id}</span>
+
+                        {isExpanded ? (
+                          <ChevronUp className="h-3.5 w-3.5" />
+                        ) : (
+                          <ChevronDown className="h-3.5 w-3.5" />
+                        )}
+                      </button>
                     ) : (
                       <span className="font-semibold text-sm">#{id}</span>
                     )}
 
-                    <span className="text-gray-500"> • {fmtDate(r.created_at)}</span>
+                    <span className="text-gray-500">
+                      {" "}
+                      • {fmtDate(r.created_at)}
+                    </span>
+
+                    {/* ---------------------------------------------------------
+                        STATUS + AKTIONEN
+                    --------------------------------------------------------- */}
 
                     <div className="flex items-center gap-2 ml-2 mt-1 flex-wrap">
                       <StatusBadge
@@ -565,27 +764,142 @@ export default function RecentActivityPanel({
                         label={getDisplayLabel(r)}
                       />
 
-                      {r.typ === "projekt" && r.status === "approved" && r.project_id && (
+                      {r.typ === "projekt" &&
+                        r.status === "approved" &&
+                        r.project_id && (
+                          <button
+                            onClick={() => startFromProject(r.project_id!)}
+                            className="px-2 py-0.5 rounded border border-purple-300 text-purple-700 text-xs hover:bg-purple-50"
+                          >
+                            {t("checkout.page.title")}
+                          </button>
+                        )}
+
+                      {/* STORNIEREN NUR SOLANGE OFFEN */}
+                      {isOrder && r.status === "pending" && (
                         <button
-                          onClick={() => startFromProject(r.project_id!)}
-                          className="px-2 py-0.5 rounded border border-purple-300 text-purple-700 text-xs hover:bg-purple-50"
+                          type="button"
+                          onClick={() => cancelOrder(r)}
+                          disabled={isCancelling}
+                          className="inline-flex items-center gap-1 rounded border border-red-200 px-2 py-0.5 text-xs text-red-700 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50"
                         >
-                          {t("checkout.page.title")}
+                          {isCancelling ? (
+                            <Loader2 className="h-3 w-3 animate-spin" />
+                          ) : (
+                            <XCircle className="h-3 w-3" />
+                          )}
+
+                          {isCancelling
+                            ? t("history.actions.cancelling")
+                            : t("history.actions.cancelOrder")}
                         </button>
                       )}
                     </div>
                   </div>
 
+                  {/* ---------------------------------------------------------
+                      PDF
+                  --------------------------------------------------------- */}
+
                   {r.status !== "csv" && pdfRoutes[r.typ] && (
                     <button
+                      type="button"
                       onClick={() => downloadPdf(r.submission_id)}
-                      className={`inline-flex items-center gap-1 text-xs px-2 py-1 border rounded hover:bg-gray-50 ${theme.color}`}
+                      className={`inline-flex shrink-0 items-center gap-1 text-xs px-2 py-1 border rounded hover:bg-gray-50 ${theme.color}`}
                     >
                       <FileText className="w-3.5 h-3.5" />
                       {t("history.actions.pdfTitle")}
                     </button>
                   )}
                 </div>
+
+                {/* =========================================================
+                    AUFKLAPPBARE BESTELLDETAILS
+                ========================================================= */}
+
+                {isOrder && isExpanded && (
+                  <div className="mt-3 border-t border-slate-200 pt-3">
+                    {isLoadingDetails ? (
+                      <div className="flex items-center gap-2 py-3 text-xs text-slate-500">
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                        {t("history.orderDetails.loading")}
+                      </div>
+                    ) : items.length === 0 ? (
+                      <div className="py-2 text-xs text-slate-500">
+                        {t("history.orderDetails.noItems")}
+                      </div>
+                    ) : (
+                      <>
+                        <div className="space-y-2">
+                          {items.map((item) => {
+                            const quantity = Number(item.menge ?? 0);
+                            const unitPrice = Number(item.preis ?? 0);
+                            const lineTotal = quantity * unitPrice;
+
+                            const article =
+                              item.sony_article ||
+                              item.product_name ||
+                              item.ean ||
+                              "-";
+
+                            const description =
+                              item.product_name &&
+                              item.product_name !== article
+                                ? item.product_name
+                                : null;
+
+                            return (
+                              <div
+                                key={item.item_id}
+                                className="rounded-md bg-slate-50 px-2.5 py-2"
+                              >
+                                <div className="flex items-start justify-between gap-3">
+                                  <div className="min-w-0">
+                                    <div className="font-semibold text-xs text-slate-800">
+                                      {article}
+                                    </div>
+
+                                    {description && (
+                                      <div className="mt-0.5 truncate text-[11px] text-slate-500">
+                                        {description}
+                                      </div>
+                                    )}
+
+                                    {item.pricing_mode && (
+                                      <div className="mt-1 text-[10px] uppercase tracking-wide text-slate-400">
+                                        {item.pricing_mode}
+                                      </div>
+                                    )}
+                                  </div>
+
+                                  <div className="shrink-0 text-right">
+                                    <div className="text-xs text-slate-600">
+                                      {quantity} × {fmtMoney(unitPrice)} CHF
+                                    </div>
+
+                                    <div className="mt-0.5 text-xs font-semibold text-slate-900">
+                                      {fmtMoney(lineTotal)} CHF
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+
+                        <div className="mt-3 flex items-center justify-between border-t border-slate-200 pt-2">
+                          <span className="text-xs font-semibold text-slate-600">
+                            {t("history.orderDetails.total")}
+                          </span>
+
+                          <span className="text-sm font-bold text-slate-900">
+                            {fmtMoney(orderTotal)} CHF
+                          </span>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                )}
               </li>
             );
           })}

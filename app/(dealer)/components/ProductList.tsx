@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { ComponentType } from "react";
 import { createClient } from "@/utils/supabase/client";
 import { Product } from "@/types/Product";
@@ -68,12 +68,16 @@ export default function ProductList<T extends { product: Product }>({
   customProducts,
 }: ProductListProps<T>) {
   const { t } = useI18n();
-  const supabase = createClient();
+
+  const supabase = useMemo(() => createClient(), []);
 
   const dealer = useDealer();
   const effectiveDealerId = dealer?.dealer_id ?? null;
 
   const effectiveSupportType = supportType ?? "sellout";
+  const hasCustomProducts = Boolean(customProducts?.length);
+
+  
 
   /* Lokale States */
   const [products, setProducts] = useState<Product[]>([]);
@@ -87,44 +91,29 @@ export default function ProductList<T extends { product: Product }>({
   const [openGruppe, setOpenGruppe] = useState(false);
   const [openCategory, setOpenCategory] = useState(false);
 
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
   /* CSV Upload */
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  /* ====================================================================
-     1) CUSTOM PRODUCTS (z. B. Aktionen)
-  ==================================================================== */
 
-  if (customProducts?.length) {
-    return (
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
-        {customProducts.map((p, i) => (
-          <CardComponent key={i} {...({ product: p, ...cardProps } as T)} />
-        ))}
-      </div>
-    );
-  }
 
   /* ====================================================================
-     2) SUPPORT MODE → Spezialkarte
-  ==================================================================== */
-
-  if (effectiveSupportType !== "sellout") {
-    return (
-      <div className="max-w-lg">
-        <ProductCardSupportCost
-          onAddToCart={(cardProps as any)?.onAddToCart ?? (() => {})}
-        />
-      </div>
-    );
-  }
-
-  /* ====================================================================
-     3) SUPABASE PRODUKTE LADEN
+     SUPABASE PRODUKTE LADEN
   ==================================================================== */
 
   useEffect(() => {
     const load = async () => {
+      if (hasCustomProducts || effectiveSupportType !== "sellout") {
+        setLoading(false);
+        return;
+      }
+
       setLoading(true);
 
       if (!effectiveDealerId) {
@@ -198,11 +187,43 @@ export default function ProductList<T extends { product: Product }>({
 
     load();
   }, [
+    hasCustomProducts,
     effectiveSupportType,
     sofortrabattOnly,
     supabase,
     effectiveDealerId,
   ]);
+
+    /* ====================================================================
+     CUSTOM PRODUCTS (z. B. Aktionen)
+  ==================================================================== */
+
+  if (customProducts?.length) {
+    return (
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
+        {customProducts.map((p, i) => (
+          <CardComponent
+            key={p.product_id ?? i}
+            {...({ product: p, ...cardProps } as T)}
+          />
+        ))}
+      </div>
+    );
+  }
+
+  /* ====================================================================
+     SUPPORT MODE → Spezialkarte
+  ==================================================================== */
+
+  if (effectiveSupportType !== "sellout") {
+    return (
+      <div className="max-w-lg">
+        <ProductCardSupportCost
+          onAddToCart={(cardProps as any)?.onAddToCart ?? (() => {})}
+        />
+      </div>
+    );
+  }
 
   /* ====================================================================
      CSV IMPORT
@@ -246,7 +267,7 @@ export default function ProductList<T extends { product: Product }>({
       sensitivity: "base",
     })
   );
-  
+
   const categories = Array.from(
     new Set(
       products
@@ -309,60 +330,119 @@ export default function ProductList<T extends { product: Product }>({
           className="max-w-xs"
         />
 
-        <Popover open={openGruppe} onOpenChange={setOpenGruppe}>
-          <PopoverTrigger asChild>
-            <Button variant="outline" className="w-[180px] justify-between">
-              {gruppe || t("product.groups.all")}
-              <ChevronsUpDown className="h-4 w-4 opacity-50" />
-            </Button>
-          </PopoverTrigger>
-          <PopoverContent className="w-[180px] p-0">
-            <Command>
-              <CommandInput placeholder={t("product.groups.search")} />
-              <CommandList>
-                <CommandEmpty>{t("product.groups.empty")}</CommandEmpty>
-                <CommandGroup>
-                  <CommandItem onSelect={() => setGruppe(null)}>
-                    {t("product.groups.all")}
-                  </CommandItem>
+        {mounted ? (
+          <Popover open={openGruppe} onOpenChange={setOpenGruppe}>
+            <PopoverTrigger asChild>
+              <Button
+                variant="outline"
+                className="w-[180px] justify-between"
+              >
+                {gruppe || t("product.groups.all")}
+                <ChevronsUpDown className="h-4 w-4 opacity-50" />
+              </Button>
+            </PopoverTrigger>
 
-                  {gruppen.map((g) => (
-                    <CommandItem key={g} onSelect={() => setGruppe(g)}>
-                      {g}
-                    </CommandItem>
-                  ))}
-                </CommandGroup>
-              </CommandList>
-            </Command>
-          </PopoverContent>
-        </Popover>
+            <PopoverContent className="w-[180px] p-0">
+              <Command>
+                <CommandInput placeholder={t("product.groups.search")} />
 
-        <Popover open={openCategory} onOpenChange={setOpenCategory}>
-          <PopoverTrigger asChild>
-            <Button variant="outline" className="w-[180px] justify-between">
-              {category || t("product.categories.all")}
-              <ChevronsUpDown className="h-4 w-4 opacity-50" />
-            </Button>
-          </PopoverTrigger>
-          <PopoverContent className="w-[180px] p-0">
-            <Command>
-              <CommandInput placeholder={t("product.categories.search")} />
-              <CommandList>
-                <CommandEmpty>{t("product.categories.empty")}</CommandEmpty>
-                <CommandGroup>
-                  <CommandItem onSelect={() => setCategory(null)}>
-                    {t("product.categories.all")}
-                  </CommandItem>
-                  {categories.map((c) => (
-                    <CommandItem key={c} onSelect={() => setCategory(c)}>
-                      {c}
+                <CommandList>
+                  <CommandEmpty>{t("product.groups.empty")}</CommandEmpty>
+
+                  <CommandGroup>
+                    <CommandItem
+                      onSelect={() => {
+                        setGruppe(null);
+                        setOpenGruppe(false);
+                      }}
+                    >
+                      {t("product.groups.all")}
                     </CommandItem>
-                  ))}
-                </CommandGroup>
-              </CommandList>
-            </Command>
-          </PopoverContent>
-        </Popover>
+
+                    {gruppen.map((g) => (
+                      <CommandItem
+                        key={g}
+                        value={g}
+                        onSelect={() => {
+                          setGruppe(g);
+                          setOpenGruppe(false);
+                        }}
+                      >
+                        {g}
+                      </CommandItem>
+                    ))}
+                  </CommandGroup>
+                </CommandList>
+              </Command>
+            </PopoverContent>
+          </Popover>
+        ) : (
+          <Button
+            variant="outline"
+            className="w-[180px] justify-between"
+            disabled
+          >
+            {t("product.groups.all")}
+            <ChevronsUpDown className="h-4 w-4 opacity-50" />
+          </Button>
+        )}
+
+        {mounted ? (
+          <Popover open={openCategory} onOpenChange={setOpenCategory}>
+            <PopoverTrigger asChild>
+              <Button
+                variant="outline"
+                className="w-[180px] justify-between"
+              >
+                {category || t("product.categories.all")}
+                <ChevronsUpDown className="h-4 w-4 opacity-50" />
+              </Button>
+            </PopoverTrigger>
+
+            <PopoverContent className="w-[180px] p-0">
+              <Command>
+                <CommandInput placeholder={t("product.categories.search")} />
+
+                <CommandList>
+                  <CommandEmpty>{t("product.categories.empty")}</CommandEmpty>
+
+                  <CommandGroup>
+                    <CommandItem
+                      onSelect={() => {
+                        setCategory(null);
+                        setOpenCategory(false);
+                      }}
+                    >
+                      {t("product.categories.all")}
+                    </CommandItem>
+
+                    {categories.map((c) => (
+                      <CommandItem
+                        key={c}
+                        value={c}
+                        onSelect={() => {
+                          setCategory(c);
+                          setOpenCategory(false);
+                        }}
+                      >
+                        {c}
+                      </CommandItem>
+                    ))}
+                  </CommandGroup>
+                </CommandList>
+              </Command>
+            </PopoverContent>
+          </Popover>
+        ) : (
+          <Button
+            variant="outline"
+            className="w-[180px] justify-between"
+            disabled
+          >
+            {t("product.categories.all")}
+            <ChevronsUpDown className="h-4 w-4 opacity-50" />
+          </Button>
+        )}
 
         <Button
           variant="outline"
