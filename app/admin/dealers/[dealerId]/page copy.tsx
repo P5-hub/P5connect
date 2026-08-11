@@ -6,7 +6,6 @@ import { useParams, useRouter } from "next/navigation";
 import { createClient } from "@/utils/supabase/client";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import DealerApiFeedCard from "@/components/admin/dealers/DealerApiFeedCard";
 import { Input } from "@/components/ui/input";
 import {
   ArrowLeft,
@@ -775,13 +774,7 @@ export default function AdminDealerDetailPage() {
 
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<
-    | "overview"
-    | "contacts"
-    | "visits"
-    | "tasks"
-    | "displays"
-    | "api"
-    | "masterdata"
+    "overview" | "contacts" | "visits" | "tasks" | "displays" | "masterdata"
   >("overview");
   const [savingMain, setSavingMain] = useState(false);
   const [addingTask, setAddingTask] = useState(false);
@@ -1585,7 +1578,6 @@ export default function AdminDealerDetailPage() {
     { key: "visits", label: "Besuchsberichte" },
     { key: "tasks", label: "Tasks" },
     { key: "displays", label: "Displays" },
-    { key: "api", label: "API Feed" },
     { key: "masterdata", label: "Stammdaten" },
   ] as const;
 
@@ -2341,9 +2333,6 @@ export default function AdminDealerDetailPage() {
           <Card className="rounded-2xl border border-gray-200 p-5"><SectionHeader icon={<MonitorSmartphone className="h-5 w-5 text-sky-600" />} title="Display-Tracker" subtitle="Gehört zum Kundenbesuch: prüfen, ergänzen und Status aktualisieren." /><div className="grid grid-cols-1 gap-4 xl:grid-cols-[1.4fr_120px_180px_1fr_auto]"><div><FieldLabel>Produkt</FieldLabel><Input value={displayForm.product_name_snapshot} onChange={(e) => setDisplayForm((prev) => ({ ...prev, product_name_snapshot: e.target.value }))} placeholder="z. B. XR-65A95L" /></div><div><FieldLabel>Menge</FieldLabel><Input value={displayForm.ordered_qty} onChange={(e) => setDisplayForm((prev) => ({ ...prev, ordered_qty: e.target.value }))} /></div><div><FieldLabel>Im Laden ausgestellt?</FieldLabel><select value={displayForm.is_displayed} onChange={(e) => setDisplayForm((prev) => ({ ...prev, is_displayed: e.target.value as "yes" | "no" | "unknown" }))} className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500"><option value="yes">Ja</option><option value="no">Nein</option><option value="unknown">Unklar</option></select></div><div><FieldLabel>Bemerkung</FieldLabel><Input value={displayForm.note} onChange={(e) => setDisplayForm((prev) => ({ ...prev, note: e.target.value }))} placeholder="z. B. noch im Lager" /></div><div className="flex items-end"><Button type="button" onClick={addDisplayItem} disabled={addingDisplayItem}>{addingDisplayItem ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Plus className="mr-2 h-4 w-4" />}Hinzufügen</Button></div></div><div className="mt-5 overflow-x-auto">{displayItems.length === 0 ? <p className="text-sm text-gray-500">Noch keine Display-Produkte erfasst.</p> : <table className="min-w-full border-separate border-spacing-y-2"><thead><tr className="text-left text-xs uppercase tracking-wide text-gray-500"><th className="px-3 py-2">Produkt</th><th className="px-3 py-2">Menge</th><th className="px-3 py-2">Status</th><th className="px-3 py-2">Geprüft am</th><th className="px-3 py-2">Bemerkung</th><th className="px-3 py-2">Aktion</th></tr></thead><tbody>{displayItems.map((item) => <tr key={item.display_item_id} className="rounded-2xl bg-gray-50 text-sm text-gray-700"><td className="px-3 py-3 font-medium text-gray-900">{item.product_name_snapshot}</td><td className="px-3 py-3">{item.ordered_qty ?? "-"}</td><td className="px-3 py-3">{item.status === "ordered" ? "Bestellt" : item.status === "displayed" ? "Ausgestellt" : item.status === "not_displayed" ? "Nicht ausgestellt" : item.status === "sold_off" ? "Abverkauft" : item.status === "removed" ? "Entfernt" : "-"}</td><td className="px-3 py-3">{formatDate(item.display_checked_at)}</td><td className="px-3 py-3">{item.note || "-"}</td><td className="px-3 py-3"><div className="flex flex-wrap gap-2"><Button type="button" size="sm" className="bg-green-600 hover:bg-green-700" onClick={() => updateDisplayStatus(item.display_item_id, "displayed")}>Ausgestellt</Button><Button type="button" size="sm" variant="outline" onClick={() => updateDisplayStatus(item.display_item_id, "not_displayed")}>Nicht ausgestellt</Button><Button type="button" size="sm" variant="outline" onClick={() => updateDisplayStatus(item.display_item_id, "sold_off")}>Abverkauft</Button><Button type="button" size="sm" variant="outline" onClick={() => updateDisplayStatus(item.display_item_id, "removed")}>Entfernt</Button><Button type="button" size="sm" variant="outline" onClick={() => updateDisplayStatus(item.display_item_id, "ordered")}>Reset</Button></div></td></tr>)}</tbody></table>}</div></Card>
 
         </>
-      )}
-      {activeTab === "api" && (
-        <DealerApiFeedCard dealerId={dealerId} />
       )}
       {activeTab === "masterdata" && (
         <>
