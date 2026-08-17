@@ -15,6 +15,8 @@ type ValidImportRow = {
   product_id: number;
   pricing_group_id: number;
   dealer_invoice_price: number | null;
+  everyday_upe: number | null;
+  promo_upe: number | null;
   price_on_invoice: number | null;
   toppreise_allowed: boolean | null;
   active: boolean;
@@ -242,6 +244,23 @@ export async function POST(req: NextRequest) {
           "preis",
         ])
       );
+      const everyday_upe = parseNumber(
+        pick(row, [
+          "everyday_upe",
+          "everydayupe",
+          "everyday_streetprice",
+          "everyday_street_price",
+        ])
+      );
+
+      const promo_upe = parseNumber(
+        pick(row, [
+          "promo_upe",
+          "promoupe",
+          "promo_streetprice",
+          "promo_street_price",
+        ])
+      );
 
       const price_on_invoice = parseNumber(
         pick(row, [
@@ -271,7 +290,12 @@ export async function POST(req: NextRequest) {
         continue;
       }
 
-      if (dealer_invoice_price === null && price_on_invoice === null) {
+      if (
+        dealer_invoice_price === null &&
+        everyday_upe === null &&
+        promo_upe === null &&
+        price_on_invoice === null
+      ) {
         errorRows++;
         continue;
       }
@@ -306,6 +330,8 @@ export async function POST(req: NextRequest) {
         product_id: matchedProduct.product_id,
         pricing_group_id,
         dealer_invoice_price,
+        everyday_upe,
+        promo_upe,
         price_on_invoice,
         toppreise_allowed,
         active: true,
@@ -318,11 +344,20 @@ export async function POST(req: NextRequest) {
     const productIds = validRows.map((row) => row.product_id);
 
     let existingProductIds = new Set<number>();
+    const existingRowsByProductId = new Map<number, any>();
 
     if (productIds.length > 0) {
       const { data: existingRows, error: existingError } = await supabaseAdmin
         .from("standard_product_group_prices")
-        .select("product_id")
+        .select(`
+          product_id,
+          dealer_invoice_price,
+          everyday_upe,
+          promo_upe,
+          price_on_invoice,
+          toppreise_allowed,
+          note
+        `)
         .eq("pricing_group_id", pricing_group_id)
         .in("product_id", productIds);
 
@@ -335,10 +370,43 @@ export async function POST(req: NextRequest) {
         );
       }
 
-      existingProductIds = new Set(
-        (existingRows || []).map((row: any) => Number(row.product_id))
-      );
+      for (const row of existingRows || []) {
+        const productId = Number(row.product_id);
+
+        existingProductIds.add(productId);
+        existingRowsByProductId.set(productId, row);
+      }
     }
+
+    const rowsForUpsert = validRows.map((row) => {
+      const existing = existingRowsByProductId.get(row.product_id);
+
+      if (!existing) {
+        return row;
+      }
+
+      return {
+        ...row,
+
+        dealer_invoice_price:
+          row.dealer_invoice_price ?? existing.dealer_invoice_price,
+
+        everyday_upe:
+          row.everyday_upe ?? existing.everyday_upe,
+
+        promo_upe:
+          row.promo_upe ?? existing.promo_upe,  
+
+        price_on_invoice:
+          row.price_on_invoice ?? existing.price_on_invoice,
+
+        toppreise_allowed:
+          row.toppreise_allowed ?? existing.toppreise_allowed,
+
+        note:
+          row.note ?? existing.note,
+      };
+    });
 
     const updatedRows = validRows.filter((row) =>
       existingProductIds.has(row.product_id)
@@ -349,7 +417,7 @@ export async function POST(req: NextRequest) {
     if (!dry_run && validRows.length > 0) {
       const { error: upsertError } = await supabaseAdmin
         .from("standard_product_group_prices")
-        .upsert(validRows, {
+        .upsert(rowsForUpsert, {
           onConflict: "product_id,pricing_group_id",
         });
 

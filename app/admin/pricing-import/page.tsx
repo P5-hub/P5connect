@@ -33,10 +33,12 @@ type PreviewRow = {
     product_name: string | null;
 
     dealer_invoice_price?: number | null;
+    everyday_upe?: number | null;
     price_on_invoice?: number | null;
     toppreise_allowed?: boolean | null;
 
     messe_price_netto?: number | null;
+    promo_upe?: number | null;
     display_price_netto?: number | null;
     display_discount_percent?: number | null;
 
@@ -113,23 +115,26 @@ export default function PricingImportPage() {
             templateMode === "standard"
                 ? [
                     [
-                        "EAN",
-                        "Sony Article",
-                        "Dealer Invoice Price",
-                        "Price On Invoice",
-                        "Toppreise Allowed",
-                        "Note",
-                    ],
+                    "EAN",
+                    "Sony Article",
+                    "Dealer Invoice Price",
+                    "Everyday UPE",
+                    "Promo UPE",
+                    "Price On Invoice",
+                    "Toppreise Allowed",
+                    "Note",
+                    ]
                 ]
                 : [
                     [
-                        "EAN",
-                        "Sony Article",
-                        "Messe Price Netto",
-                        "Display Price Netto",
-                        "Display Discount Percent",
-                        "Note",
-                    ],
+                    "EAN",
+                    "Sony Article",
+                    "Messe Price Netto",
+                    "Promo UPE",
+                    "Display Price Netto",
+                    "Display Discount Percent",
+                    "Note",
+                    ]
                 ];
 
         const worksheet = XLSX.utils.aoa_to_sheet(headers);
@@ -480,17 +485,19 @@ export default function PricingImportPage() {
                 <div className="mt-4 flex flex-col gap-2 rounded-lg bg-gray-50 p-3 text-xs text-gray-600 md:flex-row md:items-center md:justify-between">
                     <div>
                         {mode === "standard" ? (
-                            <>
-                                Standard-Spalten: <b>EAN</b>, <b>Sony Article</b>,{" "}
-                                <b>Dealer Invoice Price</b>, <b>Price On Invoice</b>,{" "}
-                                <b>Toppreise Allowed</b>, <b>Note</b>.
-                            </>
+                        <>
+                            Standard-Spalten: <b>EAN</b>, <b>Sony Article</b>,{" "}
+                            <b>Dealer Invoice Price</b>, <b>Everyday UPE</b>,{" "}
+                            <b>Promo UPE</b>, <b>Price On Invoice</b>,{" "}
+                            <b>Toppreise Allowed</b>, <b>Note</b>.
+                        </>
                         ) : (
-                            <>
-                                Kampagnen-Spalten: <b>EAN</b>, <b>Sony Article</b>,{" "}
-                                <b>Messe Price Netto</b>, <b>Display Price Netto</b>,{" "}
-                                <b>Display Discount Percent</b>, <b>Note</b>.
-                            </>
+                        <>
+                            Kampagnen-Spalten: <b>EAN</b>, <b>Sony Article</b>,{" "}
+                            <b>Messe Price Netto</b>, <b>Promo UPE</b>,{" "}
+                            <b>Display Price Netto</b>, <b>Display Discount Percent</b>,{" "}
+                            <b>Note</b>.
+                        </>
                         )}
                     </div>
 
@@ -638,22 +645,31 @@ export default function PricingImportPage() {
                                         {mode === "standard" ? (
                                             <>
                                                 <th className="px-3 py-2 text-right font-medium text-gray-600">
-                                                    Dealer Invoice
+                                                Dealer Invoice
                                                 </th>
                                                 <th className="px-3 py-2 text-right font-medium text-gray-600">
-                                                    Price On Invoice
+                                                Everyday UPE
+                                                </th>
+                                                <th className="px-3 py-2 text-right font-medium text-gray-600">
+                                                Promo UPE
+                                                </th>
+                                                <th className="px-3 py-2 text-right font-medium text-gray-600">
+                                                Price On Invoice
                                                 </th>
                                             </>
                                         ) : (
                                             <>
                                                 <th className="px-3 py-2 text-right font-medium text-gray-600">
-                                                    Messe Netto
+                                                Messe Netto
                                                 </th>
                                                 <th className="px-3 py-2 text-right font-medium text-gray-600">
-                                                    Display Netto
+                                                Promo UPE
                                                 </th>
                                                 <th className="px-3 py-2 text-right font-medium text-gray-600">
-                                                    Display Rabatt %
+                                                Display Netto
+                                                </th>
+                                                <th className="px-3 py-2 text-right font-medium text-gray-600">
+                                                Display Rabatt %
                                                 </th>
                                             </>
                                         )}
@@ -701,25 +717,40 @@ export default function PricingImportPage() {
                                             </td>
 
                                             {mode === "standard" ? (
-                                                <>
-                                                    <td className="px-3 py-2 text-right text-gray-700">
-                                                        {row.dealer_invoice_price ?? "—"}
-                                                    </td>
-                                                    <td className="px-3 py-2 text-right text-gray-700">
-                                                        {row.price_on_invoice ?? "—"}
-                                                    </td>
-                                                </>
+                                            <>
+                                                <td className="px-3 py-2 text-right text-gray-700">
+                                                {row.dealer_invoice_price ?? "—"}
+                                                </td>
+
+                                                <td className="px-3 py-2 text-right text-gray-700">
+                                                {row.everyday_upe ?? "—"}
+                                                </td>
+
+                                                <td className="px-3 py-2 text-right text-gray-700">
+                                                {row.promo_upe ?? "—"}
+                                                </td>
+
+                                                <td className="px-3 py-2 text-right text-gray-700">
+                                                {row.price_on_invoice ?? "—"}
+                                                </td>
+                                            </>
                                             ) : (
                                                 <>
-                                                    <td className="px-3 py-2 text-right text-gray-700">
-                                                        {row.messe_price_netto ?? "—"}
-                                                    </td>
-                                                    <td className="px-3 py-2 text-right text-gray-700">
-                                                        {row.display_price_netto ?? "—"}
-                                                    </td>
-                                                    <td className="px-3 py-2 text-right text-gray-700">
-                                                        {row.display_discount_percent ?? "—"}
-                                                    </td>
+                                                <td className="px-3 py-2 text-right text-gray-700">
+                                                    {row.messe_price_netto ?? "—"}
+                                                </td>
+
+                                                <td className="px-3 py-2 text-right text-gray-700">
+                                                    {row.promo_upe ?? "—"}
+                                                </td>
+
+                                                <td className="px-3 py-2 text-right text-gray-700">
+                                                    {row.display_price_netto ?? "—"}
+                                                </td>
+
+                                                <td className="px-3 py-2 text-right text-gray-700">
+                                                    {row.display_discount_percent ?? "—"}
+                                                </td>
                                                 </>
                                             )}
 

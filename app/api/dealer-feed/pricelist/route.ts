@@ -281,8 +281,25 @@ export async function GET(req: NextRequest) {
           hasBetterCampaignPrice
             ? campaign.end_date ?? ""
             : "",
+
+        "Everyday UPE":
+          standard.everyday_upe !== null &&
+          standard.everyday_upe !== undefined
+            ? Number(standard.everyday_upe).toFixed(2)
+            : "",
+
+        "Promo UPE":
+          campaign?.promo_upe !== null &&
+          campaign?.promo_upe !== undefined
+            ? Number(campaign.promo_upe).toFixed(2)
+            : standard.promo_upe !== null &&
+              standard.promo_upe !== undefined
+              ? Number(standard.promo_upe).toFixed(2)
+              : "",
       };
     });
+
+    
 
     if (rows.length === 0) {
       return NextResponse.json(

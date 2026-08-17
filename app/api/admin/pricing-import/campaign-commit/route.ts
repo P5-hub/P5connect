@@ -16,6 +16,7 @@ type ValidImportRow = {
   product_id: number;
   pricing_group_id: number;
   messe_price_netto: number | null;
+  promo_upe: number | null;
   display_price_netto: number | null;
   display_discount_percent: number | null;
   active: boolean;
@@ -265,6 +266,15 @@ export async function POST(req: NextRequest) {
         ])
       );
 
+      const promo_upe = parseNumber(
+        pick(row, [
+          "promo_upe",
+          "promoupe",
+          "promo_streetprice",
+          "promo_street_price",
+        ])
+      );
+
       const display_price_netto = parseNumber(
         pick(row, [
           "display_price_netto",
@@ -295,6 +305,7 @@ export async function POST(req: NextRequest) {
 
       if (
         messe_price_netto === null &&
+        promo_upe === null &&
         display_price_netto === null &&
         display_discount_percent === null
       ) {
@@ -335,6 +346,7 @@ export async function POST(req: NextRequest) {
         product_id: matchedProduct.product_id,
         pricing_group_id,
         messe_price_netto,
+        promo_upe,
         display_price_netto,
         display_discount_percent,
         active: true,
@@ -347,11 +359,19 @@ export async function POST(req: NextRequest) {
     const productIds = validRows.map((row) => row.product_id);
 
     let existingProductIds = new Set<number>();
+    const existingRowsByProductId = new Map<number, any>();
 
     if (productIds.length > 0) {
       const { data: existingRows, error: existingError } = await supabaseAdmin
         .from("campaign_product_group_prices")
-        .select("product_id")
+        .select(`
+          product_id,
+          messe_price_netto,
+          promo_upe,
+          display_price_netto,
+          display_discount_percent,
+          note
+        `)
         .eq("campaign_id", campaign_id)
         .eq("pricing_group_id", pricing_group_id)
         .in("product_id", productIds);
@@ -365,19 +385,49 @@ export async function POST(req: NextRequest) {
         );
       }
 
-      existingProductIds = new Set(
-        (existingRows || []).map((row: any) => Number(row.product_id))
-      );
+      for (const row of existingRows || []) {
+        const productId = Number(row.product_id);
+
+        existingProductIds.add(productId);
+        existingRowsByProductId.set(productId, row);
+      }
     }
 
     const updatedRows = validRows.filter((row) =>
       existingProductIds.has(row.product_id)
     ).length;
 
+    const rowsForUpsert = validRows.map((row) => {
+      const existing = existingRowsByProductId.get(row.product_id);
+
+      if (!existing) {
+        return row;
+      }
+
+      return {
+        ...row,
+
+        messe_price_netto:
+          row.messe_price_netto ?? existing.messe_price_netto,
+
+        promo_upe:
+          row.promo_upe ?? existing.promo_upe,
+
+        display_price_netto:
+          row.display_price_netto ?? existing.display_price_netto,
+
+        display_discount_percent:
+          row.display_discount_percent ?? existing.display_discount_percent,
+
+        note:
+          row.note ?? existing.note,
+      };
+    });
+
     const insertedRows = validRows.length - updatedRows;
 
     if (!dry_run && validRows.length > 0) {
-      const campaignProductRows = validRows.map((row) => ({
+      const campaignProductRows = rowsForUpsert.map((row) => ({
         campaign_id,
         product_id: row.product_id,
         active: true,
@@ -457,7 +507,7 @@ export async function POST(req: NextRequest) {
     if (!dry_run && validRows.length > 0) {
       const { error: upsertError } = await supabaseAdmin
         .from("campaign_product_group_prices")
-        .upsert(validRows, {
+        .upsert(rowsForUpsert, {
           onConflict: "campaign_id,product_id,pricing_group_id",
         });
 

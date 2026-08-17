@@ -17,6 +17,7 @@ type CampaignPreviewRow = {
     sony_article: string | null;
     product_name: string | null;
     messe_price_netto: number | null;
+    promo_upe: number | null;
     display_price_netto: number | null;
     display_discount_percent: number | null;
     note: string | null;
@@ -281,6 +282,15 @@ export async function POST(req: NextRequest) {
                 ])
             );
 
+            const promo_upe = parseNumber(
+                pick(row, [
+                    "promo_upe",
+                    "promoupe",
+                    "promo_streetprice",
+                    "promo_street_price",
+                ])
+                );
+
             const display_price_netto = parseNumber(
                 pick(row, [
                     "display_price_netto",
@@ -311,6 +321,7 @@ export async function POST(req: NextRequest) {
                     sony_article,
                     product_name,
                     messe_price_netto,
+                    promo_upe,
                     display_price_netto,
                     display_discount_percent,
                     note,
@@ -323,9 +334,10 @@ export async function POST(req: NextRequest) {
             }
 
             if (
-                messe_price_netto === null &&
-                display_price_netto === null &&
-                display_discount_percent === null
+            messe_price_netto === null &&
+            promo_upe === null &&
+            display_price_netto === null &&
+            display_discount_percent === null
             ) {
                 return {
                     rowNumber: index + 2,
@@ -333,6 +345,7 @@ export async function POST(req: NextRequest) {
                     sony_article,
                     product_name,
                     messe_price_netto,
+                    promo_upe,
                     display_price_netto,
                     display_discount_percent,
                     note,
@@ -341,7 +354,7 @@ export async function POST(req: NextRequest) {
                     product_id: null,
                     matched_product_name: null,
                     error:
-                        "Kein Kampagnenpreis vorhanden. Mindestens Messe Price Netto, Display Price Netto oder Display Discount Percent ist nötig.",
+                        "Kein Kampagnenwert vorhanden. Mindestens Messe Price Netto, Promo UPE, Display Price Netto oder Display Discount Percent ist nötig.",
                 };
             }
 
@@ -356,6 +369,7 @@ export async function POST(req: NextRequest) {
                             sony_article,
                             product_name,
                             messe_price_netto,
+                            promo_upe,
                             display_price_netto,
                             display_discount_percent,
                             note,
@@ -373,6 +387,7 @@ export async function POST(req: NextRequest) {
                         sony_article,
                         product_name,
                         messe_price_netto,
+                        promo_upe,
                         display_price_netto,
                         display_discount_percent,
                         note,
@@ -396,6 +411,7 @@ export async function POST(req: NextRequest) {
                             sony_article,
                             product_name,
                             messe_price_netto,
+                            promo_upe,
                             display_price_netto,
                             display_discount_percent,
                             note,
@@ -413,6 +429,7 @@ export async function POST(req: NextRequest) {
                         sony_article,
                         product_name,
                         messe_price_netto,
+                        promo_upe,
                         display_price_netto,
                         display_discount_percent,
                         note,
@@ -431,6 +448,7 @@ export async function POST(req: NextRequest) {
                         sony_article,
                         product_name,
                         messe_price_netto,
+                        promo_upe,
                         display_price_netto,
                         display_discount_percent,
                         note,
@@ -450,6 +468,7 @@ export async function POST(req: NextRequest) {
                 sony_article,
                 product_name,
                 messe_price_netto,
+                promo_upe,
                 display_price_netto,
                 display_discount_percent,
                 note,

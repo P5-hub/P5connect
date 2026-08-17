@@ -64,6 +64,8 @@ export async function GET(req: NextRequest) {
       Gruppe: p.gruppe,
       Kategorie: p.category,
       "UPE brutto": p.retail_price,
+      "Everyday UPE": p.everyday_upe,
+      "Promo UPE": p.promo_upe,
       VRG: p.vrg,
       "Messepreis netto": p.messe_price_netto,
       "Displaypreis netto": pricing.display_price_netto,
@@ -80,24 +82,25 @@ export async function GET(req: NextRequest) {
     const ws = XLSX.utils.json_to_sheet(rows);
 
     ws["!cols"] = [
-      { wch: 34 },
-      { wch: 12 },
-      { wch: 12 },
-      { wch: 18 },
-      { wch: 16 },
-      { wch: 28 },
-      { wch: 18 },
-      { wch: 18 },
-      { wch: 12 },
-      { wch: 10 },
-      { wch: 16 },
-      { wch: 18 },
-      { wch: 10 },
-      { wch: 12 },
-      { wch: 14 },
-      { wch: 14 },
-      { wch: 12 },
-      { wch: 12 },
+      { wch: 34 }, // Kampagne
+      { wch: 12 }, // Gültig_von
+      { wch: 12 }, // Gültig_bis
+      { wch: 18 }, // Sony Artikel
+      { wch: 16 }, // EAN
+      { wch: 28 }, // Produktname
+      { wch: 18 }, // Gruppe
+      { wch: 18 }, // Kategorie
+      { wch: 12 }, // UPE brutto
+      { wch: 14 }, // Everyday UPE
+      { wch: 14 }, // Promo UPE
+      { wch: 10 }, // VRG
+      { wch: 16 }, // Messepreis netto
+      { wch: 18 }, // Displaypreis netto
+      { wch: 12 }, // Modus
+      { wch: 14 }, // Display Menge
+      { wch: 14 }, // Max. Display
+      { wch: 12 }, // Max. Messe
+      { wch: 12 }, // Max. Total
     ];
 
     XLSX.utils.book_append_sheet(wb, ws, "Kampagnen Preisliste");

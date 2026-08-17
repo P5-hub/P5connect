@@ -34,12 +34,14 @@ export async function GET(req: NextRequest) {
   const rows = (data || []).map((p: any) => ({
     "Sony Artikel": p.sony_article,
     EAN: p.ean,
-    Produktname: p.product_name,    
+    Produktname: p.product_name,
     Gruppe: p.gruppe,
     Kategorie: p.category,
     "UPE brutto": p.retail_price,
+    "Everyday UPE": p.everyday_upe,
+    "Promo UPE": p.promo_upe,
     VRG: p.vrg,
-    "Händlerpreis": p.dealer_price, 
+    "Händlerpreis": p.dealer_price,
     TP: p.toppreise_allowed ? "Ja" : "Nein",
   }));
 
@@ -60,15 +62,17 @@ if (format === "xlsx") {
     }
 
     ws["!cols"] = [
-    { wch: 18 }, // Sony Artikel
-    { wch: 16 }, // EAN
-    { wch: 28 }, // Produktname
-    { wch: 18 }, // Gruppe
-    { wch: 18 }, // Kategorie
-    { wch: 12 }, // UPE brutto
-    { wch: 10 }, // VRG
-    { wch: 14 }, // Händlerpreis
-    { wch: 8 },  // TP
+      { wch: 18 }, // Sony Artikel
+      { wch: 16 }, // EAN
+      { wch: 28 }, // Produktname
+      { wch: 18 }, // Gruppe
+      { wch: 18 }, // Kategorie
+      { wch: 12 }, // UPE brutto
+      { wch: 14 }, // Everyday UPE
+      { wch: 14 }, // Promo UPE
+      { wch: 10 }, // VRG
+      { wch: 14 }, // Händlerpreis
+      { wch: 8 },  // TP
     ];
 
     ws["!freeze"] = { xSplit: 0, ySplit: 1 };
@@ -97,8 +101,10 @@ if (format === "xlsx") {
     Gruppe: "",
     Kategorie: "",
     "UPE brutto": "",
+    "Everyday UPE": "",
+    "Promo UPE": "",
     VRG: "",
-    "Händlerpreis": "",        
+    "Händlerpreis": "",
     TP: "",
   });
 

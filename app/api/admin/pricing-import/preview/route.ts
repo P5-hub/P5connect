@@ -17,6 +17,8 @@ type PreviewRow = {
     sony_article: string | null;
     product_name: string | null;
     dealer_invoice_price: number | null;
+    everyday_upe: number | null;
+    promo_upe: number | null;
     price_on_invoice: number | null;
     toppreise_allowed: boolean | null;
     note: string | null;
@@ -256,7 +258,23 @@ export async function POST(req: NextRequest) {
                     "preis",
                 ])
             );
+            const everyday_upe = parseNumber(
+                pick(row, [
+                    "everyday_upe",
+                    "everydayupe",
+                    "everyday_streetprice",
+                    "everyday_street_price",
+                ])
+            );
 
+            const promo_upe = parseNumber(
+                pick(row, [
+                    "promo_upe",
+                    "promoupe",
+                    "promo_streetprice",
+                    "promo_street_price",
+                ])
+            );
             const price_on_invoice = parseNumber(
                 pick(row, [
                     "price_on_invoice",
@@ -287,6 +305,8 @@ export async function POST(req: NextRequest) {
                     sony_article,
                     product_name,
                     dealer_invoice_price,
+                    everyday_upe,
+                    promo_upe,
                     price_on_invoice,
                     toppreise_allowed,
                     note,
@@ -298,13 +318,20 @@ export async function POST(req: NextRequest) {
                 };
             }
 
-            if (dealer_invoice_price === null && price_on_invoice === null) {
+            if (
+                dealer_invoice_price === null &&
+                everyday_upe === null &&
+                promo_upe === null &&
+                price_on_invoice === null
+                ) { 
                 return {
                     rowNumber: index + 2,
                     ean,
                     sony_article,
                     product_name,
                     dealer_invoice_price,
+                    everyday_upe,
+                    promo_upe,
                     price_on_invoice,
                     toppreise_allowed,
                     note,
@@ -313,7 +340,7 @@ export async function POST(req: NextRequest) {
                     product_id: null,
                     matched_product_name: null,
                     error:
-                        "Kein Preis vorhanden. Mindestens dealer_invoice_price oder price_on_invoice ist nötig.",
+                        "Kein Preis vorhanden. Mindestens Dealer Invoice Price, Everyday UPE, Promo UPE oder Price On Invoice ist nötig.",
                 };
             }
 
@@ -328,6 +355,8 @@ export async function POST(req: NextRequest) {
                             sony_article,
                             product_name,
                             dealer_invoice_price,
+                            everyday_upe,
+                            promo_upe,
                             price_on_invoice,
                             toppreise_allowed,
                             note,
@@ -345,6 +374,8 @@ export async function POST(req: NextRequest) {
                         sony_article,
                         product_name,
                         dealer_invoice_price,
+                        everyday_upe,
+                        promo_upe,
                         price_on_invoice,
                         toppreise_allowed,
                         note,
@@ -368,6 +399,8 @@ export async function POST(req: NextRequest) {
                             sony_article,
                             product_name,
                             dealer_invoice_price,
+                            everyday_upe,
+                            promo_upe,
                             price_on_invoice,
                             toppreise_allowed,
                             note,
@@ -385,6 +418,8 @@ export async function POST(req: NextRequest) {
                         sony_article,
                         product_name,
                         dealer_invoice_price,
+                        everyday_upe,
+                        promo_upe,
                         price_on_invoice,
                         toppreise_allowed,
                         note,
@@ -403,6 +438,8 @@ export async function POST(req: NextRequest) {
                         sony_article,
                         product_name,
                         dealer_invoice_price,
+                        everyday_upe,
+                        promo_upe,
                         price_on_invoice,
                         toppreise_allowed,
                         note,
@@ -422,6 +459,8 @@ export async function POST(req: NextRequest) {
                 sony_article,
                 product_name,
                 dealer_invoice_price,
+                everyday_upe,
+                promo_upe,
                 price_on_invoice,
                 toppreise_allowed,
                 note,
