@@ -61,6 +61,7 @@ export default function BestellungenOverview() {
 
     for (const row of rows) {
       const sid = row.submission_id;
+
       if (!grouped[sid]) {
         grouped[sid] = {
           submission_id: sid,
@@ -74,10 +75,16 @@ export default function BestellungenOverview() {
         };
       }
 
+      if (row.item_status === "cancelled") {
+        continue;
+      }
+
       grouped[sid].items.push(row);
 
       const preis = row.preis ?? row.calc_price_on_invoice ?? 0;
-      grouped[sid].total_sum += preis;
+      const menge = row.menge ?? 1;
+
+      grouped[sid].total_sum += preis * menge;
     }
 
     return Object.values(grouped);

@@ -55,6 +55,10 @@ type SubmissionItem = {
   product_id: number | null;
   menge?: number;
 
+  item_status?: "active" | "cancelled";
+  cancelled_at?: string | null;
+  cancellation_reason?: string | null;
+
   lowest_price_brutto?: number | null;
   lowest_price_netto?: number | null;
   lowest_price_source?: string | null;
@@ -140,9 +144,11 @@ async function calculateInvestForAllItems(
       poi_alt,
       lowest_price_brutto,
       lowest_price_netto,
-      distributor_id
+      distributor_id,
+      item_status
     `)
-    .eq("submission_id", submissionId);
+    .eq("submission_id", submissionId)
+    .neq("item_status", "cancelled");
 
   if (error) {
     console.error("❌ Fehler beim Laden der Items:", error);
@@ -217,6 +223,7 @@ function DashboardItem({
   const nettoBase = retail ? retail / 1.081 - vrg : 0;
 
   const isEditing = editItemId === item.item_id;
+  const isCancelled = item.item_status === "cancelled";
   const { optimisticUpdate } = useOptimisticSave(supabase, fetchRows);
 
   // ---------- STATES ----------
@@ -280,12 +287,31 @@ function DashboardItem({
 
 
   return (
-    <div className="rounded-xl border border-gray-100 bg-gray-50/40 p-3">
+    <div
+      className={`rounded-xl border p-3 ${
+        isCancelled
+          ? "border-red-200 bg-red-50/50 opacity-70"
+          : "border-gray-100 bg-gray-50/40"
+      }`}
+    >
 
       {/* HEADER */}
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="font-medium text-xs text-gray-900">{item.product_name}</p>
+          {isCancelled && (
+            <div className="mt-1">
+              <span className="inline-flex items-center rounded-full bg-red-100 px-2 py-0.5 text-[10px] font-semibold text-red-700">
+                Storniert
+              </span>
+
+              {item.cancellation_reason && (
+                <p className="mt-1 text-[10px] text-red-600">
+                  {item.cancellation_reason}
+                </p>
+              )}
+            </div>
+          )}
           <p className="text-[11px] text-gray-500">
             EAN: {item.ean} • Menge: {item.menge}
           </p>
@@ -296,11 +322,11 @@ function DashboardItem({
             size="sm"
             variant="outline"
             className={`h-7 px-2 text-[11px] rounded-full ${
-              b.status !== "pending"
+              b.status !== "pending" || isCancelled
                 ? "opacity-50 cursor-not-allowed"
                 : "hover:bg-gray-100 hover:text-gray-800"
             }`}
-            disabled={b.status !== "pending"}
+            disabled={b.status !== "pending" || isCancelled}
             onClick={() => {
               setEditItemId(item.item_id);
               setEditedPrice(newDealerPrice.toFixed(2));
@@ -939,10 +965,16 @@ export default function BestellungenDashboard({
     setLoading(true);
 
     try {
-      const { data: viewData, error: viewError } = await supabase
+      let query = supabase
         .from("bestellung_dashboard")
         .select("*")
         .order("created_at", { ascending: false });
+
+      if (submissionId) {
+        query = query.eq("submission_id", submissionId);
+      }
+
+      const { data: viewData, error: viewError } = await query;
 
       if (viewError) throw viewError;
 
@@ -957,8 +989,24 @@ export default function BestellungenDashboard({
 
       const { data: extraItems, error: extraErr } = await supabase
         .from("submission_items")
-        .select("item_id, lowest_price_brutto, lowest_price_netto, margin_street, invest, preis, lowest_price_source, lowest_price_source_custom")
+        .select(`
+          item_id,
+          lowest_price_brutto,
+          lowest_price_netto,
+          margin_street,
+          invest,
+          preis,
+          lowest_price_source,
+          lowest_price_source_custom,
+          item_status,
+          cancelled_at,
+          cancellation_reason
+        `)
         .in("item_id", itemIds);
+
+      console.log("🔥 VIEW DATA:", viewData);
+      console.log("🔥 ITEM IDS:", itemIds);
+      console.log("🔥 EXTRA ITEMS:", extraItems);        
 
       if (extraErr) console.warn("⚠️ Zusatzfelder konnten nicht geladen werden:", extraErr);
 
@@ -974,7 +1022,7 @@ export default function BestellungenDashboard({
     } finally {
       setLoading(false);
     }
-  }, [supabase]);
+    }, [supabase, submissionId]);
 
   /* Initial Load */
   useEffect(() => {
@@ -1067,6 +1115,9 @@ export default function BestellungenDashboard({
         submission_id: row.submission_id,
         product_id: row.product_id,
         menge: row.menge ?? undefined,
+        item_status: row.item_status ?? "active",
+        cancelled_at: row.cancelled_at ?? null,
+        cancellation_reason: row.cancellation_reason ?? null,
 
         lowest_price_brutto: row.lowest_price_brutto ?? null,
         lowest_price_netto: row.lowest_price_netto ?? null,
@@ -1206,12 +1257,25 @@ async function openPreview(b: Bestellung) {
 
   /* Summen */
   function calcTotals(b: Bestellung) {
-    const items = b.submission_items || [];
+    const items = (b.submission_items || []).filter(
+      (it) => it.item_status !== "cancelled"
+    );
+
     return {
-      totalSum: items.reduce((s, it) => s + (parseNum(it.preis) || 0), 0),
-      totalQty: items.reduce((s, it) => s + (parseNum(it.menge) || 0), 0),
+      totalSum: items.reduce(
+        (s, it) =>
+          s +
+          (parseNum(it.preis) || 0) *
+            (parseNum(it.menge) || 0),
+        0
+      ),
+      totalQty: items.reduce(
+        (s, it) => s + (parseNum(it.menge) || 0),
+        0
+      ),
     };
   }
+  
 
   /* ---------------------------------------------------------
      RENDER

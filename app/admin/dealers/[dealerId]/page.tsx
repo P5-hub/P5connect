@@ -192,6 +192,7 @@ type DealerDisplayItem = {
 
 type AutoMetricRow = {
   item_id: number;
+  item_status: "active" | "cancelled" | null;
   product_id: number | null;
   sony_article: string | null;
   product_name: string | null;
@@ -944,7 +945,11 @@ export default function AdminDealerDetailPage() {
       setDealerUsers(dealerUserRows);
       setDealerUserTagAssignments(filteredDealerUserTagAssignments);
       setVisits((visitsRes.data ?? []) as VisitReport[]);
-      setDisplayItems((displayItemsRes.data ?? []) as DealerDisplayItem[]);
+      setDisplayItems(
+        ((displayItemsRes.data ?? []) as DealerDisplayItem[]).filter(
+          (item) => item.status !== "removed"
+        )
+      );
     } catch (error) {
       console.error("Fehler beim Laden CRM:", error);
       showToast("error", "CRM-Daten konnten nicht geladen werden.");
@@ -959,12 +964,15 @@ export default function AdminDealerDetailPage() {
       const { start, end } = getDateRange(periodMode, new Date(), customPeriodStart, customPeriodEnd);
       const prevYearStart = shiftOneYear(start);
       const prevYearEnd = shiftOneYear(end);
-      const { data, error } = await supabase.from("submission_items").select(`item_id,product_id,sony_article,product_name,menge,preis,pricing_mode,is_display_item,submission:submission_id (dealer_id,typ,status,created_at,datum)`);
+      const { data, error } = await supabase.from("submission_items").select(`item_id,item_status,product_id,sony_article,product_name,menge,preis,pricing_mode,is_display_item,submission:submission_id (dealer_id,typ,status,created_at,datum)`);
       if (error) { console.error("Auto KPI Fehler beim Laden:", error); return; }
       const rows: AutoMetricRow[] = (data || []).map((row: any) => {
         const submission = Array.isArray(row.submission) ? row.submission[0] : row.submission;
-        return { item_id: Number(row.item_id), product_id: row.product_id ?? null, sony_article: row.sony_article ?? null, product_name: row.product_name ?? null, menge: row.menge ?? 0, preis: row.preis ?? 0, pricing_mode: row.pricing_mode ?? null, is_display_item: Boolean(row.is_display_item), submission_created_at: submission?.created_at ?? null, submission_datum: submission?.datum ?? null, submission_status: submission?.status ?? null, submission_typ: submission?.typ ?? null, dealer_id: submission?.dealer_id ?? null };
-      }).filter((row) => Number(row.dealer_id) === Number(dealerId)).filter((row) => row.submission_typ === "bestellung").filter((row) => String(row.submission_status || "").toLowerCase() !== "rejected");
+        return { item_id: Number(row.item_id),item_status: row.item_status ?? "active", product_id: row.product_id ?? null, sony_article: row.sony_article ?? null, product_name: row.product_name ?? null, menge: row.menge ?? 0, preis: row.preis ?? 0, pricing_mode: row.pricing_mode ?? null, is_display_item: Boolean(row.is_display_item), submission_created_at: submission?.created_at ?? null, submission_datum: submission?.datum ?? null, submission_status: submission?.status ?? null, submission_typ: submission?.typ ?? null, dealer_id: submission?.dealer_id ?? null };
+      }).filter((row) => Number(row.dealer_id) === Number(dealerId))
+        .filter((row) => row.submission_typ === "bestellung")
+        .filter((row) => row.submission_status === "approved")
+        .filter((row) => row.item_status !== "cancelled");
       const currentRows = rows.filter((row) => isDateWithin(row.submission_created_at || row.submission_datum, start, end));
       const prevYearRows = rows.filter((row) => isDateWithin(row.submission_created_at || row.submission_datum, prevYearStart, prevYearEnd));
       const currentSonyRevenue = currentRows.reduce((sum, row) => sum + Number(row.menge ?? 0) * Number(row.preis ?? 0), 0);

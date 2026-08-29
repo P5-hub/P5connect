@@ -338,6 +338,7 @@ export default function AdminDealersPage() {
 
         supabase.from("submission_items").select(`
           item_id,
+          item_status,
           product_id,
           product_name,
           sony_article,
@@ -618,6 +619,8 @@ export default function AdminDealersPage() {
       const dealerId = Number(submission?.dealer_id);
       if (!dealerId) return;
       if (submission?.typ !== "bestellung") return;
+      if (submission?.status !== "approved") return;
+      if (row.item_status === "cancelled") return;
       if (String(submission?.status || "").toLowerCase() === "rejected") return;
 
       const compareDate = submission?.created_at || submission?.datum;

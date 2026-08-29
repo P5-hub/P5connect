@@ -19,6 +19,7 @@ type DashboardRow = {
   dealer_email: string | null;
 
   item_id: number | null;
+  item_status?: "active" | "cancelled" | null;
   preis: number | null;
   menge: number | null;
 
@@ -92,6 +93,7 @@ export default function AdminBestellungenListPage() {
           dealer_name,
           dealer_email,
           item_id,
+          item_status,
           preis,
           menge,
           order_mode,
@@ -133,6 +135,11 @@ export default function AdminBestellungenListPage() {
         }
 
         const row = map.get(r.submission_id)!;
+
+        if (r.item_status === "cancelled") {
+          continue;
+        }
+
         const qty = r.menge ?? 1;
         const price = r.preis ?? 0;
 

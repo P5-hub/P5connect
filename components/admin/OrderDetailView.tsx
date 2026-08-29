@@ -10,7 +10,13 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { PencilLine, Save, XCircle } from "lucide-react";
+import {
+  PencilLine,
+  Save,
+  XCircle,
+  Ban,
+  Undo2,
+} from "lucide-react";
 
 import {
   parseNum,
@@ -41,6 +47,11 @@ type ViewRow = {
   item_id: number;
   product_id: number | null;
   menge: number | null;
+
+  item_status?: "active" | "cancelled";
+  cancelled_at?: string | null;
+  cancellation_reason?: string | null;
+  cancelled_by_email?: string | null;
 
   preis: number | null;
   calc_price_on_invoice: number | null;
@@ -127,6 +138,7 @@ function ItemRow({
   const locale = useMemo(() => getLocale(lang), [lang]);
 
   const isLocked = submissionStatus !== "pending";
+  const isCancelled = row.item_status === "cancelled";
   const { optimisticUpdate } = useOptimisticSave(supabase, refresh);
 
   const retail = parseNum(row.retail_price);
@@ -136,6 +148,13 @@ function ItemRow({
   const nettoUpe = calcNettoUPE(retail, vrg) ?? 0;
 
   const [isEditing, setIsEditing] = useState(false);
+  const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
+  const [cancelReason, setCancelReason] = useState("");
+  const [cancelling, setCancelling] = useState(false);
+  const [cancelError, setCancelError] = useState<string | null>(null);
+  const [restoreDialogOpen, setRestoreDialogOpen] = useState(false);
+  const [restoring, setRestoring] = useState(false);
+  const [restoreError, setRestoreError] = useState<string | null>(null);
   const [qty, setQty] = useState<number>(parseNum(row.menge) || 1);
   const [streetBrutto, setStreetBrutto] = useState<number>(
     parseNum(row.lowest_price_brutto)
@@ -404,6 +423,63 @@ function ItemRow({
     });
   };
 
+  const handleCancelItem = async () => {
+    const reason = cancelReason.trim();
+
+    if (!reason) {
+      setCancelError("Bitte einen Stornogrund eingeben.");
+      return;
+    }
+
+    try {
+      setCancelling(true);
+      setCancelError(null);
+
+      const { error } = await supabase.rpc("cancel_submission_item", {
+        p_item_id: row.item_id,
+        p_reason: reason,
+      });
+
+      if (error) throw error;
+
+      setCancelDialogOpen(false);
+      setCancelReason("");
+
+      await refresh();
+    } catch (err: any) {
+      console.error("Fehler beim Stornieren der Position:", err);
+      setCancelError(
+        err?.message || "Position konnte nicht storniert werden."
+      );
+    } finally {
+      setCancelling(false);
+    }
+  };
+  const handleRestoreItem = async () => {
+    try {
+      setRestoring(true);
+      setRestoreError(null);
+
+      const { error } = await supabase.rpc("restore_submission_item", {
+        p_item_id: row.item_id,
+      });
+
+      if (error) throw error;
+
+      setRestoreDialogOpen(false);
+
+      await refresh();
+    } catch (err: any) {
+      console.error("Fehler beim Wiederherstellen der Position:", err);
+
+      setRestoreError(
+        err?.message ||
+          "Die Stornierung konnte nicht rückgängig gemacht werden."
+      );
+    } finally {
+      setRestoring(false);
+    }
+  };
   const margeZumUpe = useMemo(() => {
     return nettoUpe ? ((nettoUpe - (priceNew || 0)) / nettoUpe) * 100 : null;
   }, [nettoUpe, priceNew]);
@@ -418,7 +494,14 @@ function ItemRow({
       : null);
 
   return (
-    <div className="rounded-xl border border-gray-100 bg-gray-50/40 p-3">
+    <>
+      <div
+      className={`rounded-xl border p-3 ${
+        isCancelled
+          ? "border-red-300 bg-red-50/60"
+          : "border-gray-100 bg-gray-50/40"
+      }`}
+    >
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="font-medium text-xs text-gray-900">
@@ -426,6 +509,38 @@ function ItemRow({
               row.product_name ||
               t("adminOrderDetailView.fallbacks.product")}
           </p>
+
+          {isCancelled && (
+        <div className="mt-1 mb-1">
+          <span className="inline-flex items-center rounded-full bg-red-100 px-2 py-0.5 text-[10px] font-semibold text-red-700 border border-red-200">
+            STORNIERT
+          </span>
+
+          {row.cancellation_reason && (
+            <p className="mt-1 text-[10px] font-medium text-red-600">
+              {row.cancellation_reason}
+            </p>
+          )}
+          <div className="mt-1 flex flex-wrap gap-x-3 gap-y-0.5 text-[10px] text-gray-500">
+            {row.cancelled_at && (
+              <span>
+                Storniert am:{" "}
+                {new Date(row.cancelled_at).toLocaleString(locale, {
+                  day: "2-digit",
+                  month: "2-digit",
+                  year: "numeric",
+                  hour: "2-digit",
+                  minute: "2-digit",
+                })}
+              </span>
+            )}
+
+            <span>
+              Storniert durch: {row.cancelled_by_email || "–"}
+            </span>
+          </div>
+        </div>
+      )}
 
           <div className="mt-1 flex flex-wrap gap-1">
             <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-medium text-slate-700">
@@ -496,16 +611,51 @@ function ItemRow({
         </div>
 
         {!isEditing ? (
-          <Button
-            size="sm"
-            variant="outline"
-            disabled={isLocked}
-            className="h-7 px-2 text-[11px] rounded-full"
-            onClick={() => !isLocked && setIsEditing(true)}
-          >
-            <PencilLine className="w-3.5 h-3.5 mr-1" />
-            {t("adminOrderDetailView.actions.edit")}
-          </Button>
+          <div className="flex items-center gap-1">
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={isLocked || isCancelled}
+              className="h-7 px-2 text-[11px] rounded-full"
+              onClick={() =>
+                !isLocked && !isCancelled && setIsEditing(true)
+              }
+            >
+              <PencilLine className="w-3.5 h-3.5 mr-1" />
+              {t("adminOrderDetailView.actions.edit")}
+            </Button>
+
+            {submissionStatus === "approved" && !isCancelled && (
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-7 px-2 text-[11px] rounded-full border-red-300 text-red-600 hover:bg-red-50 hover:text-red-700"
+                onClick={() => {
+                  setCancelReason("");
+                  setCancelError(null);
+                  setCancelDialogOpen(true);
+                }}
+                
+              >
+                <Ban className="w-3.5 h-3.5 mr-1" />
+                Position stornieren
+              </Button>
+            )}
+            {submissionStatus === "approved" && isCancelled && (
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-7 px-2 text-[11px] rounded-full border-orange-300 text-orange-600 hover:bg-orange-50 hover:text-orange-700"
+                onClick={() => {
+                  setRestoreError(null);
+                  setRestoreDialogOpen(true);
+                }}
+              >
+                <Undo2 className="w-3.5 h-3.5 mr-1" />
+                Storno rückgängig
+              </Button>
+            )}
+          </div>
         ) : (
           <div className="flex gap-1">
             <Button
@@ -804,8 +954,174 @@ function ItemRow({
         </div>
       </div>
     </div>
-  );
+
+    {/* ---------------------------------------------------------
+        POSITION STORNIEREN DIALOG
+    --------------------------------------------------------- */}
+    <Dialog
+      open={cancelDialogOpen}
+      onOpenChange={(open) => {
+        if (!cancelling) {
+          setCancelDialogOpen(open);
+        }
+      }}
+    >
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle>Position stornieren</DialogTitle>
+        </DialogHeader>
+
+        <div className="space-y-4">
+          {/* Artikelinfo */}
+          <div className="rounded-lg border bg-gray-50 p-3">
+            <p className="text-sm font-semibold text-gray-900">
+              {row.item_product_name ||
+                row.product_name ||
+                t("adminOrderDetailView.fallbacks.product")}
+            </p>
+
+            <p className="mt-1 text-xs text-gray-500">
+              EAN: {row.item_ean || row.ean || "–"} · Menge:{" "}
+              {row.menge ?? "–"}
+            </p>
+          </div>
+
+          {/* Stornogrund */}
+          <div>
+            <label className="mb-1 block text-sm font-medium text-gray-700">
+              Stornogrund
+            </label>
+
+            <textarea
+              value={cancelReason}
+              onChange={(e) => {
+                setCancelReason(e.target.value);
+                setCancelError(null);
+              }}
+              rows={3}
+              placeholder="z.B. Nicht lieferbar – Storno auf Wunsch Händler"
+              className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
+              disabled={cancelling}
+            />
+          </div>
+
+          {/* Fehler */}
+          {cancelError && (
+            <p className="text-sm text-red-600">
+              {cancelError}
+            </p>
+          )}
+
+          {/* Buttons */}
+          <div className="flex justify-end gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              disabled={cancelling}
+              onClick={() => setCancelDialogOpen(false)}
+            >
+              Abbrechen
+            </Button>
+
+            <Button
+              type="button"
+              disabled={cancelling || !cancelReason.trim()}
+              onClick={handleCancelItem}
+              className="bg-red-600 text-white hover:bg-red-700"
+            >
+              <Ban className="mr-1 h-4 w-4" />
+              {cancelling
+                ? "Wird storniert…"
+                : "Position stornieren"}
+            </Button>
+          </div>
+        </div>
+        </DialogContent>
+    </Dialog>
+
+    {/* ---------------------------------------------------------
+        STORNO RÜCKGÄNGIG DIALOG
+    --------------------------------------------------------- */}
+    <Dialog
+      open={restoreDialogOpen}
+      onOpenChange={(open) => {
+        if (!restoring) {
+          setRestoreDialogOpen(open);
+        }
+      }}
+    >
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle>Storno rückgängig machen</DialogTitle>
+        </DialogHeader>
+
+        <div className="space-y-4">
+          <div className="rounded-lg border bg-orange-50 p-3">
+            <p className="text-sm font-semibold text-gray-900">
+              {row.item_product_name ||
+                row.product_name ||
+                t("adminOrderDetailView.fallbacks.product")}
+            </p>
+
+            <p className="mt-1 text-xs text-gray-500">
+              EAN: {row.item_ean || row.ean || "–"} · Menge:{" "}
+              {row.menge ?? "–"}
+            </p>
+
+            {row.cancellation_reason && (
+              <div className="mt-2 text-xs">
+                <span className="text-gray-500">
+                  Bisheriger Stornogrund:
+                </span>
+
+                <p className="mt-1 font-medium text-red-600">
+                  {row.cancellation_reason}
+                </p>
+              </div>
+            )}
+          </div>
+
+          <p className="text-sm text-gray-600">
+            Die Position wird wieder als aktive Bestellung geführt
+            und wieder in Menge, Umsatz und Kampagnenberechnung berücksichtigt.
+          </p>
+
+          {restoreError && (
+            <p className="text-sm text-red-600">
+              {restoreError}
+            </p>
+          )}
+
+          <div className="flex justify-end gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              disabled={restoring}
+              onClick={() => setRestoreDialogOpen(false)}
+            >
+              Abbrechen
+            </Button>
+
+            <Button
+              type="button"
+              disabled={restoring}
+              onClick={handleRestoreItem}
+              className="bg-orange-600 text-white hover:bg-orange-700"
+            >
+              <Undo2 className="mr-1 h-4 w-4" />
+              {restoring
+                ? "Wird wiederhergestellt…"
+                : "Storno rückgängig"}
+            </Button>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+
+  </>
+);
 }
+
 
 export default function OrderDetailView({
   submission,
@@ -827,13 +1143,58 @@ export default function OrderDetailView({
   const [sendingMail, setSendingMail] = useState(false);
 
   const refresh = useCallback(async () => {
-    const { data, error } = await supabase
+    const { data: viewData, error: viewError } = await supabase
       .from("bestellung_dashboard")
       .select("*")
       .eq("submission_id", submission.submission_id)
       .order("item_id", { ascending: true });
 
-    if (!error && data) setRows(data as unknown as ViewRow[]);
+    if (viewError) {
+      console.error("Fehler beim Laden der Bestellung:", viewError);
+      return;
+    }
+
+    if (!viewData || viewData.length === 0) {
+      setRows([]);
+      return;
+    }
+
+    const itemIds = viewData
+      .map((row) => row.item_id)
+      .filter((id): id is number => typeof id === "number");
+
+    const { data: extraItems, error: extraError } = await supabase
+      .from("submission_items")
+      .select(`
+        item_id,
+        item_status,
+        cancelled_at,
+        cancellation_reason,
+        cancelled_by_email
+      `)
+      .in("item_id", itemIds);
+
+    if (extraError) {
+      console.error("Fehler beim Laden der Positionsstatus:", extraError);
+      setRows(viewData as unknown as ViewRow[]);
+      return;
+    }
+
+    const merged = viewData.map((row) => {
+      const extra = extraItems?.find(
+        (item) => item.item_id === row.item_id
+      );
+
+      return {
+        ...row,
+        item_status: extra?.item_status ?? "active",
+        cancelled_at: extra?.cancelled_at ?? null,
+        cancellation_reason: extra?.cancellation_reason ?? null,
+        cancelled_by_email: extra?.cancelled_by_email ?? null,
+      };
+    });
+
+    setRows(merged as unknown as ViewRow[]);
   }, [supabase, submission.submission_id]);
 
   useEffect(() => {
@@ -863,10 +1224,19 @@ export default function OrderDetailView({
     return { head, items: rows };
   }, [rows]);
 
-  const total = useMemo(
-    () => rows.reduce((s, r) => s + parseNum(r.preis) * (parseNum(r.menge) || 1), 0),
-    [rows]
-  );
+    const total = useMemo(
+      () =>
+        rows
+          .filter((r) => r.item_status !== "cancelled")
+          .reduce(
+            (s, r) =>
+              s +
+              parseNum(r.preis) *
+                (parseNum(r.menge) || 1),
+            0
+          ),
+      [rows]
+    );
 
   if (!bundle) {
     return (
@@ -939,6 +1309,9 @@ export default function OrderDetailView({
           />
         </DialogContent>
       </Dialog>
+
+
+      
     </>
   );
 }

@@ -738,6 +738,7 @@ export default function BestellungForm() {
             preis,
             bonus_relevant,
             campaign_id,
+            item_status,
             submission:submission_id (
               dealer_id,
               typ,
@@ -759,6 +760,7 @@ export default function BestellungForm() {
               if (!submission) return sum;
               if (Number(submission.dealer_id) !== Number(effectiveDealerId)) return sum;
               if (submission.typ !== "bestellung") return sum;
+              if (row?.item_status === "cancelled") return sum;
 
               const status = String(submission.status || "").toLowerCase();
               if (["rejected", "cancelled", "canceled", "storno"].includes(status)) {

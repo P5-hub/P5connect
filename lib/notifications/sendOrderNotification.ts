@@ -146,6 +146,7 @@ type DashboardRow = {
   distributor_email: string | null;
 
   item_id: number | null;
+  item_status?: "active" | "cancelled" | null;
   product_id: number | null;
   menge: number | null;
   preis: number | null;
@@ -219,29 +220,31 @@ export async function sendOrderNotification(opts: {
   }
 
   // Items
-  const items = rows.map((r: any) => ({
-    menge: cleanNumber(r.menge),
-    preis: cleanNumber(r.preis),
-    invest: cleanNumber(r.invest ?? r.calc_price_on_invoice),
-    calc_price_on_invoice: cleanNumber(r.calc_price_on_invoice),
-    lowest_price_brutto: cleanNumber(r.lowest_price_brutto),
-    lowest_price_source: cleanText(r.lowest_price_source),
-    lowest_price_source_custom: cleanText(r.lowest_price_source_custom),
+  const items = rows
+    .filter((r: any) => r.item_status !== "cancelled")
+    .map((r: any) => ({
+      menge: cleanNumber(r.menge),
+      preis: cleanNumber(r.preis),
+      invest: cleanNumber(r.invest ?? r.calc_price_on_invoice),
+      calc_price_on_invoice: cleanNumber(r.calc_price_on_invoice),
+      lowest_price_brutto: cleanNumber(r.lowest_price_brutto),
+      lowest_price_source: cleanText(r.lowest_price_source),
+      lowest_price_source_custom: cleanText(r.lowest_price_source_custom),
 
-    products: {
-      product_name: cleanText(r.product_name),
-      ean: cleanText(r.ean),
-      brand: cleanText(r.brand),
-      gruppe: cleanText(r.gruppe),
-      category: cleanText(r.category),
-      retail_price: cleanNumber(r.retail_price),
-      vrg: cleanNumber(r.vrg),
-      dealer_invoice_price: cleanNumber(r.dealer_invoice_price),
-      support_on_invoice: cleanNumber(r.support_on_invoice),
-      tactical_support: cleanNumber(r.tactical_support),
-      suisa: cleanNumber(r.suisa),
-    },
-  }));
+      products: {
+        product_name: cleanText(r.product_name),
+        ean: cleanText(r.ean),
+        brand: cleanText(r.brand),
+        gruppe: cleanText(r.gruppe),
+        category: cleanText(r.category),
+        retail_price: cleanNumber(r.retail_price),
+        vrg: cleanNumber(r.vrg),
+        dealer_invoice_price: cleanNumber(r.dealer_invoice_price),
+        support_on_invoice: cleanNumber(r.support_on_invoice),
+        tactical_support: cleanNumber(r.tactical_support),
+        suisa: cleanNumber(r.suisa),
+      },
+    }));
 
   // Meta
   const meta = {

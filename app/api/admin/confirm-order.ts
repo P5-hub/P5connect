@@ -29,6 +29,7 @@ export default async function handler(
         submission_items(
           menge,
           preis,
+          item_status,
           product:products(product_name, sony_article, ean)
         )
       `
@@ -61,7 +62,8 @@ export default async function handler(
           </tr>
         </thead>
         <tbody>
-          ${submission.submission_items
+          ${(submission.submission_items ?? [])
+            .filter((i: any) => i.item_status !== "cancelled")
             .map((i:any) => `
             <tr>
               <td>${i.product?.sony_article ?? "-"}</td>

@@ -7,6 +7,7 @@ import type { RealtimePostgresChangesPayload } from "@supabase/supabase-js";
 // Typen für Items und Bestellungen
 export type SubmissionItem = {
   item_id: number;
+  item_status?: "active" | "cancelled" | null;
   product_id: number;
   menge: number;
   preis: number | null;
@@ -93,6 +94,12 @@ export function useBestellungen(statusFilter: string, searchQuery: string) {
             submission_items: [],
           };
         }
+
+        if (row.item_status === "cancelled") {
+          continue;
+        }
+
+
         grouped[id].submission_items.push({
           item_id: row.item_id,
           product_id: row.product_id,
@@ -168,8 +175,18 @@ export function useBestellungen(statusFilter: string, searchQuery: string) {
           schema: "public",
           table: "submissions",
         },
-        async (payload: RealtimePostgresChangesPayload<any>) => {
-          console.log("🔄 Realtime Update:", payload.eventType);
+        async () => {
+          await fetchBestellungen();
+        }
+      )
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "submission_items",
+        },
+        async () => {
           await fetchBestellungen();
         }
       )

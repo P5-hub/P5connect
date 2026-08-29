@@ -118,6 +118,7 @@ async function exportSubmissions(
         sony_article,
         menge,
         preis,
+        item_status,
         stock_quantity,
         stock_date,
         serial,
@@ -165,7 +166,12 @@ async function exportSubmissions(
       Land: dealer.country ?? "",
     };
 
-    const items = s.submission_items ?? [];
+    const items =
+      type === "bestellung"
+        ? (s.submission_items ?? []).filter(
+            (it: any) => it.item_status !== "cancelled"
+          )
+        : (s.submission_items ?? []);
 
     if (items.length === 0) {
       const emptyRow: Record<string, any> = {

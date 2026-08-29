@@ -238,8 +238,14 @@ export async function GET(req: Request) {
 
     const { data: items, error: itemsError } = await supabase
       .from("submission_items")
-      .select(`menge, preis, products(product_name, ean)`)
+      .select(`
+        menge,
+        preis,
+        item_status,
+        products(product_name, ean)
+      `)
       .eq("submission_id", id)
+      .or("item_status.is.null,item_status.neq.cancelled")
       .returns<TSubmissionItem[]>();
 
     if (itemsError) throw itemsError;

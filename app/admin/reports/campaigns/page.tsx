@@ -31,6 +31,7 @@ type Campaign = {
 
 type ReportRow = {
   item_id: number;
+  item_status: "active" | "cancelled" | null;
   product_id: number | null;
   product_name: string | null;
   ean: string | null;
@@ -231,6 +232,7 @@ export default function CampaignReportsPage() {
           .from("submission_items")
           .select(`
             item_id,
+            item_status,
             product_id,
             product_name,
             ean,
@@ -322,8 +324,17 @@ export default function CampaignReportsPage() {
   }, [loadReport]);
 
   const approvedRows = useMemo(() => {
-    return rows.filter((row) => row.submission?.status === "approved");
+    return rows.filter(
+      (row) =>
+        row.submission?.status === "approved" &&
+        row.item_status !== "cancelled"
+    );
   }, [rows]);
+
+  const activeRows = useMemo(
+    () => rows.filter((row) => row.item_status !== "cancelled"),
+    [rows]
+  );
 
   const pendingRows = useMemo(() => {
     return rows.filter((row) => row.submission?.status === "pending");
@@ -899,8 +910,8 @@ export default function CampaignReportsPage() {
             <StatCard
               title="Approval Quote"
               value={
-                rows.length
-                  ? `${((approvedRows.length / rows.length) * 100).toLocaleString(
+                activeRows.length
+                  ? `${((approvedRows.length / activeRows.length) * 100).toLocaleString(
                       "de-CH",
                       { maximumFractionDigits: 1 }
                     )}%`
@@ -916,7 +927,7 @@ export default function CampaignReportsPage() {
             </div>
 
             <CampaignProgressChart
-              rows={rows}
+              rows={activeRows}
               startDate={selectedCampaign?.start_date}
               endDate={selectedCampaign?.end_date}
               target={null}
