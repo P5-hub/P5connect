@@ -391,6 +391,8 @@ export default function SofortrabattForm() {
         selectedTV.sofortrabatt_classic_start_date,
       sofortrabatt_classic_end_date:
         selectedTV.sofortrabatt_classic_end_date,
+      sofortrabatt_classic_registration_end_date:
+        selectedTV.sofortrabatt_classic_registration_end_date,
       sofortrabatt_percent_start_date:
         selectedTV.sofortrabatt_percent_start_date,
       sofortrabatt_percent_end_date:

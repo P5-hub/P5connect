@@ -123,11 +123,21 @@ function isTodayInDateRange(start?: any, end?: any) {
   return true;
 }
 
-function getActiveTvSofortrabatt(item: any) {
-  const start = item?.sofortrabatt_classic_start_date;
-  const end = item?.sofortrabatt_classic_end_date;
+function isClassicRegistrationAllowed(item: any) {
+  const registrationEnd =
+    item?.sofortrabatt_classic_registration_end_date;
 
-  if (!isTodayInDateRange(start, end)) return 0;
+  // Kein Registrierungs-Enddatum = weiterhin erlaubt
+  if (!registrationEnd) return true;
+
+  const today = new Date().toISOString().slice(0, 10);
+  const endDate = String(registrationEnd).slice(0, 10);
+
+  return today <= endDate;
+}
+
+function getActiveTvSofortrabatt(item: any) {
+  if (!isClassicRegistrationAllowed(item)) return 0;
 
   return Number(item?.sofortrabatt_amount || 0);
 }
@@ -236,25 +246,31 @@ export default function CartSofortrabatt() {
     }));
   };
 
+
   const getClassicRabattForItem = (item: any) => {
     const isTV = getRole(item) === "tv";
     if (!isTV) return 0;
 
-    if (
-      !isTodayInDateRange(
-        item?.sofortrabatt_classic_start_date,
-        item?.sofortrabatt_classic_end_date
-      )
-    ) {
+    if (!isClassicRegistrationAllowed(item)) {
       return 0;
     }
 
-    if (rabattLevel === 1) return Number(item.sofortrabatt_amount || 0);
-    if (rabattLevel === 2) return Number(item.sofortrabatt_double_amount || 0);
-    if (rabattLevel === 3) return Number(item.sofortrabatt_triple_amount || 0);
+    if (rabattLevel === 1) {
+      return Number(item.sofortrabatt_amount || 0);
+    }
+
+    if (rabattLevel === 2) {
+      return Number(item.sofortrabatt_double_amount || 0);
+    }
+
+    if (rabattLevel === 3) {
+      return Number(item.sofortrabatt_triple_amount || 0);
+    }
 
     return 0;
   };
+
+
 
   const rabattSummary = useMemo(() => {
     if (promoType === "classic_fixed") {
@@ -495,12 +511,15 @@ export default function CartSofortrabatt() {
                     <div className="flex justify-between">
                       <div>
                         <p className="font-semibold">
-                          {item.product_name || item.sony_article || t("sofortrabatt.cart.product")}
-                          {t("sofortrabatt.cart.role")}: {role || t("sofortrabatt.cart.unknown")} | {t("sofortrabatt.cart.category")}:{" "}
+                          {item.product_name ||
+                            item.sony_article ||
+                            t("sofortrabatt.cart.product")}
                         </p>
                         <p className="text-xs text-gray-500">EAN: {item.ean}</p>
                         <p className="text-xs text-gray-400">
-                          Rolle: {role || "unbekannt"} | Kategorie:{" "}
+                          {t("sofortrabatt.cart.role")}:{" "}
+                          {role || t("sofortrabatt.cart.unknown")} |{" "}
+                          {t("sofortrabatt.cart.category")}:{" "}
                           {item.category || "-"} | PH2: {item.ph2 || "-"}
                         </p>
                       </div>
