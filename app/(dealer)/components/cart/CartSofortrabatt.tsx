@@ -172,6 +172,8 @@ export default function CartSofortrabatt() {
 
   const rabattLevel = getRabattLevel(items);
   const promoType: PromoType = orderDetails?.promo_type || "classic_fixed";
+  const promotionCode = orderDetails?.promotion_code ?? null;
+  const promotionName = orderDetails?.promotion_name ?? null;
 
   const files = orderDetails?.sofortrabatt_files ?? [];
   const salesPrices = orderDetails?.sofortrabatt_sales_prices ?? {
@@ -393,6 +395,8 @@ export default function CartSofortrabatt() {
       formData.append("dealer_id", dealer.dealer_id.toString());
       formData.append("items", JSON.stringify(items));
       formData.append("promo_type", promoType);
+      formData.append("promotion_code", promotionCode || "");
+      formData.append("promotion_name", promotionName || "");
       formData.append(
         "sales_prices",
         JSON.stringify({
@@ -484,7 +488,9 @@ export default function CartSofortrabatt() {
             <div className="mb-3 text-sm rounded-xl border p-3 bg-gray-50">
               <p className="font-semibold">
                 {t("sofortrabatt.cart.promotion")}:{" "}
-                {promoType === "classic_fixed"
+                {promotionName
+                  ? promotionName
+                  : promoType === "classic_fixed"
                   ? t("sofortrabatt.cart.classicPromo")
                   : t("sofortrabatt.cart.percentPromo")}
               </p>

@@ -59,6 +59,8 @@ type SubmissionRecord = {
   smart_nr?: string | null;
   credit_note_number?: string | null;
   admin_note?: string | null;
+  promotion_code?: string | null;
+  promotion_name?: string | null;
 };
 
 type ProjectFile = {
@@ -268,16 +270,20 @@ export default function UniversalDetailPage({
           kommentar: anyData.comment,
           rabatt_level: anyData.rabatt_level,
           rabatt_betrag: anyData.rabatt_betrag,
+
+          promotion_code: anyData.promotion_code,
+          promotion_name: anyData.promotion_name,
+
           tv_serial_number: anyData.tv_serial_number,
           soundbar_serial_number: anyData.soundbar_serial_number,
           subwoofer_serial_number: anyData.subwoofer_serial_number,
           products: anyData.products,
           dealers: dealer,
           project_id: null,
-          invoice_file_url: anyData.invoice_file_url,     
+          invoice_file_url: anyData.invoice_file_url,
           smart_nr: anyData.smart_nr,
           credit_note_number: anyData.credit_note_number,
-          admin_note: anyData.admin_note,     
+          admin_note: anyData.admin_note,
         });
 
         setProjectFiles([]);
@@ -1249,11 +1255,19 @@ export default function UniversalDetailPage({
                   <p>
                     <strong>{t("adminUniversalDetail.labels.subwooferSerialNumber")}:</strong> {record.subwoofer_serial_number || "-"}
                   </p>
-                  <p>
+                  <p className="col-span-2">
                     <strong>{t("adminUniversalDetail.labels.promotion")}:</strong>{" "}
-                    {isPercentPromo
+                    {record.promotion_name
+                      ? record.promotion_name
+                      : isPercentPromo
                       ? t("adminUniversalDetail.labels.percentPromo")
                       : t("adminUniversalDetail.labels.classicPromo")}
+
+                    {record.promotion_code && (
+                      <span className="ml-2 text-xs text-gray-500">
+                        ({record.promotion_code})
+                      </span>
+                    )}
                   </p>
                 </div>
               </div>

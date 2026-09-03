@@ -110,13 +110,22 @@
     return true;
   }
 
+  function isClassicRegistrationAllowed(item: any) {
+    const registrationEnd =
+      item?.sofortrabatt_classic_registration_end_date;
+
+    if (!registrationEnd) return true;
+
+    const today = new Date().toISOString().slice(0, 10);
+    const endDate = String(registrationEnd).slice(0, 10);
+
+    return today <= endDate;
+  }
+
   function getActiveTvSofortrabatt(item: any) {
-    return isTodayInDateRange(
-      item?.sofortrabatt_start_date,
-      item?.sofortrabatt_end_date
-    )
-      ? Number(item?.sofortrabatt_amount || 0)
-      : 0;
+    if (!isClassicRegistrationAllowed(item)) return 0;
+
+    return Number(item?.sofortrabatt_amount || 0);
   }
 
 
@@ -141,6 +150,9 @@
 
     const tvItem = items.find((i) => getProductRole(i) === "tv");
     if (!tvItem) throw new Error("TV nicht gefunden");
+    if (!isClassicRegistrationAllowed(tvItem)) {
+      throw new Error("Die Registrierungsfrist für diese Promotion ist abgelaufen");
+    }
 
     let rabattBetrag = 0;
     if (rabattLevel === 1) rabattBetrag = Number(tvItem.sofortrabatt_amount || 0);
@@ -312,6 +324,11 @@
       const promoType = String(
         formData.get("promo_type") || "classic_fixed"
       ) as PromoType;
+      const promotionCode =
+        String(formData.get("promotion_code") || "").trim() || null;
+
+      const promotionName =
+        String(formData.get("promotion_name") || "").trim() || null;
       const salesPricesRaw = formData.get("sales_prices");
       const serialsRaw = formData.get("serials");
 
@@ -388,6 +405,10 @@
             status: "pending",
             products: enrichedProducts,
             comment: detailComment,
+
+            promotion_code: promotionCode,
+            promotion_name: promotionName,
+
             tv_serial_number: serials.tv || null,
             soundbar_serial_number: serials.soundbar || null,
             subwoofer_serial_number: serials.subwoofer || null,

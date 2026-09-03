@@ -26,7 +26,7 @@ export const sofortrabatt = {
     select: "Tscherner promoziun",
     classicTitle: "Promoziun classica da rabat immediat",
     classicText: "Imports fixs tenor la tabella da products configurada",
-    percentTitle: "Nova promo: 30% / 50%",
+    percentTitle: "Promoziun Bundle Soundbar -30%",
     percentText:
       "TV a partir da 55 polesch + soundbar = 30% sin la soundbar, cun accessoris supplementarmain 50% sin accessoris cumpatibels",
   },

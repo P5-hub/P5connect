@@ -16,6 +16,8 @@ type SofortrabattRow = {
   created_at: string;
   rabatt_level?: number | null;
   rabatt_betrag?: number | null;
+  promotion_code?: string | null;
+  promotion_name?: string | null;
 };
 
 type Props = {
@@ -50,7 +52,7 @@ export default function SofortrabattActivityPanel({
     const { data, error } = await supabase
       .from("sofortrabatt_claims")
       .select(
-        "claim_id, dealer_id, status, created_at, rabatt_level, rabatt_betrag"
+        "claim_id, dealer_id, status, created_at, rabatt_level, rabatt_betrag, promotion_code, promotion_name"
       )
       .eq("dealer_id", dealerId)
       .order("created_at", { ascending: false })
@@ -290,6 +292,12 @@ export default function SofortrabattActivityPanel({
                   PDF
                 </button>
               </div>
+
+              {r.promotion_name && (
+              <div className="mt-1 text-xs font-medium text-gray-700">
+                {r.promotion_name}
+              </div>
+            )}
 
               {(r.rabatt_level || r.rabatt_betrag) && (
                 <div className="mt-1 text-xs text-gray-600">

@@ -49,10 +49,15 @@ export type OrderDetails = {
   // ✅ Sofortrabatt
   sofortrabatt_files: File[];
   promo_type?: PromoType;
+
+  promotion_code?: string | null;
+  promotion_name?: string | null;
+
   sofortrabatt_sales_prices?: {
     soundbar: string | number;
     subwoofer: string | number;
   };
+
   sofortrabatt_serials?: {
     tv: string;
     soundbar: string;
@@ -159,6 +164,8 @@ export function GlobalCartProvider({ children }: { children: ReactNode }) {
     support_files: [],
     sofortrabatt_files: [],
     promo_type: "classic_fixed",
+    promotion_code: null,
+    promotion_name: null,
     sofortrabatt_sales_prices: {
       soundbar: "",
       subwoofer: "",
@@ -233,6 +240,8 @@ export function GlobalCartProvider({ children }: { children: ReactNode }) {
         ...prev,
         sofortrabatt_files: [],
         promo_type: "classic_fixed",
+        promotion_code: null,
+        promotion_name: null,
         sofortrabatt_sales_prices: {
           soundbar: "",
           subwoofer: "",
@@ -280,12 +289,30 @@ export function GlobalCartProvider({ children }: { children: ReactNode }) {
   ) => {
     setOrderDetails((prev) => ({
       ...prev,
+
       files: which === "project" ? [] : prev.files,
-      support_files: which === "support" ? [] : prev.support_files,
+
+      support_files:
+        which === "support" ? [] : prev.support_files,
+
       sofortrabatt_files:
         which === "sofortrabatt" ? [] : prev.sofortrabatt_files,
+
       promo_type:
-        which === "sofortrabatt" ? "classic_fixed" : prev.promo_type,
+        which === "sofortrabatt"
+          ? "classic_fixed"
+          : prev.promo_type,
+
+      promotion_code:
+        which === "sofortrabatt"
+          ? null
+          : prev.promotion_code,
+
+      promotion_name:
+        which === "sofortrabatt"
+          ? null
+          : prev.promotion_name,
+
       sofortrabatt_sales_prices:
         which === "sofortrabatt"
           ? { soundbar: "", subwoofer: "" }

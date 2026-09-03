@@ -26,7 +26,7 @@ export const sofortrabatt = {
     select: "Select promotion",
     classicTitle: "Classic instant rebate promo",
     classicText: "Fixed amounts based on the configured product table",
-    percentTitle: "New promo: 30% / 50%",
+    percentTitle: "Soundbar 30% Bundle Promotion",
     percentText:
       "TV from 55 inches + soundbar = 30% on soundbar, with accessories an additional 50% on compatible accessories",
   },

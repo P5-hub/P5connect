@@ -14,6 +14,37 @@ import { getThemeByForm } from "@/lib/theme/ThemeContext";
 type Product = any;
 type PromoType = "classic_fixed" | "tv55_soundbar_percent";
 
+type DbPromotion = {
+  id: number;
+  code: string;
+  name: string;
+  promo_type: PromoType;
+  sales_start_date: string;
+  sales_end_date: string;
+  registration_end_date: string | null;
+  premium_service: boolean;
+  description: string | null;
+
+  name_de: string | null;
+  name_en: string | null;
+  name_fr: string | null;
+  name_it: string | null;
+  name_rm: string | null;
+
+  description_de: string | null;
+  description_en: string | null;
+  description_fr: string | null;
+  description_it: string | null;
+  description_rm: string | null;
+};
+
+type DbPromotionProduct = {
+  product_id: number;
+  single_amount: number | null;
+  double_amount: number | null;
+  triple_amount: number | null;
+};
+
 function normalizeText(value: any) {
   return String(value || "").trim().toLowerCase();
 }
@@ -184,15 +215,56 @@ function sortByLabel(items: Product[]) {
   );
 }
 
+function getPromotionName(promotion: DbPromotion, lang: string) {
+  const value =
+    lang === "de"
+      ? promotion.name_de
+      : lang === "en"
+      ? promotion.name_en
+      : lang === "fr"
+      ? promotion.name_fr
+      : lang === "it"
+      ? promotion.name_it
+      : lang === "rm"
+      ? promotion.name_rm
+      : null;
+
+  return value || promotion.name;
+}
+
+function getPromotionDescription(promotion: DbPromotion, lang: string) {
+  const value =
+    lang === "de"
+      ? promotion.description_de
+      : lang === "en"
+      ? promotion.description_en
+      : lang === "fr"
+      ? promotion.description_fr
+      : lang === "it"
+      ? promotion.description_it
+      : lang === "rm"
+      ? promotion.description_rm
+      : null;
+
+  return value || promotion.description;
+}
+
 export default function SofortrabattForm() {
   const supabase = getSupabaseBrowser();
   const dealer = useDealer();
-  const { t } = useI18n();
+  const { t, lang } = useI18n();
   const theme = getThemeByForm("sofortrabatt");
 
   const { addItem, clearCart, openCart, setOrderDetails } = useCart();
 
   const [promoType, setPromoType] = useState<PromoType>("classic_fixed");
+
+  const [selectedPromotionCode, setSelectedPromotionCode] =
+    useState<string | null>(null);
+
+  const [dbPromotions, setDbPromotions] = useState<DbPromotion[]>([]);
+  const [selectedDbPromotion, setSelectedDbPromotion] =
+    useState<DbPromotion | null>(null);
 
   const [loadingProducts, setLoadingProducts] = useState(false);
   const [tvList, setTvList] = useState<Product[]>([]);
@@ -237,7 +309,10 @@ export default function SofortrabattForm() {
   };
 
   const handlePromoChange = (nextPromo: PromoType) => {
-    if (nextPromo === promoType) return;
+    if (nextPromo === promoType && !selectedPromotionCode) return;
+
+    setSelectedPromotionCode(null);
+    setSelectedDbPromotion(null);
 
     setPromoType(nextPromo);
     resetSelection();
@@ -246,6 +321,29 @@ export default function SofortrabattForm() {
     setOrderDetails((prev: any) => ({
       ...prev,
       promo_type: nextPromo,
+      promotion_code: null,
+      promotion_name: null,
+      sofortrabatt_files: [],
+      sofortrabatt_sales_prices: {
+        soundbar: "",
+        subwoofer: "",
+      },
+    }));
+  };
+
+  const handleDbPromotionChange = (promotion: DbPromotion) => {
+    setPromoType("classic_fixed");
+    setSelectedPromotionCode(promotion.code);
+    setSelectedDbPromotion(promotion);
+
+    resetSelection();
+    clearCart("sofortrabatt");
+
+    setOrderDetails((prev: any) => ({
+      ...prev,
+      promo_type: "classic_fixed",
+      promotion_code: promotion.code,
+      promotion_name: promotion.name,
       sofortrabatt_files: [],
       sofortrabatt_sales_prices: {
         soundbar: "",
@@ -263,65 +361,191 @@ export default function SofortrabattForm() {
   }, [promoType]);
 
   useEffect(() => {
+    const loadPromotions = async () => {
+      const { data, error } = await (supabase as any)
+        .from("sofortrabatt_promotions")
+        .select("*")
+        .eq("active", true)
+        .order("sales_start_date", { ascending: true });
+
+      if (error) {
+        console.error("Sofortrabatt promotions load error:", error);
+        return;
+      }
+
+      setDbPromotions((data || []) as DbPromotion[]);
+    };
+
+    loadPromotions();
+  }, [supabase]);
+
+  useEffect(() => {
     const loadProducts = async () => {
       if (!dealerId) return;
 
       setLoadingProducts(true);
 
-      const promoColumn =
-        promoType === "classic_fixed"
-          ? "active_sofortrabatt_classic"
-          : "active_sofortrabatt_percent";
+      try {
+        let formatted: Product[] = [];
 
-      const { data, error } = await supabase
-        .from("v_dealer_standard_prices")
-        .select("*")
-        .eq("dealer_id", dealerId)
-        .eq(promoColumn, true)
-        .order("sony_article", { ascending: true });
+        // --------------------------------------------------
+        // NEUE DB-BASIERTE PROMOTION
+        // --------------------------------------------------
+        if (selectedPromotionCode && selectedDbPromotion) {
+    const { data: promoProducts, error: promoProductsError } =
+      await (supabase as any)
+        .from("sofortrabatt_promotion_products")
+              .select(
+                "product_id, single_amount, double_amount, triple_amount"
+              )
+              .eq("promotion_id", selectedDbPromotion.id)
+              .eq("active", true);
 
-      if (error) {
+          if (promoProductsError) {
+            throw promoProductsError;
+          }
+
+          const productIds = (promoProducts || []).map(
+            (row: any) => Number(row.product_id)
+          );
+
+          if (productIds.length === 0) {
+            setTvList([]);
+            setSoundbarList([]);
+            setSubwooferList([]);
+            return;
+          }
+
+          const { data, error } = await supabase
+            .from("v_dealer_standard_prices")
+            .select("*")
+            .eq("dealer_id", dealerId)
+            .in("product_id", productIds)
+            .order("sony_article", { ascending: true });
+
+          if (error) {
+            throw error;
+          }
+
+          const promoProductMap = new Map<number, DbPromotionProduct>(
+            (promoProducts || []).map((row: any) => [
+              Number(row.product_id),
+              {
+                product_id: Number(row.product_id),
+                single_amount: row.single_amount ?? null,
+                double_amount: row.double_amount ?? null,
+                triple_amount: row.triple_amount ?? null,
+              },
+            ])
+          );
+
+          formatted = (data || []).map((p: any) => {
+            const promoProduct = promoProductMap.get(Number(p.product_id));
+
+            return {
+              ...p,
+              product_id: Number(p.product_id),
+
+              sofortrabatt_amount:
+                promoProduct?.single_amount ?? 0,
+
+              sofortrabatt_double_amount:
+                promoProduct?.double_amount ?? null,
+
+              sofortrabatt_triple_amount:
+                promoProduct?.triple_amount ?? null,
+
+              sofortrabatt_classic_start_date:
+                selectedDbPromotion.sales_start_date,
+
+              sofortrabatt_classic_end_date:
+                selectedDbPromotion.sales_end_date,
+
+              sofortrabatt_classic_registration_end_date:
+                selectedDbPromotion.registration_end_date,
+
+              sofortrabatt_promotion_code:
+                selectedDbPromotion.code,
+
+              sofortrabatt_promotion_name:
+                selectedDbPromotion.name,
+
+              sofortrabatt_premium_service:
+                selectedDbPromotion.premium_service,
+            };
+          });
+        }
+
+        // --------------------------------------------------
+        // BISHERIGE PROMOTIONEN
+        // --------------------------------------------------
+        else {
+          const promoColumn =
+            promoType === "classic_fixed"
+              ? "active_sofortrabatt_classic"
+              : "active_sofortrabatt_percent";
+
+          const { data, error } = await supabase
+            .from("v_dealer_standard_prices")
+            .select("*")
+            .eq("dealer_id", dealerId)
+            .eq(promoColumn, true)
+            .order("sony_article", { ascending: true });
+
+          if (error) {
+            throw error;
+          }
+
+          formatted = (data || []).map((p: any) => ({
+            ...p,
+            product_id: Number(p.product_id),
+          }));
+        }
+
+        const tvs = formatted.filter(
+          (p) => String(p.ph2 || "").trim().toUpperCase() === "TME"
+        );
+
+        const soundbars = formatted.filter(
+          (p) => normalizeText(p.category) === "soundbar"
+        );
+
+        const accessories = formatted.filter((p) =>
+          ["subwoofer", "rear speaker", "rear", "rearspeaker"].includes(
+            normalizeText(p.category)
+          )
+        );
+
+        setTvList(sortTvList(tvs));
+        setSoundbarList(sortByLabel(soundbars));
+        setSubwooferList(sortByLabel(accessories));
+
+        setSelectedTV(null);
+        setSelectedSoundbar(null);
+        setSelectedSub(null);
+        setShowTvGrid(true);
+      } catch (error) {
         console.error("Sofortrabatt products load error:", error);
+
         toast.error(t("sofortrabatt.form.productsLoadError"));
+
         setTvList([]);
         setSoundbarList([]);
         setSubwooferList([]);
+      } finally {
         setLoadingProducts(false);
-        return;
       }
-
-      const formatted: Product[] = (data || []).map((p: any) => ({
-        ...p,
-        product_id: Number(p.product_id),
-      }));
-
-      const tvs = formatted.filter(
-        (p) => String(p.ph2 || "").trim().toUpperCase() === "TME"
-      );
-
-      const soundbars = formatted.filter(
-        (p) => normalizeText(p.category) === "soundbar"
-      );
-
-      const accessories = formatted.filter((p) =>
-        ["subwoofer", "rear speaker", "rear", "rearspeaker"].includes(
-          normalizeText(p.category)
-        )
-      );
-
-      setTvList(sortTvList(tvs));
-      setSoundbarList(sortByLabel(soundbars));
-      setSubwooferList(sortByLabel(accessories));
-
-      setSelectedTV(null);
-      setSelectedSoundbar(null);
-      setSelectedSub(null);
-      setShowTvGrid(true);
-      setLoadingProducts(false);
     };
 
     loadProducts();
-  }, [supabase, dealerId, promoType, t]);
+  }, [
+    supabase,
+    dealerId,
+    promoType,
+    selectedPromotionCode,
+    selectedDbPromotion,
+    t,
+  ]);
 
   const filteredTvList = useMemo(() => {
     return tvList.filter((tv: any) => {
@@ -400,6 +624,14 @@ export default function SofortrabattForm() {
       sofortrabatt_amount: selectedTV.sofortrabatt_amount,
       sofortrabatt_double_amount: selectedTV.sofortrabatt_double_amount,
       sofortrabatt_triple_amount: selectedTV.sofortrabatt_triple_amount,
+      sofortrabatt_promotion_code:
+        selectedTV.sofortrabatt_promotion_code || null,
+
+      sofortrabatt_promotion_name:
+        selectedTV.sofortrabatt_promotion_name || null,
+
+      sofortrabatt_premium_service:
+        selectedTV.sofortrabatt_premium_service || false,
     });
 
     if (selectedSoundbar) {
@@ -459,6 +691,8 @@ export default function SofortrabattForm() {
     setOrderDetails((prev: any) => ({
       ...prev,
       promo_type: promoType,
+      promotion_code: selectedPromotionCode,
+      promotion_name: selectedDbPromotion?.name || null,
       sofortrabatt_files: [],
       sofortrabatt_sales_prices: {
         soundbar: "",
@@ -525,36 +759,100 @@ export default function SofortrabattForm() {
           {t("sofortrabatt.promo.select")}
         </h3>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <Card
-            onClick={() => handlePromoChange("classic_fixed")}
-            className={`p-4 cursor-pointer ${
-              promoType === "classic_fixed" ? `border-2 ${theme.border}` : ""
-            }`}
-          >
-            <p className="font-semibold">
-              {t("sofortrabatt.promo.classicTitle")}
-            </p>
-            <p className="text-sm text-gray-500 mt-1">
-              {t("sofortrabatt.promo.classicText")}
-            </p>
-          </Card>
+        <div className="max-w-xl rounded-2xl border bg-white p-4 shadow-sm">
+          <label className="mb-2 block text-sm font-medium">
+            {t("sofortrabatt.promo.select")}
+          </label>
 
-          <Card
-            onClick={() => handlePromoChange("tv55_soundbar_percent")}
-            className={`p-4 cursor-pointer ${
-              promoType === "tv55_soundbar_percent"
-                ? `border-2 ${theme.border}`
-                : ""
-            }`}
+          <select
+            value={selectedPromotionCode || promoType}
+            onChange={(e) => {
+              const value = e.target.value;
+
+              if (value === "classic_fixed") {
+                handlePromoChange("classic_fixed");
+                return;
+              }
+
+              if (value === "tv55_soundbar_percent") {
+                handlePromoChange("tv55_soundbar_percent");
+                return;
+              }
+
+              const promotion = dbPromotions.find(
+                (item) => item.code === value
+              );
+
+              if (promotion) {
+                handleDbPromotionChange(promotion);
+              }
+            }}
+            className="h-11 w-full rounded-lg border bg-white px-3 text-sm"
           >
-            <p className="font-semibold">
+            <option value="classic_fixed">
+              {t("sofortrabatt.promo.classicTitle")}
+            </option>
+
+            <option value="tv55_soundbar_percent">
               {t("sofortrabatt.promo.percentTitle")}
-            </p>
-            <p className="text-sm text-gray-500 mt-1">
-              {t("sofortrabatt.promo.percentText")}
-            </p>
-          </Card>
+            </option>
+
+            {dbPromotions.map((promotion) => (
+              <option key={promotion.id} value={promotion.code}>
+                {getPromotionName(promotion, lang)}
+              </option>
+            ))}
+          </select>
+
+          <div className="mt-4 border-t pt-4">
+            {selectedDbPromotion ? (
+              <>
+                <div className="flex flex-wrap items-center gap-2">
+                  <p className="font-semibold">
+                    {getPromotionName(selectedDbPromotion, lang)}
+                  </p>
+
+                  {selectedDbPromotion.premium_service && (
+                    <span className="rounded-full bg-pink-50 px-2.5 py-1 text-xs font-medium text-pink-600">
+                      Premium Service
+                    </span>
+                  )}
+                </div>
+
+                {getPromotionDescription(selectedDbPromotion, lang) && (
+                  <p className="mt-1 text-sm text-gray-500">
+                    {getPromotionDescription(selectedDbPromotion, lang)}
+                  </p>
+                )}
+
+                <p className="mt-2 text-xs text-gray-400">
+                  {formatDateCH(selectedDbPromotion.sales_start_date)}
+                  {" – "}
+                  {formatDateCH(selectedDbPromotion.sales_end_date)}
+                </p>
+              </>
+            ) : promoType === "classic_fixed" ? (
+              <>
+                <p className="font-semibold">
+                  {t("sofortrabatt.promo.classicTitle")}
+                </p>
+
+                <p className="mt-1 text-sm text-gray-500">
+                  {t("sofortrabatt.promo.classicText")}
+                </p>
+              </>
+            ) : (
+              <>
+                <p className="font-semibold">
+                  {t("sofortrabatt.promo.percentTitle")}
+                </p>
+
+                <p className="mt-1 text-sm text-gray-500">
+                  {t("sofortrabatt.promo.percentText")}
+                </p>
+              </>
+            )}
+          </div>
         </div>
       </div>
 
@@ -739,7 +1037,7 @@ export default function SofortrabattForm() {
         )}
       </div>
 
-      {selectedTV && (
+      {selectedTV && !selectedPromotionCode && (
         <div ref={soundbarSectionRef} className="space-y-4">
           <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-3">
             <div>
@@ -796,7 +1094,9 @@ export default function SofortrabattForm() {
         </div>
       )}
 
-      {selectedTV && selectedSoundbar && (
+      {selectedTV &&
+        selectedSoundbar &&
+        !selectedPromotionCode && (
         <div ref={accessorySectionRef} className="space-y-4">
           <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-3">
             <div>
