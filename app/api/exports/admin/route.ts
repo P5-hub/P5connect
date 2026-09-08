@@ -33,6 +33,11 @@ type SubmissionItem = {
   item_id: number | null;
   product_id: number | null;
 
+  // Für Sell-in / Konditionsart
+  pricing_mode: string | null;
+  is_display_item: boolean | null;
+  item_status: string | null;
+
   product_name: string | null;
   ean: string | null;
   sony_article: string | null;
@@ -50,6 +55,7 @@ type SubmissionItem = {
   calc_price_on_invoice: number | null;
   serial: string | null;
   comment: string | null;
+
   products: Product | null;
 };
 
@@ -64,6 +70,13 @@ type Submission = {
   requested_delivery_date: string | null;
   project_id: string | null;
   dealer_id: number | null;
+
+  // Bestellinformationen
+  distributor: string | null;
+  dealer_reference: string | null;
+  customer_number: string | null;
+  order_number: string | null;
+
   dealers: Dealer | null;
   submission_items: SubmissionItem[] | null;
 };
@@ -94,33 +107,84 @@ const emptyProduct: Product = {
 };
 
 // -----------------------
+// 🧾 Konditions-Helfer
+// -----------------------
+function getSellinMode(item: SubmissionItem) {
+  if (item.pricing_mode === "messe") {
+    return "messe";
+  }
+
+  if (
+    item.pricing_mode === "display" ||
+    item.is_display_item === true
+  ) {
+    return "display";
+  }
+
+  return "standard";
+}
+
+function getSellinModeLabel(mode: string) {
+  if (mode === "messe") {
+    return "Messe";
+  }
+
+  if (mode === "display") {
+    return "Display";
+  }
+
+  return "Standard";
+}
+
+// -----------------------
 // 🧾 Excel Empty Row Helper
 // -----------------------
-function buildEmptyRow(isVerkauf: boolean) {
+function buildEmptyRow(
+  isVerkauf: boolean,
+  isBestellung: boolean
+) {
   const base: Record<string, any> = {
     ID: "",
-    Datum: "",
-    Typ: "",
-    Status: "",
-    Kommentar: "",
-    Bestellweg: "",
-    Lieferdatum_gewuenscht: "",
-    Project_ID: "",
-    Händler: "",
-    "Händler-Nr": "",
-    Kontaktperson: "",
-    Mail: "",
-    Strasse: "",
-    PLZ: "",
-    Ort: "",
-    Land: "",
-    Produkt: "",
-    EAN: "",
-    Brand: "",
-    Gruppe: "",
-    Kategorie: "",
-    Menge: "",
   };
+
+  // Nur Bestellungen:
+  // eindeutige Positions-ID + Konditionsart
+  if (isBestellung) {
+    base.Positions_ID = "";
+    base.Kondition = "";
+    base.Kondition_Code = "";
+  }
+
+  base.Datum = "";
+  base.Typ = "";
+  base.Status = "";
+  base.Kommentar = "";
+  base.Bestellweg = "";
+  base.Lieferdatum_gewuenscht = "";
+  base.Project_ID = "";
+
+  if (isBestellung) {
+    base.Bestellnummer = "";
+    base.Händlerreferenz = "";
+    base.Kundennummer = "";
+    base.Distributor = "";
+  }
+
+  base.Händler = "";
+  base["Händler-Nr"] = "";
+  base.Kontaktperson = "";
+  base.Mail = "";
+  base.Strasse = "";
+  base.PLZ = "";
+  base.Ort = "";
+  base.Land = "";
+
+  base.Produkt = "";
+  base.EAN = "";
+  base.Brand = "";
+  base.Gruppe = "";
+  base.Kategorie = "";
+  base.Menge = "";
 
   if (isVerkauf) {
     base.Lagerbestand = "";
@@ -143,6 +207,10 @@ function buildEmptyRow(isVerkauf: boolean) {
 
   return base;
 }
+
+// -----------------------
+// 🔎 Suchfilter
+// -----------------------
 function buildSubmissionSearchFilter(searchKey: string) {
   const value = searchKey.trim();
 
@@ -169,63 +237,116 @@ export async function POST(req: NextRequest) {
     const { type, from, to, search } = await req.json();
     const supabase = await getSupabaseServer();
 
-    const exportType = typeof type === "string" ? type : "";
-    const isVerkauf = exportType === "verkauf";
+    const exportType =
+      typeof type === "string" ? type : "";
 
-    const searchKey = typeof search === "string" ? search.trim() : "";
+    const isVerkauf =
+      exportType === "verkauf";
+
+    const isBestellung =
+      exportType === "bestellung";
+
+    const searchKey =
+      typeof search === "string"
+        ? search.trim()
+        : "";
 
     // ------------------------------------------
     // 1) Header-Filter (identisch zur UI)
     // ------------------------------------------
     let headerQuery = supabase
       .from("v_submission_history_header")
-      .select("submission_id, source, created_at, display_id")
+      .select(
+        "submission_id, source, created_at, display_id"
+      )
       .eq("typ", exportType);
-    
-    if (exportType === "bestellung") {
-      headerQuery = headerQuery.eq("status", "approved");
-    }  
+
+    if (isBestellung) {
+      headerQuery =
+        headerQuery.eq("status", "approved");
+    }
 
     if (from) {
-      headerQuery = headerQuery.gte("created_at", `${from}T00:00:00`);
+      headerQuery = headerQuery.gte(
+        "created_at",
+        `${from}T00:00:00`
+      );
     }
 
     if (to) {
-      headerQuery = headerQuery.lte("created_at", `${to}T23:59:59`);
+      headerQuery = headerQuery.lte(
+        "created_at",
+        `${to}T23:59:59`
+      );
     }
 
     if (searchKey) {
-      const searchFilter = buildSubmissionSearchFilter(searchKey);
+      const searchFilter =
+        buildSubmissionSearchFilter(searchKey);
 
       if (searchFilter) {
-        headerQuery = headerQuery.or(searchFilter);
+        headerQuery =
+          headerQuery.or(searchFilter);
       }
     }
-    headerQuery = headerQuery.order("created_at", { ascending: false });
 
-    const { data: headerRows, error: headerError } = await headerQuery;
+    headerQuery = headerQuery.order(
+      "created_at",
+      { ascending: false }
+    );
 
-    if (headerError) throw headerError;
+    const {
+      data: headerRows,
+      error: headerError,
+    } = await headerQuery;
+
+    if (headerError) {
+      throw headerError;
+    }
 
     // ------------------------------------------
     // 2) Nur echte Submissions exportieren
     // ------------------------------------------
-    const submissionIds: number[] = (headerRows ?? [])
-      .filter((r: any) => r?.source === "submission")
-      .map((r: any) => Number(r.submission_id))
-      .filter((n): n is number => Number.isFinite(n));
+    const submissionIds: number[] =
+      (headerRows ?? [])
+        .filter(
+          (r: any) =>
+            r?.source === "submission"
+        )
+        .map((r: any) =>
+          Number(r.submission_id)
+        )
+        .filter(
+          (n): n is number =>
+            Number.isFinite(n)
+        );
 
     // ------------------------------------------
-    // 3) Leerer Export → leere Excel-Struktur
+    // 3) Leerer Export
     // ------------------------------------------
     if (submissionIds.length === 0) {
-      const ws = XLSX.utils.json_to_sheet([buildEmptyRow(isVerkauf)]);
-      const wb = XLSX.utils.book_new();
+      const ws =
+        XLSX.utils.json_to_sheet([
+          buildEmptyRow(
+            isVerkauf,
+            isBestellung
+          ),
+        ]);
 
-      XLSX.utils.book_append_sheet(wb, ws, "Export");
+      const wb =
+        XLSX.utils.book_new();
+
+      XLSX.utils.book_append_sheet(
+        wb,
+        ws,
+        "Export"
+      );
 
       const buffer = Buffer.from(
-        XLSX.write(wb, { type: "array", bookType: "xlsx" })
+        XLSX.write(wb, {
+          type: "array",
+          bookType: "xlsx",
+        })
       );
 
       return new NextResponse(buffer, {
@@ -233,7 +354,9 @@ export async function POST(req: NextRequest) {
         headers: {
           "Content-Type":
             "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-          "Content-Disposition": `attachment; filename="${exportType}_export.xlsx"`,
+
+          "Content-Disposition":
+            `attachment; filename="${exportType}_export.xlsx"`,
         },
       });
     }
@@ -241,108 +364,229 @@ export async function POST(req: NextRequest) {
     // ------------------------------------------
     // 4) Detail-Daten laden
     // ------------------------------------------
-    const { data, error } = await supabase
-      .from("submissions")
-      .select(`
-        submission_id,
-        created_at,
-        typ,
-        status,
-        kommentar,
-        order_comment,
-        bestellweg,
-        requested_delivery_date,
-        project_id,
-        dealer_id,
-        dealers(
-          login_nr,
-          name,
-          store_name,
-          contact_person,
-          email,
-          street,
-          plz,
-          city,
-          country
-        ),
-        submission_items(
-          item_id,
-          product_id,
-          product_name,
-          ean,
-          sony_article,
-          menge,
-          preis,
-          stock_quantity,
-          stock_date,
-          invest,
-          netto_retail,
-          marge_alt,
-          marge_neu,
-          calc_price_on_invoice,
-          serial,
-          comment,
-          products(
+    const { data, error } =
+      await supabase
+        .from("submissions")
+        .select(`
+          submission_id,
+          created_at,
+          typ,
+          status,
+          kommentar,
+          order_comment,
+          bestellweg,
+          requested_delivery_date,
+          project_id,
+          dealer_id,
+
+          distributor,
+          dealer_reference,
+          customer_number,
+          order_number,
+
+          dealers(
+            login_nr,
+            name,
+            store_name,
+            contact_person,
+            email,
+            street,
+            plz,
+            city,
+            country
+          ),
+
+          submission_items(
+            item_id,
+            product_id,
+
+            pricing_mode,
+            is_display_item,
+            item_status,
+
             product_name,
             ean,
-            brand,
-            gruppe,
-            category,
-            retail_price,
-            dealer_invoice_price
+            sony_article,
+
+            menge,
+            preis,
+
+            stock_quantity,
+            stock_date,
+
+            invest,
+            netto_retail,
+            marge_alt,
+            marge_neu,
+            calc_price_on_invoice,
+            serial,
+            comment,
+
+            products(
+              product_name,
+              ean,
+              brand,
+              gruppe,
+              category,
+              retail_price,
+              dealer_invoice_price
+            )
           )
+        `)
+        .in(
+          "submission_id",
+          submissionIds
         )
-      `)
-      .in("submission_id", submissionIds)
-      .order("created_at", { ascending: false });
+        .order(
+          "created_at",
+          { ascending: false }
+        );
 
-    if (error) throw error;
+    if (error) {
+      throw error;
+    }
 
-    const submissions = (data ?? []) as Submission[];
+    const submissions =
+      (data ?? []) as Submission[];
 
     // ------------------------------------------
-    // 5) Excel-Zeilen bauen (Item-flat)
+    // 5) Excel-Zeilen bauen
+    //    Eine Zeile = eine Position
     // ------------------------------------------
     const rows: any[] = [];
 
     for (const s of submissions) {
-      const dealer = s.dealers ?? emptyDealer;
+      const dealer =
+        s.dealers ?? emptyDealer;
 
       const dealerName =
-        dealer.store_name || dealer.name || `Händler ${s.dealer_id ?? "-"}`;
+        dealer.store_name ||
+        dealer.name ||
+        `Händler ${s.dealer_id ?? "-"}`;
 
-      const header = {
+      const header: Record<
+        string,
+        any
+      > = {
         ID: s.submission_id,
-        Datum: s.created_at ? new Date(s.created_at) : "",
-        Typ: s.typ ?? "",
-        Status: s.status ?? "",
-        Kommentar: s.kommentar ?? s.order_comment ?? "",
-        Bestellweg: s.bestellweg ?? "",
-        Lieferdatum_gewuenscht: s.requested_delivery_date ?? "",
-        Project_ID: s.project_id ?? "",
-
-        Händler: dealerName,
-        "Händler-Nr": dealer.login_nr ?? "",
-        Kontaktperson: dealer.contact_person ?? "",
-        Mail: dealer.email ?? "",
-        Strasse: dealer.street ?? "",
-        PLZ: dealer.plz ?? "",
-        Ort: dealer.city ?? "",
-        Land: dealer.country ?? "",
       };
 
-      const items = s.submission_items ?? [];
+      // Nur bei Bestellungen
+      // direkt nach Bestell-ID einordnen
+      if (isBestellung) {
+        // Positions_ID wird unten
+        // pro Item ergänzt.
+        // Hier absichtlich noch nicht.
+      }
 
+      header.Datum =
+        s.created_at
+          ? new Date(s.created_at)
+          : "";
+
+      header.Typ =
+        s.typ ?? "";
+
+      header.Status =
+        s.status ?? "";
+
+      header.Kommentar =
+        s.kommentar ??
+        s.order_comment ??
+        "";
+
+      header.Bestellweg =
+        s.bestellweg ?? "";
+
+      header.Lieferdatum_gewuenscht =
+        s.requested_delivery_date ??
+        "";
+
+      header.Project_ID =
+        s.project_id ?? "";
+
+      if (isBestellung) {
+        header.Bestellnummer =
+          s.order_number ?? "";
+
+        header.Händlerreferenz =
+          s.dealer_reference ?? "";
+
+        header.Kundennummer =
+          s.customer_number ?? "";
+
+        header.Distributor =
+          s.distributor ?? "";
+      }
+
+      header.Händler =
+        dealerName;
+
+      header["Händler-Nr"] =
+        dealer.login_nr ?? "";
+
+      header.Kontaktperson =
+        dealer.contact_person ?? "";
+
+      header.Mail =
+        dealer.email ?? "";
+
+      header.Strasse =
+        dealer.street ?? "";
+
+      header.PLZ =
+        dealer.plz ?? "";
+
+      header.Ort =
+        dealer.city ?? "";
+
+      header.Land =
+        dealer.country ?? "";
+
+      // ------------------------------------------
+      // Stornierte Positionen bei Bestellungen
+      // ausschliessen.
+      //
+      // Entspricht:
+      // coalesce(item_status,'active')
+      // <> 'cancelled'
+      // ------------------------------------------
+      const items =
+        (s.submission_items ?? []).filter(
+          (item) => {
+            if (!isBestellung) {
+              return true;
+            }
+
+            return (
+              (item.item_status ??
+                "active") !==
+              "cancelled"
+            );
+          }
+        );
+
+      // ------------------------------------------
+      // Submission ohne Positionen
+      // ------------------------------------------
       if (items.length === 0) {
-        const row: Record<string, any> = {
+        const row:
+          Record<string, any> = {
           ...header,
-          Produkt: "",
-          EAN: "",
-          Brand: "",
-          Gruppe: "",
-          Kategorie: "",
-          Menge: 0,
         };
+
+        if (isBestellung) {
+          row.Positions_ID = "";
+          row.Kondition = "";
+          row.Kondition_Code = "";
+        }
+
+        row.Produkt = "";
+        row.EAN = "";
+        row.Brand = "";
+        row.Gruppe = "";
+        row.Kategorie = "";
+        row.Menge = 0;
 
         if (isVerkauf) {
           row.Lagerbestand = "";
@@ -364,16 +608,35 @@ export async function POST(req: NextRequest) {
         row.Kommentar_Item = "";
 
         rows.push(row);
+
         continue;
       }
 
+      // ------------------------------------------
+      // Eine Excel-Zeile pro Position
+      // ------------------------------------------
       for (const item of items) {
-        const p = item.products ?? emptyProduct;
+        const p =
+          item.products ??
+          emptyProduct;
 
-        const qty = Number(item.menge ?? 0);
-        const price = Number(item.preis ?? 0);
-        const invest = Number(item.invest ?? 0);
-        const totalInvest = qty * invest;
+        const qty =
+          Number(
+            item.menge ?? 0
+          );
+
+        const price =
+          Number(
+            item.preis ?? 0
+          );
+
+        const invest =
+          Number(
+            item.invest ?? 0
+          );
+
+        const totalInvest =
+          qty * invest;
 
         const productName =
           item.product_name ??
@@ -386,34 +649,100 @@ export async function POST(req: NextRequest) {
           p.ean ??
           "";
 
-        const row: Record<string, any> = {
+        // --------------------------------------
+        // Konditionslogik
+        //
+        // identisch zu
+        // get_sellin_order_details
+        // --------------------------------------
+        const sellinMode =
+          getSellinMode(item);
+
+        const sellinModeLabel =
+          getSellinModeLabel(
+            sellinMode
+          );
+
+        const row:
+          Record<string, any> = {
           ...header,
-          Produkt: productName,
-          EAN: ean,
-          Brand: p.brand ?? "",
-          Gruppe: p.gruppe ?? "",
-          Kategorie: p.category ?? "",
-          Menge: qty,
         };
 
-        if (isVerkauf) {
-          row.Lagerbestand = item.stock_quantity ?? "";
-          row.Lagerdatum = item.stock_date ?? "";
+        // --------------------------------------
+        // Bestell-spezifische Positionsdaten
+        // --------------------------------------
+        if (isBestellung) {
+          row.Positions_ID =
+            item.item_id ?? "";
+
+          row.Kondition =
+            sellinModeLabel;
+
+          row.Kondition_Code =
+            sellinMode;
         }
 
-        row.Preis = price;
-        row.Zwischensumme = +(qty * price).toFixed(2);
-        row.Netto_Retail = item.netto_retail ?? "";
-        row.Invest = item.invest ?? "";
-        row.Total_Invest = +totalInvest.toFixed(2);
-        row.Marge_Neu = item.marge_neu ?? "";
-        row.POI_Neu = item.calc_price_on_invoice ?? "";
+        row.Produkt =
+          productName;
+
+        row.EAN =
+          ean;
+
+        row.Brand =
+          p.brand ?? "";
+
+        row.Gruppe =
+          p.gruppe ?? "";
+
+        row.Kategorie =
+          p.category ?? "";
+
+        row.Menge =
+          qty;
+
+        if (isVerkauf) {
+          row.Lagerbestand =
+            item.stock_quantity ??
+            "";
+
+          row.Lagerdatum =
+            item.stock_date ??
+            "";
+        }
+
+        row.Preis =
+          price;
+
+        row.Zwischensumme =
+          +(
+            qty *
+            price
+          ).toFixed(2);
+
+        row.Netto_Retail =
+          item.netto_retail ??
+          "";
+
+        row.Invest =
+          item.invest ?? "";
+
+        row.Total_Invest =
+          +totalInvest.toFixed(2);
+
+        row.Marge_Neu =
+          item.marge_neu ?? "";
+
+        row.POI_Neu =
+          item.calc_price_on_invoice ??
+          "";
 
         if (!isVerkauf) {
-          row.Seriennummer = item.serial ?? "";
+          row.Seriennummer =
+            item.serial ?? "";
         }
 
-        row.Kommentar_Item = item.comment ?? "";
+        row.Kommentar_Item =
+          item.comment ?? "";
 
         rows.push(row);
       }
@@ -422,29 +751,131 @@ export async function POST(req: NextRequest) {
     // ------------------------------------------
     // 6) Excel bauen
     // ------------------------------------------
-    const ws = XLSX.utils.json_to_sheet(rows);
-    const wb = XLSX.utils.book_new();
+    const ws =
+      XLSX.utils.json_to_sheet(
+        rows.length
+          ? rows
+          : [
+              buildEmptyRow(
+                isVerkauf,
+                isBestellung
+              ),
+            ]
+      );
 
-    XLSX.utils.book_append_sheet(wb, ws, "Export");
+    // ------------------------------------------
+    // Optional:
+    // sinnvolle Spaltenbreiten
+    // ------------------------------------------
+    ws["!cols"] = [
+      { wch: 10 }, // ID
+
+      ...(isBestellung
+        ? [
+            { wch: 12 }, // Positions_ID
+            { wch: 12 }, // Kondition
+            { wch: 16 }, // Kondition_Code
+          ]
+        : []),
+
+      { wch: 20 }, // Datum
+      { wch: 14 }, // Typ
+      { wch: 14 }, // Status
+      { wch: 30 }, // Kommentar
+      { wch: 14 }, // Bestellweg
+      { wch: 20 }, // Lieferdatum
+      { wch: 15 }, // Project_ID
+
+      ...(isBestellung
+        ? [
+            { wch: 20 }, // Bestellnummer
+            { wch: 22 }, // Händlerreferenz
+            { wch: 18 }, // Kundennummer
+            { wch: 15 }, // Distributor
+          ]
+        : []),
+
+      { wch: 30 }, // Händler
+      { wch: 15 }, // Händler-Nr
+      { wch: 25 }, // Kontaktperson
+      { wch: 30 }, // Mail
+      { wch: 25 }, // Strasse
+      { wch: 10 }, // PLZ
+      { wch: 20 }, // Ort
+      { wch: 10 }, // Land
+      { wch: 25 }, // Produkt
+      { wch: 18 }, // EAN
+      { wch: 12 }, // Brand
+      { wch: 15 }, // Gruppe
+      { wch: 18 }, // Kategorie
+      { wch: 10 }, // Menge
+
+      ...(isVerkauf
+        ? [
+            { wch: 14 }, // Lagerbestand
+            { wch: 14 }, // Lagerdatum
+          ]
+        : []),
+
+      { wch: 14 }, // Preis
+      { wch: 16 }, // Zwischensumme
+      { wch: 14 }, // Netto Retail
+      { wch: 14 }, // Invest
+      { wch: 16 }, // Total Invest
+      { wch: 14 }, // Marge Neu
+      { wch: 14 }, // POI Neu
+
+      ...(!isVerkauf
+        ? [
+            { wch: 20 }, // Seriennummer
+          ]
+        : []),
+
+      { wch: 30 }, // Kommentar Item
+    ];
+
+    const wb =
+      XLSX.utils.book_new();
+
+    XLSX.utils.book_append_sheet(
+      wb,
+      ws,
+      "Export"
+    );
 
     const buffer = Buffer.from(
-      XLSX.write(wb, { type: "array", bookType: "xlsx" })
+      XLSX.write(wb, {
+        type: "array",
+        bookType: "xlsx",
+      })
     );
 
     return new NextResponse(buffer, {
       status: 200,
+
       headers: {
         "Content-Type":
           "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        "Content-Disposition": `attachment; filename="${exportType}_export.xlsx"`,
+
+        "Content-Disposition":
+          `attachment; filename="${exportType}_export.xlsx"`,
       },
     });
   } catch (e: any) {
-    console.error("❌ Excel Export Error:", e);
+    console.error(
+      "❌ Excel Export Error:",
+      e
+    );
 
     return NextResponse.json(
-      { error: e?.message ?? "Export failed" },
-      { status: 500 }
+      {
+        error:
+          e?.message ??
+          "Export failed",
+      },
+      {
+        status: 500,
+      }
     );
   }
 }
