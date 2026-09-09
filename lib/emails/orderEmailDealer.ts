@@ -39,7 +39,7 @@ function normalizeEmailLabels(raw: any) {
 }
 
 // -------------------------------------------------------
-// Dealer Email HTML Builder – komplett erweitert
+// Dealer Email HTML Builder
 // -------------------------------------------------------
 export function buildDealerOrderEmailHTML(params: {
   meta: any;
@@ -50,6 +50,7 @@ export function buildDealerOrderEmailHTML(params: {
 
   // Sprache bestimmen
   const rawLang = (meta.dealerLanguage || "de").split("_")[0];
+
   const lang: Lang = ["de", "en", "fr", "it", "rm"].includes(rawLang)
     ? (rawLang as Lang)
     : "de";
@@ -60,140 +61,255 @@ export function buildDealerOrderEmailHTML(params: {
   // Datum formatieren
   function formatDateCH(d: string | null) {
     if (!d) return null;
+
     const dt = new Date(d);
-    return isNaN(dt.getTime()) ? d : dt.toLocaleDateString("de-CH");
+
+    return isNaN(dt.getTime())
+      ? d
+      : dt.toLocaleDateString("de-CH");
   }
 
   // Übersetzung Lieferoption
   function translateDelivery(option: string | null) {
     if (!option) return null;
+
     switch (option) {
       case "immediately":
         return t.delivery_immediately;
+
       case "scheduled":
         return t.delivery_scheduled;
+
       default:
         return option;
     }
   }
 
+  // -------------------------------------------------------
   // Tabellenzeilen
+  // -------------------------------------------------------
   const rows = items
     .map(
       (i) => `
-      <tr>
+        <tr>
           <td style="padding:8px;border-top:1px solid #eee;">
             ${i.products?.product_name ?? "-"}
           </td>
+
           <td style="padding:8px;border-top:1px solid #eee;">
             ${i.products?.ean ?? "-"}
           </td>
+
           <td style="padding:8px;border-top:1px solid #eee;text-align:center;">
             ${i.menge ?? "-"}
           </td>
+
           <td style="padding:8px;border-top:1px solid #eee;text-align:right;">
             ${(i.preis ?? 0).toFixed(2)} CHF
           </td>
-      </tr>`
+        </tr>
+      `
     )
     .join("");
 
   const deliveryTranslated = translateDelivery(meta.requested_delivery);
   const deliveryDate = formatDateCH(meta.requested_delivery_date);
 
-  // Händler-Referenz
-  const dealerReferenceLine = meta.dealerReference
-    ? `<strong>${t.haendler_referenz}:</strong> ${meta.dealerReference}<br/>`
-    : "";
-
-  // Händlerblock (übersetzt)
+  // -------------------------------------------------------
+  // Händlerblock
+  // -------------------------------------------------------
   const dealerBlock = `
     <div style="margin-top:18px;padding:14px;background:#f9fafb;border-radius:8px;">
-      <strong style="font-size:15px;color:#111;">${t.firmendaten}</strong><br/>
+
+      <strong style="font-size:15px;color:#111;">
+        ${t.firmendaten}
+      </strong><br/>
+
       ${meta.dealerCompany ?? "-"}<br/>
       ${meta.dealerStreet ?? ""}<br/>
       ${meta.dealerZip ?? ""} ${meta.dealerCity ?? ""}<br/>
       ${meta.dealerCountry ?? ""}<br/><br/>
 
-      <strong>${t.ansprechperson}:</strong> ${meta.dealerName ?? "-"}<br/>
-      <strong>${t.email}:</strong> ${meta.dealerEmail ?? "-"}<br/>
-      <strong>${t.telefon}:</strong> ${meta.dealerPhone ?? "-"}<br/>
-      <strong>${t.kundennr}:</strong> ${meta.customerNumber || "-"}<br/><br/>
+      <strong>${t.ansprechperson}:</strong>
+      ${meta.dealerName ?? "-"}<br/>
 
-      <strong>${t.kam}:</strong> ${meta.kamName ?? "-"}<br/>
-      <strong>${t.kam_email}:</strong> ${meta.kamSonyEmail ?? "-"}
+      <strong>${t.email}:</strong>
+      ${meta.dealerEmail ?? "-"}<br/>
+
+      <strong>${t.telefon}:</strong>
+      ${meta.dealerPhone ?? "-"}<br/>
+
+      <strong>${t.kundennr}:</strong>
+      ${meta.customerNumber || "-"}<br/><br/>
+
+      <strong>${t.kam}:</strong>
+      ${meta.kamName ?? "-"}<br/>
+
+      <strong>${t.kam_email}:</strong>
+      ${meta.kamSonyEmail ?? "-"}
+
     </div>
   `;
 
-
+  // -------------------------------------------------------
   // Lieferoptionen
+  // -------------------------------------------------------
   const deliveryBlock =
     deliveryTranslated || deliveryDate
       ? `
-      <div style="margin-top:14px;padding:12px;background:#eef2ff;border-radius:8px;
-                  border-left:5px solid #6366f1;">
-        <strong style="font-size:15px;color:#3730a3;">${t.lieferoption}</strong><br/>
-        ${deliveryTranslated ? `${deliveryTranslated}<br/>` : ""}
-        ${deliveryDate ? `<strong>${t.lieferdatum}:</strong> ${deliveryDate}<br/>` : ""}
-      </div>`
+        <div
+          style="
+            margin-top:14px;
+            padding:12px;
+            background:#eef2ff;
+            border-radius:8px;
+            border-left:5px solid #6366f1;
+          "
+        >
+          <strong style="font-size:15px;color:#3730a3;">
+            ${t.lieferoption}
+          </strong><br/>
+
+          ${
+            deliveryTranslated
+              ? `${deliveryTranslated}<br/>`
+              : ""
+          }
+
+          ${
+            deliveryDate
+              ? `<strong>${t.lieferdatum}:</strong> ${deliveryDate}<br/>`
+              : ""
+          }
+        </div>
+      `
       : "";
 
+  // -------------------------------------------------------
   // Direktlieferung
+  // -------------------------------------------------------
   const hasAltDelivery =
-  meta.deliveryName || meta.deliveryStreet || meta.deliveryZip || meta.deliveryCity || meta.deliveryPhone || meta.deliveryEmail;
+    meta.deliveryName ||
+    meta.deliveryStreet ||
+    meta.deliveryZip ||
+    meta.deliveryCity ||
+    meta.deliveryPhone ||
+    meta.deliveryEmail;
 
   const altDeliveryBlock = hasAltDelivery
     ? `
-        <div style="margin-top:16px;padding:16px;border-radius:8px;
-                    background:#fff4d6;border-left:5px solid #f59e0b;">
-          <strong style="font-size:15px;color:#b45309;">
-            ${t.lieferadresse_warn}
-          </strong><br/><br/>
+      <div
+        style="
+          margin-top:16px;
+          padding:16px;
+          border-radius:8px;
+          background:#fff4d6;
+          border-left:5px solid #f59e0b;
+        "
+      >
+        <strong style="font-size:15px;color:#b45309;">
+          ${t.lieferadresse_warn}
+        </strong><br/><br/>
 
-          ${meta.deliveryName ?? ""}<br/>
-          ${meta.deliveryStreet ?? ""}<br/>
-          ${meta.deliveryZip ?? ""} ${meta.deliveryCity ?? ""}<br/>
-          ${meta.deliveryCountry ?? ""}
+        ${meta.deliveryName ?? ""}<br/>
+        ${meta.deliveryStreet ?? ""}<br/>
+        ${meta.deliveryZip ?? ""} ${meta.deliveryCity ?? ""}<br/>
+        ${meta.deliveryCountry ?? ""}
 
-          ${
-            meta.deliveryPhone || meta.deliveryEmail
-              ? `<div style="margin-top:10px;">
-                  ${meta.deliveryPhone ? `<strong>${t.telefon}:</strong> ${meta.deliveryPhone}<br/>` : ""}
-                  ${meta.deliveryEmail ? `<strong>${t.email}:</strong> ${meta.deliveryEmail}<br/>` : ""}
-                </div>`
-              : ""
-          }
+        ${
+          meta.deliveryPhone || meta.deliveryEmail
+            ? `
+              <div style="margin-top:10px;">
 
-          ${
-            meta.dealerReference
-              ? `<div style="margin-top:10px;">
-                  <strong>${t.haendler_referenz}:</strong> ${meta.dealerReference}
-                </div>`
-              : ""
-          }
-        </div>`
+                ${
+                  meta.deliveryPhone
+                    ? `<strong>${t.telefon}:</strong> ${meta.deliveryPhone}<br/>`
+                    : ""
+                }
+
+                ${
+                  meta.deliveryEmail
+                    ? `<strong>${t.email}:</strong> ${meta.deliveryEmail}<br/>`
+                    : ""
+                }
+
+              </div>
+            `
+            : ""
+        }
+
+      </div>
+    `
     : "";
 
-
+  // -------------------------------------------------------
   // Kommentarblock
+  // -------------------------------------------------------
   const commentBlock = meta.orderComment
     ? `
-    <div style="margin-top:16px;padding:14px;background:#fff8e1;border-left:5px solid #fbbf24;border-radius:6px;">
-      <strong style="color:#7c5c00;">${t.kommentar}:</strong><br/>
-      ${meta.orderComment}
-    </div>`
+      <div
+        style="
+          margin-top:16px;
+          padding:14px;
+          background:#fff8e1;
+          border-left:5px solid #fbbf24;
+          border-radius:6px;
+        "
+      >
+        <strong style="color:#7c5c00;">
+          ${t.kommentar}:
+        </strong><br/>
+
+        ${meta.orderComment}
+      </div>
+    `
     : "";
 
+  // -------------------------------------------------------
   // FINAL HTML
+  // -------------------------------------------------------
   return `
-    <div style="font-family:Arial,sans-serif;line-height:1.55;color:#333;padding:20px;">
-      <h2 style="color:#2563EB;margin-bottom:6px;">${text.subject}</h2>
-      <p>${text.intro}</p>
+    <div
+      style="
+        font-family:Arial,sans-serif;
+        line-height:1.55;
+        color:#333;
+        padding:20px;
+      "
+    >
 
-      <div style="margin-top:12px;">
-        ${dealerReferenceLine}
-        <strong>${t.bestellnr}:</strong> ${meta.orderNumber ?? meta.submissionId}<br/>
-        <strong>${t.bestellweg}:</strong> ${meta.bestellweg ?? "-"}<br/>
+      <h2 style="color:#2563EB;margin-bottom:6px;">
+        ${text.subject}
+      </h2>
+
+      <p>
+        ${text.intro}
+      </p>
+
+      <div
+        style="
+          margin-top:12px;
+          padding:12px;
+          background:#f9fafb;
+          border-radius:8px;
+        "
+      >
+
+        <strong>${t.bestellnr}:</strong>
+        ${meta.orderNumber ?? meta.submissionId}<br/>
+
+        ${
+          meta.dealerReference
+            ? `
+              <strong>${t.haendler_referenz}:</strong>
+              ${meta.dealerReference}<br/>
+            `
+            : ""
+        }
+
+        <strong>${t.bestellweg}:</strong>
+        ${meta.bestellweg ?? "-"}<br/>
+
       </div>
 
       ${deliveryBlock}
@@ -201,9 +317,17 @@ export function buildDealerOrderEmailHTML(params: {
       ${altDeliveryBlock}
       ${commentBlock}
 
-      <h3 style="margin-top:26px;margin-bottom:10px;">${t.bestellpositionen}</h3>
+      <h3 style="margin-top:26px;margin-bottom:10px;">
+        ${t.bestellpositionen}
+      </h3>
 
-      <table style="border-collapse:collapse;width:100%;border:1px solid #ddd;">
+      <table
+        style="
+          border-collapse:collapse;
+          width:100%;
+          border:1px solid #ddd;
+        "
+      >
         <thead style="background:#eef2ff;">
           <tr>
             <th style="padding:8px;">Produkt</th>
@@ -212,13 +336,17 @@ export function buildDealerOrderEmailHTML(params: {
             <th style="padding:8px;">Preis</th>
           </tr>
         </thead>
-        <tbody>${rows}</tbody>
+
+        <tbody>
+          ${rows}
+        </tbody>
       </table>
 
       <p style="margin-top:26px;">
         ${text.footer}<br/><br/>
         <strong>P5connect</strong>
       </p>
+
     </div>
   `;
 }
