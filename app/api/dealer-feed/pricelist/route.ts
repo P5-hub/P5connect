@@ -296,6 +296,13 @@ export async function GET(req: NextRequest) {
               standard.promo_upe !== undefined
               ? Number(standard.promo_upe).toFixed(2)
               : "",
+
+        TP:
+          standard.toppreise_allowed === true
+            ? "Ja"
+            : standard.toppreise_allowed === false
+              ? "Nein"
+              : "",
       };
     });
 
