@@ -37,19 +37,18 @@ export default function InfosPage() {
   const newsletters = [
     {
       id: "sep2026",
-      date: "September 2026",
-      title: "BRAVIA Update",
-      description:
-        "Aktuelle BRAVIA News, Produkte, Aktionen und wichtige Informationen für P5 Partner.",
+      date: t("infos.newsletter.september2026.date"),
+      title: t("infos.newsletter.september2026.title"),
+      description: t("infos.newsletter.september2026.description"),
       current: true,
       languages: [
         {
-          label: "Deutsch",
+          label: t("infos.newsletter.languageGerman"),
           short: "DE",
           file: "/newsletter/BRAVIA-Update-September-2026-DE-mit-Bildern.html",
         },
         {
-          label: "Français",
+          label: t("infos.newsletter.languageFrench"),
           short: "FR",
           file: "/newsletter/BRAVIA-Update-Septembre-2026-FR-avec-images.html",
         },
@@ -57,19 +56,18 @@ export default function InfosPage() {
     },
     {
       id: "jul2026",
-      date: "Juli 2026",
-      title: "BRAVIA News",
-      description:
-        "BRAVIA News und Informationen für P5 Partner aus der Juli-Ausgabe.",
+      date: t("infos.newsletter.july2026.date"),
+      title: t("infos.newsletter.july2026.title"),
+      description: t("infos.newsletter.july2026.description"),
       current: false,
       languages: [
         {
-          label: "Deutsch",
+          label: t("infos.newsletter.languageGerman"),
           short: "DE",
           file: "/newsletter/BRAVIA-News-Juli-2026-mit-Bildern.html",
         },
         {
-          label: "Français",
+          label: t("infos.newsletter.languageFrench"),
           short: "FR",
           file: "/newsletter/BRAVIA-News-Juillet-2026-FR-avec-images.html",
         },
@@ -77,26 +75,26 @@ export default function InfosPage() {
     },
   ];
 
-  const currentNewsletter = newsletters[0];
-  const archiveNewsletters = newsletters.slice(1);
+  const currentNewsletter = newsletters.find((n) => n.current) ?? newsletters[0];
+  const archiveNewsletters = newsletters.filter((n) => !n.current);
 
   // =========================================================
   // DOWNLOADS
   // =========================================================
   const downloads = [
     {
-      name: "DOA-Formular",
-      description: "DOA-Fall erfassen",
+      name: t("infos.downloads.doaForm"),
+      description: t("infos.downloads.doaFormDesc"),
       file: "/docs/DOA-Formular.pdf",
     },
     {
-      name: "DOA-Regelung",
-      description: "Aktuelle Regelung",
+      name: t("infos.downloads.doaRules"),
+      description: t("infos.downloads.doaRulesDesc"),
       file: "/docs/DOA-Regelung-DE.pdf",
     },
     {
       name: t("infos.downloads.sertronics"),
-      description: "Anmeldung & Unterlagen",
+      description: t("infos.downloads.sertronicsDesc"),
       file: "/docs/Anmeldung_Sertronics.pdf",
     },
   ];
@@ -154,9 +152,7 @@ export default function InfosPage() {
     <div className="min-h-screen bg-[#f7f8fa] px-4 pb-20 pt-8 sm:px-6 lg:px-8">
       <div className="mx-auto max-w-6xl space-y-10">
 
-        {/* =====================================================
-            HEADER
-        ===================================================== */}
+        {/* HEADER */}
         <header className="border-b-2 border-[#1F3B9B] pb-4">
           <div className="flex items-center gap-3">
             <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-[#1F3B9B]/10">
@@ -169,29 +165,25 @@ export default function InfosPage() {
               </h1>
 
               <p className="mt-1 text-sm text-gray-500">
-                Support, Ansprechpartner, Dokumente und aktuelle Informationen
-                für Sony P5 Partner.
+                {t("infos.subtitle")}
               </p>
             </div>
           </div>
         </header>
 
-        {/* =====================================================
-            AKTUELL & SCHNELLZUGRIFF
-        ===================================================== */}
+        {/* AKTUELL & SCHNELLZUGRIFF */}
         <section>
           <SectionTitle
             icon={<Newspaper className="h-5 w-5" />}
-            title="Aktuell & Schnellzugriff"
-            subtitle="Die wichtigsten Informationen und Dokumente auf einen Blick."
+            title={t("infos.quick.title")}
+            subtitle={t("infos.quick.subtitle")}
           />
 
           <div className="grid gap-5 lg:grid-cols-[1.35fr_1fr]">
 
-            {/* Aktueller Newsletter */}
             <Card className="overflow-hidden border border-[#1F3B9B]/30 bg-white shadow-sm">
               <div className="bg-[#1F3B9B] px-5 py-2 text-xs font-semibold uppercase tracking-wide text-white">
-                Aktuelle Ausgabe
+                {t("infos.quick.currentIssue")}
               </div>
 
               <CardContent className="p-6">
@@ -218,7 +210,7 @@ export default function InfosPage() {
                 <div className="mt-5 flex flex-wrap items-center gap-3">
                   <div className="mr-1 flex items-center gap-1.5 text-xs font-medium text-gray-500">
                     <Languages className="h-4 w-4" />
-                    Sprache
+                    {t("infos.quick.language")}
                   </div>
 
                   {currentNewsletter.languages.map((language) => (
@@ -242,14 +234,14 @@ export default function InfosPage() {
               </CardContent>
             </Card>
 
-            {/* Schnellzugriff Dokumente */}
+            {/* WICHTIGE DOKUMENTE */}
             <Card className="border border-gray-200 bg-white shadow-sm">
               <CardContent className="p-5">
                 <div className="mb-4 flex items-center gap-2">
                   <FileDown className="h-5 w-5 text-[#1F3B9B]" />
 
                   <h3 className="font-semibold text-gray-900">
-                    Wichtige Dokumente
+                    {t("infos.downloads.title")}
                   </h3>
                 </div>
 
@@ -282,33 +274,29 @@ export default function InfosPage() {
                 </div>
               </CardContent>
             </Card>
-
           </div>
         </section>
 
-        {/* =====================================================
-            TECHNISCHER SUPPORT
-        ===================================================== */}
+        {/* TECHNISCHER SUPPORT */}
         <section>
           <SectionTitle
             icon={<Headphones className="h-5 w-5" />}
             title={t("infos.support.title")}
-            subtitle="Technische Unterstützung für Händler und Endkunden."
+            subtitle={t("infos.support.subtitle")}
           />
 
           <div className="grid gap-5 lg:grid-cols-2">
 
-            {/* Händler Support */}
+            {/* HÄNDLER */}
             <Card className="overflow-hidden border border-gray-200 bg-white shadow-sm">
               <CardHeader className="border-b border-gray-100 bg-gray-50/70">
                 <CardTitle className="text-base font-semibold text-gray-900">
-                  Händler-Support
+                  {t("infos.support.dealer")}
                 </CardTitle>
               </CardHeader>
 
               <CardContent className="p-5">
                 <div className="flex flex-col gap-6 xl:flex-row">
-
                   <div className="flex-1 space-y-4">
                     <p className="text-sm text-gray-600">
                       {t("infos.support.hours")}
@@ -321,11 +309,11 @@ export default function InfosPage() {
                       />
                       <ContactLine
                         icon={<Phone className="h-4 w-4" />}
-                        text="Französisch: +41 (0)22 761 4183"
+                        text="Français: +41 (0)22 761 4183"
                       />
                       <ContactLine
                         icon={<Phone className="h-4 w-4" />}
-                        text="Italienisch: +39 (0)26 968 2104"
+                        text="Italiano: +39 (0)26 968 2104"
                       />
                     </SupportGroup>
 
@@ -342,13 +330,12 @@ export default function InfosPage() {
                         rel="noopener noreferrer"
                         className="inline-flex items-center gap-1.5 text-sm font-semibold text-[#1F3B9B] hover:underline"
                       >
-                        Sony Support Schweiz
+                        {t("infos.support.sonySupport")}
                         <ExternalLink className="h-3.5 w-3.5" />
                       </Link>
                     </div>
                   </div>
 
-                  {/* Holger */}
                   <div className="w-full shrink-0 rounded-xl border border-gray-200 bg-gray-50 p-4 text-center xl:w-52">
                     <div className="relative mx-auto mb-3 h-28 w-24 overflow-hidden rounded-lg border border-gray-200 bg-white">
                       <Image
@@ -381,16 +368,15 @@ export default function InfosPage() {
                       +49 30 4195 53356
                     </p>
                   </div>
-
                 </div>
               </CardContent>
             </Card>
 
-            {/* Endkunden Support */}
+            {/* ENDKUNDEN */}
             <Card className="overflow-hidden border border-gray-200 bg-white shadow-sm">
               <CardHeader className="border-b border-gray-100 bg-gray-50/70">
                 <CardTitle className="text-base font-semibold text-gray-900">
-                  Endkunden-Support
+                  {t("infos.support.customer")}
                 </CardTitle>
               </CardHeader>
 
@@ -406,11 +392,11 @@ export default function InfosPage() {
                   />
                   <ContactLine
                     icon={<Phone className="h-4 w-4" />}
-                    text="Französisch: +41 (0)22 761 4183"
+                    text="Français: +41 (0)22 761 4183"
                   />
                   <ContactLine
                     icon={<Phone className="h-4 w-4" />}
-                    text="Italienisch: +39 (0)26 968 2104"
+                    text="Italiano: +39 (0)26 968 2104"
                   />
                 </SupportGroup>
 
@@ -421,43 +407,34 @@ export default function InfosPage() {
                 </SupportGroup>
               </CardContent>
             </Card>
-
           </div>
         </section>
 
-        {/* =====================================================
-            KEY ACCOUNT MANAGER
-        ===================================================== */}
+        {/* KAM */}
         <section>
           <SectionTitle
             icon={<Users className="h-5 w-5" />}
             title={t("infos.sales.kam")}
-            subtitle="Ihre persönlichen Ansprechpartner im Sony Vertrieb Schweiz."
+            subtitle={t("infos.sales.kamSubtitle")}
           />
 
           <div className="grid gap-5 md:grid-cols-3">
             {keyAccountManagers.map((person) => (
               <ContactCard
                 key={person.email}
-                name={person.name}
-                role={person.role}
-                email={person.email}
-                phone={person.phone}
-                img={person.img}
+                {...person}
               />
             ))}
           </div>
         </section>
 
-        {/* =====================================================
-            VERKAUF INNENDIENST - KLAPPBAR
-        ===================================================== */}
+        {/* VERKAUF INNENDIENST */}
         <section>
           <details className="group overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
             <summary className="flex cursor-pointer list-none items-center justify-between px-5 py-4 transition hover:bg-gray-50">
               <div className="flex items-center gap-3">
                 <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-[#1F3B9B]/10">
-                  <Users className="h-4.5 w-4.5 text-[#1F3B9B]" />
+                  <Users className="h-5 w-5 text-[#1F3B9B]" />
                 </div>
 
                 <div>
@@ -466,7 +443,7 @@ export default function InfosPage() {
                   </h2>
 
                   <p className="mt-0.5 text-xs text-gray-500">
-                    Unterstützung bei Bestellungen und administrativen Verkaufsthemen
+                    {t("infos.sales.internalSubtitle")}
                   </p>
                 </div>
               </div>
@@ -483,7 +460,6 @@ export default function InfosPage() {
                   >
                     <CardContent className="p-4">
                       <div className="flex gap-4">
-
                         <div className="relative h-24 w-20 shrink-0 overflow-hidden rounded-lg border border-gray-200 bg-white">
                           <Image
                             src={person.img}
@@ -516,7 +492,6 @@ export default function InfosPage() {
                             />
                           </div>
                         </div>
-
                       </div>
                     </CardContent>
                   </Card>
@@ -527,7 +502,7 @@ export default function InfosPage() {
                 <Mail className="h-4 w-4 text-[#1F3B9B]" />
 
                 <span className="text-sm text-gray-500">
-                  Zentrale E-Mail:
+                  {t("infos.sales.centralEmail")}:
                 </span>
 
                 <a
@@ -541,25 +516,23 @@ export default function InfosPage() {
           </details>
         </section>
 
-        {/* =====================================================
-            NEWSLETTER ARCHIV
-        ===================================================== */}
+        {/* NEWSLETTER ARCHIV */}
         {archiveNewsletters.length > 0 && (
           <section>
             <details className="group overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
               <summary className="flex cursor-pointer list-none items-center justify-between px-5 py-4 transition hover:bg-gray-50">
                 <div className="flex items-center gap-3">
                   <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-[#1F3B9B]/10">
-                    <Newspaper className="h-4.5 w-4.5 text-[#1F3B9B]" />
+                    <Newspaper className="h-5 w-5 text-[#1F3B9B]" />
                   </div>
 
                   <div>
                     <h2 className="text-sm font-semibold text-gray-900">
-                      Newsletter-Archiv
+                      {t("infos.newsletter.archiveTitle")}
                     </h2>
 
                     <p className="mt-0.5 text-xs text-gray-500">
-                      Frühere BRAVIA Newsletter anzeigen
+                      {t("infos.newsletter.archiveSubtitle")}
                     </p>
                   </div>
                 </div>
@@ -609,15 +582,10 @@ export default function InfosPage() {
             </details>
           </section>
         )}
-
       </div>
     </div>
   );
 }
-
-// ===========================================================
-// SECTION TITLE
-// ===========================================================
 
 function SectionTitle({
   icon,
@@ -632,10 +600,7 @@ function SectionTitle({
     <div className="mb-4 border-b border-gray-200 pb-3">
       <div className="flex items-center gap-2 text-[#1F3B9B]">
         {icon}
-
-        <h2 className="text-base font-semibold">
-          {title}
-        </h2>
+        <h2 className="text-base font-semibold">{title}</h2>
       </div>
 
       {subtitle && (
@@ -646,10 +611,6 @@ function SectionTitle({
     </div>
   );
 }
-
-// ===========================================================
-// SUPPORT GROUP
-// ===========================================================
 
 function SupportGroup({
   title,
@@ -671,10 +632,6 @@ function SupportGroup({
   );
 }
 
-// ===========================================================
-// CONTACT LINE
-// ===========================================================
-
 function ContactLine({
   icon,
   text,
@@ -687,38 +644,22 @@ function ContactLine({
       <span className="shrink-0 text-gray-400">
         {icon}
       </span>
-
       <span>{text}</span>
     </div>
   );
 }
 
-// ===========================================================
-// EMAIL LINK
-// ===========================================================
-
-function EmailLink({
-  email,
-}: {
-  email: string;
-}) {
+function EmailLink({ email }: { email: string }) {
   return (
     <a
       href={`mailto:${email}`}
       className="flex items-center gap-2 text-sm text-[#1F3B9B] hover:underline"
     >
       <Mail className="h-4 w-4 shrink-0 text-gray-400" />
-
-      <span className="break-all">
-        {email}
-      </span>
+      <span className="break-all">{email}</span>
     </a>
   );
 }
-
-// ===========================================================
-// KAM CONTACT CARD
-// ===========================================================
 
 function ContactCard({
   name,
@@ -737,7 +678,6 @@ function ContactCard({
     <Card className="border border-gray-200 bg-white shadow-sm transition hover:-translate-y-0.5 hover:shadow-md">
       <CardContent className="p-5">
         <div className="flex flex-col items-center text-center">
-
           <div className="relative mb-4 h-36 w-32 overflow-hidden rounded-xl border border-gray-200 bg-gray-50">
             <Image
               src={img}
@@ -768,7 +708,6 @@ function ContactCard({
               {phone}
             </p>
           </div>
-
         </div>
       </CardContent>
     </Card>

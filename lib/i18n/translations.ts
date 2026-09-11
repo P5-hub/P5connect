@@ -125,6 +125,12 @@ import { session as sessionFr } from "./fr/session";
 import { session as sessionIt } from "./it/session";
 import { session as sessionRm } from "./rm/session";
 
+import { infos as infosDe } from "./de/infos";
+import { infos as infosEn } from "./en/infos";
+import { infos as infosFr } from "./fr/infos";
+import { infos as infosIt } from "./it/infos";
+import { infos as infosRm } from "./rm/infos";
+
 export type Lang = "de" | "en" | "fr" | "it" | "rm";
 
 export const translationsByLang = {
@@ -237,42 +243,9 @@ export const translationsByLang = {
       addToCart: "In den Warenkorb",
     },
 
-    infos: {
-      title: "Support & Kontaktinformationen",
+    
+    infos: infosDe,
 
-      support: {
-        title: "Technischer Support",
-        hours: "Montag – Freitag, 09:00–18:00 Uhr",
-        phone: "Telefon",
-        email: "E-Mail",
-        moreHelp: "Weitere Hilfe direkt bei Sony:",
-      },
-
-      news: {
-        title: "Newsletter Archiv",
-        openWeb: "Newsletter im Web öffnen",
-
-        jan2025: {
-          title: "Newsletter Januar 2025",
-          desc: "Die wichtigsten Informationen & Aktionen im Januar.",
-        },
-
-        feb2025: {
-          title: "Newsletter Februar 2025",
-          desc: "Produktnews, Aktionen und Updates für den Februar.",
-        },
-      },
-
-      sales: {
-        internal: "Verkauf Innendienst",
-        kam: "Ansprechpartner Verkauf",
-      },
-
-      downloads: {
-        title: "Downloads",
-        sertronics: "Anmeldung Sertronics",
-      },
-    },
 
     checkout: {
       "page.title": "Bestellung zum Bestpreis",
@@ -627,27 +600,8 @@ export const translationsByLang = {
       addToCart: "Add to cart",
     },
 
-    infos: {
-      title: "Support & Contact Information",
-
-      support: {
-        title: "Technical Support",
-        hours: "Monday – Friday, 09:00–18:00",
-        phone: "Phone",
-        email: "Email",
-        moreHelp: "More help directly from Sony:",
-      },
-
-      sales: {
-        internal: "Inside Sales",
-        kam: "Sales Contacts",
-      },
-
-      downloads: {
-        title: "Downloads",
-        sertronics: "Sertronics Registration",
-      },
-    },
+    
+    infos: infosEn,
 
     checkout: {
       "page.title": "Best Price Order",
@@ -1002,27 +956,8 @@ export const translationsByLang = {
       addToCart: "Ajouter au panier",
     },
 
-    infos: {
-      title: "Support & informations de contact",
+    infos: infosFr,
 
-      support: {
-        title: "Support technique",
-        hours: "Lundi – Vendredi, 09:00–18:00",
-        phone: "Téléphone",
-        email: "E-mail",
-        moreHelp: "Plus d’aide directement auprès de Sony :",
-      },
-
-      sales: {
-        internal: "Vente interne",
-        kam: "Contact vente",
-      },
-
-      downloads: {
-        title: "Téléchargements",
-        sertronics: "Inscription Sertronics",
-      },
-    },
 
     checkout: {
       "page.title": "Commande au meilleur prix",
@@ -1383,27 +1318,7 @@ export const translationsByLang = {
       addToCart: "Aggiungi al carrello",
     },
 
-    infos: {
-      title: "Supporto e informazioni di contatto",
-
-      support: {
-        title: "Supporto tecnico",
-        hours: "Lunedì – Venerdì, 09:00–18:00",
-        phone: "Telefono",
-        email: "E-mail",
-        moreHelp: "Ulteriore assistenza direttamente da Sony:",
-      },
-
-      sales: {
-        internal: "Vendite interne",
-        kam: "Contatti vendita",
-      },
-
-      downloads: {
-        title: "Download",
-        sertronics: "Registrazione Sertronics",
-      },
-    },
+    infos: infosIt,
 
     checkout: {
       "page.title": "Ordine al miglior prezzo",
@@ -1762,27 +1677,9 @@ export const translationsByLang = {
       addToCart: "Agiuntar en il chart",
     },
 
-    infos: {
-      title: "Support & infurmaziuns da contact",
+    infos: infosRm,
 
-      support: {
-        title: "Support tecnic",
-        hours: "Glindesdi – venderdi, 09:00–18:00",
-        phone: "Telefon",
-        email: "E-mail",
-        moreHelp: "Ulteriura agid direct da Sony:",
-      },
 
-      sales: {
-        internal: "Vendita interna",
-        kam: "Contacts da vendita",
-      },
-
-      downloads: {
-        title: "Telechargiaziuns",
-        sertronics: "Annunzia Sertronics",
-      },
-    },
 
     checkout: {
       "page.title": "Cumanda al meglier pretsch",
