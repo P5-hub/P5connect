@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
+import { createServerClient } from "@supabase/ssr";
 import { getApiDealerContext } from "@/lib/auth/getApiDealerContext";
 
 export async function POST(req: NextRequest) {
@@ -20,6 +20,7 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json();
+
     const submissionPayload = body?.submissionPayload;
     const itemPayloads = body?.itemPayloads;
 
@@ -37,21 +38,46 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const isAdmin = ctx.role === "admin";
+    const isAdmin =
+      ctx.role === "admin" ||
+      ctx.role === "superadmin";
 
     const sanitizedSubmissionPayload = {
       ...submissionPayload,
+
+      // Immer serverseitig bestimmen
       dealer_id: ctx.effectiveDealerId,
+
+      // Nur Admin/Superadmin
       is_admin_order: isAdmin,
+
+      // Wird in der RPC nochmals serverseitig abgesichert
       created_by_admin_user_id: isAdmin ? user.id : null,
     };
 
-    const adminSupabase = createClient(
-      process.env.SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!
+    // =========================================================
+    // WICHTIG:
+    // RPC als tatsächlich eingeloggten Benutzer ausführen.
+    // KEIN service_role Client.
+    // =========================================================
+
+    const supabase = createServerClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      {
+        cookies: {
+          getAll() {
+            return req.cookies.getAll();
+          },
+
+          setAll() {
+            // Für diesen API-Aufruf nicht erforderlich.
+          },
+        },
+      }
     );
 
-    const { data, error } = await adminSupabase.rpc(
+    const { data, error } = await supabase.rpc(
       "create_order_with_campaign_guard",
       {
         p_submission: sanitizedSubmissionPayload,
@@ -60,26 +86,47 @@ export async function POST(req: NextRequest) {
     );
 
     if (error) {
-      console.error("RPC create_order_with_campaign_guard failed:", error);
+      console.error(
+        "RPC create_order_with_campaign_guard failed:",
+        error
+      );
+
       return NextResponse.json(
-        { error: error.message || "RPC failed" },
-        { status: 500 }
+        {
+          error: error.message || "RPC failed",
+        },
+        {
+          status: 500,
+        }
       );
     }
 
     if (!data) {
       return NextResponse.json(
-        { ok: false, message: "Unknown RPC response" },
-        { status: 500 }
+        {
+          ok: false,
+          message: "Unknown RPC response",
+        },
+        {
+          status: 500,
+        }
       );
     }
 
     return NextResponse.json(data);
+
   } catch (err: any) {
     console.error("Order create failed", err);
+
     return NextResponse.json(
-      { error: err?.message ?? "Order create failed" },
-      { status: 500 }
+      {
+        error:
+          err?.message ??
+          "Order create failed",
+      },
+      {
+        status: 500,
+      }
     );
   }
 }

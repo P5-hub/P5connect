@@ -10,6 +10,7 @@ const LOGIN_POPUP_FLAG = "p5_show_promo_popup";
 type PromotionPopupResponse = {
   success?: boolean;
   promo_id?: string;
+  title?: string;
   lang?: string;
   image_url?: string;
   error?: string;
@@ -46,6 +47,7 @@ export default function PromotionLoginPopup() {
 
   const [open, setOpen] = useState(false);
   const [imageUrl, setImageUrl] = useState<string | null>(null);
+  const [title, setTitle] = useState("BRAVIA 6 OLED");
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -53,24 +55,28 @@ export default function PromotionLoginPopup() {
 
     hasCheckedRef.current = true;
 
-  const params = new URLSearchParams(window.location.search);
-  const forcePreview = params.get("promo") === "1";
+    const params = new URLSearchParams(window.location.search);
+    const forcePreview = params.get("promo") === "1";
 
-  const shouldShow =
-    sessionStorage.getItem(LOGIN_POPUP_FLAG) === "1" || forcePreview;
+    const shouldShow =
+      sessionStorage.getItem(LOGIN_POPUP_FLAG) === "1" || forcePreview;
 
-  if (!shouldShow) return;
+    if (!shouldShow) return;
 
-  if (!forcePreview) {
-    sessionStorage.removeItem(LOGIN_POPUP_FLAG);
-  }
+    if (!forcePreview) {
+      sessionStorage.removeItem(LOGIN_POPUP_FLAG);
+    }
 
     const popupLang = getStoredLang(lang);
 
     const loadPromotionImage = async () => {
       try {
+        const previewParam = forcePreview ? "&preview=1" : "";
+
         const res = await fetch(
-          `/api/promotions/login-popup?lang=${encodeURIComponent(popupLang)}`,
+          `/api/promotions/login-popup?lang=${encodeURIComponent(
+            popupLang
+          )}${previewParam}`,
           {
             method: "GET",
             cache: "no-store",
@@ -104,6 +110,7 @@ export default function PromotionLoginPopup() {
           return;
         }
 
+        setTitle(json.title || "BRAVIA 6 OLED");
         setImageUrl(json.image_url);
         setOpen(true);
       } catch (err) {
@@ -149,7 +156,7 @@ export default function PromotionLoginPopup() {
 
         <img
           src={imageUrl}
-          alt="BRAVIA Cool Summer Deals"
+          alt={title}
           className="block w-full max-h-[82vh] object-contain"
         />
 

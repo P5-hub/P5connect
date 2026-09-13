@@ -8,7 +8,13 @@ const supabaseAdmin = createClient(
 );
 
 const PROMO_BUCKET = "promotion-documents";
-const PROMO_ID = "bravia-cool-summer-2026";
+
+const PROMO = {
+  id: "bravia_6",
+  title: "BRAVIA 6 OLED",
+  validFrom: "2026-09-13",
+  validTo: "2026-09-30",
+};
 
 const SUPPORTED_LANGS = ["de", "en", "fr", "it", "rm"] as const;
 type Lang = (typeof SUPPORTED_LANGS)[number];
@@ -23,6 +29,15 @@ function normalizeLang(value: string | null): Lang {
   return "de";
 }
 
+function isPromotionActive(validFrom: string, validTo: string) {
+  const today = new Date();
+
+  const from = new Date(`${validFrom}T00:00:00`);
+  const to = new Date(`${validTo}T23:59:59`);
+
+  return today >= from && today <= to;
+}
+
 export async function GET(req: NextRequest) {
   try {
     const auth = await getApiDealerContext(req);
@@ -31,8 +46,23 @@ export async function GET(req: NextRequest) {
       return auth.response;
     }
 
+    const forcePreview = req.nextUrl.searchParams.get("preview") === "1";
+
+    if (
+      !forcePreview &&
+      !isPromotionActive(PROMO.validFrom, PROMO.validTo)
+    ) {
+      return NextResponse.json(
+        {
+          error: "No active promotion",
+        },
+        { status: 404 }
+      );
+    }
+
     const lang = normalizeLang(req.nextUrl.searchParams.get("lang"));
-    const filePath = `${PROMO_ID}/${lang}.png`;
+
+    const filePath = `${PROMO.id}/BRAVIA_6_${lang.toUpperCase()}.png`;
 
     const { data, error } = await supabaseAdmin.storage
       .from(PROMO_BUCKET)
@@ -52,11 +82,12 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      promo_id: PROMO_ID,
+      promo_id: PROMO.id,
+      title: PROMO.title,
       lang,
       image_url: data.signedUrl,
-      valid_from: "2026-07-13",
-      valid_to: "2026-08-31",
+      valid_from: PROMO.validFrom,
+      valid_to: PROMO.validTo,
     });
   } catch (err: any) {
     console.error("❌ Promotion popup API error:", err);
