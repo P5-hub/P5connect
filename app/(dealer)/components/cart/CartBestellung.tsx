@@ -1460,7 +1460,7 @@ function ProductCard({
               updateItem("bestellung", index, {
                 lowest_price_source: val,
                 lowest_price_source_custom:
-                  val === tr("bestellung.cartSheet.product.other", "Andere")
+                  val === "Andere"
                     ? (item as any).lowest_price_source_custom ?? ""
                     : null,
               });
@@ -1482,14 +1482,13 @@ function ProductCard({
               <SelectItem value="Fnac">Fnac</SelectItem>
               <SelectItem value="Brack">Brack</SelectItem>
               <SelectItem value="Fust">Fust</SelectItem>
-              <SelectItem value={tr("bestellung.cartSheet.product.other", "Andere")}>
+              <SelectItem value="Andere">
                 {tr("bestellung.cartSheet.product.other", "Andere")}
               </SelectItem>
             </SelectContent>
           </Select>
 
-          {(item as any).lowest_price_source ===
-            tr("bestellung.cartSheet.product.other", "Andere") && (
+          {(item as any).lowest_price_source === "Andere" && (
             <div className="mt-3">
               <FieldLabel required>
                 {tr(
@@ -2459,8 +2458,7 @@ export default function CartBestellung() {
 
       if (
         !isLockedCampaignPrice &&
-        item.lowest_price_source ===
-          tr("bestellung.cartSheet.product.other", "Andere") &&
+        item.lowest_price_source === "Andere" &&
         !item.lowest_price_source_custom?.trim()
       ) {
         toast.error(
@@ -2793,8 +2791,7 @@ export default function CartBestellung() {
 
             lowest_price_source_custom:
               !isLockedCampaignPrice &&
-              i.lowest_price_source ===
-                tr("bestellung.cartSheet.product.other", "Andere")
+              i.lowest_price_source === "Andere"
                 ? i.lowest_price_source_custom?.trim() || null
                 : null,
             margin_street:
