@@ -18,6 +18,15 @@ export const infos = {
     archiveTitle: "Archives des newsletters",
     archiveSubtitle: "Afficher les newsletters BRAVIA précédentes",
 
+    
+    october2026: {
+      date: "Octobre 2026",
+      title: "BRAVIA Update",
+      description:
+        "Actualités BRAVIA, produits, promotions et informations importantes pour les partenaires P5.",
+    },
+    
+    
     september2026: {
       date: "Septembre 2026",
       title: "BRAVIA Update",

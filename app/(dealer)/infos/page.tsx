@@ -34,13 +34,33 @@ export default function InfosPage() {
   // =========================================================
   // NEWSLETTER
   // =========================================================
+
   const newsletters = [
+    {
+      id: "oct2026",
+      date: t("infos.newsletter.october2026.date"),
+      title: t("infos.newsletter.october2026.title"),
+      description: t("infos.newsletter.october2026.description"),
+      current: true,
+      languages: [
+        {
+          label: t("infos.newsletter.languageGerman"),
+          short: "DE",
+          file: "/newsletter/BRAVIA-Update-Oktober-2026-DE.html",
+        },
+        {
+          label: t("infos.newsletter.languageFrench"),
+          short: "FR",
+          file: "/newsletter/BRAVIA-Update-Oktober-2026-FR.html",
+        },
+      ],
+    },
     {
       id: "sep2026",
       date: t("infos.newsletter.september2026.date"),
       title: t("infos.newsletter.september2026.title"),
       description: t("infos.newsletter.september2026.description"),
-      current: true,
+      current: false,
       languages: [
         {
           label: t("infos.newsletter.languageGerman"),
@@ -74,6 +94,7 @@ export default function InfosPage() {
       ],
     },
   ];
+
 
   const currentNewsletter = newsletters.find((n) => n.current) ?? newsletters[0];
   const archiveNewsletters = newsletters.filter((n) => !n.current);

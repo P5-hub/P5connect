@@ -18,6 +18,14 @@ export const infos = {
     archiveTitle: "Archiv da newsletters",
     archiveSubtitle: "Mussar newsletters BRAVIA precedentas",
 
+    
+    october2026: {
+      date: "October 2026",
+      title: "BRAVIA Update",
+      description:
+        "Novitads BRAVIA, products, promoziuns ed infurmaziuns impurtantas per ils partenaris P5.",
+    },
+    
     september2026: {
       date: "Settember 2026",
       title: "BRAVIA Update",
