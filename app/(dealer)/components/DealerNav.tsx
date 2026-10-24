@@ -79,6 +79,7 @@ export default function DealerNav() {
     "/projekt": "text-purple-600",
     "/support": "text-orange-600",
     "/sofortrabatt": "text-pink-600",
+    "/garantie": "text-cyan-600",
     "/infos": "text-gray-600",
   };
 
@@ -102,6 +103,12 @@ export default function DealerNav() {
           },
         ]
       : []),
+
+    {
+      href: "/garantie",
+      key: "nav.warrantyRegistration",
+      color: "text-cyan-600",
+    },
 
     { href: "/infos", key: "nav.info", color: "text-gray-600" },
   ];

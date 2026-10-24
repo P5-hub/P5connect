@@ -131,6 +131,12 @@ import { infos as infosFr } from "./fr/infos";
 import { infos as infosIt } from "./it/infos";
 import { infos as infosRm } from "./rm/infos";
 
+import { garantie as garantieDe } from "./de/garantie";
+import { garantie as garantieEn } from "./en/garantie";
+import { garantie as garantieFr } from "./fr/garantie";
+import { garantie as garantieIt } from "./it/garantie";
+import { garantie as garantieRm } from "./rm/garantie";
+
 export type Lang = "de" | "en" | "fr" | "it" | "rm";
 
 export const translationsByLang = {
@@ -141,6 +147,7 @@ export const translationsByLang = {
       project: "Projekt",
       support: "Support",
       instantDiscount: "Sofortrabatt",
+      warrantyRegistration: "Garantieregistrierung",
       info: "Infos",
       password: "Passwort ändern",
       logout: "Logout",
@@ -244,6 +251,7 @@ export const translationsByLang = {
     },
 
     
+    garantie: garantieDe,
     infos: infosDe,
 
 
@@ -498,6 +506,7 @@ export const translationsByLang = {
       project: "Project",
       support: "Support",
       instantDiscount: "Instant Discount",
+      warrantyRegistration: "Warranty registration",
       info: "Info",
       password: "Change Password",
       logout: "Logout",
@@ -601,6 +610,7 @@ export const translationsByLang = {
     },
 
     
+    garantie: garantieEn,
     infos: infosEn,
 
     checkout: {
@@ -853,6 +863,7 @@ export const translationsByLang = {
       project: "Projet",
       support: "Support",
       instantDiscount: "Remise immédiate",
+      warrantyRegistration: "Enregistrement garantie",
       info: "Infos",
       password: "Changer le mot de passe",
       logout: "Déconnexion",
@@ -956,6 +967,7 @@ export const translationsByLang = {
       addToCart: "Ajouter au panier",
     },
 
+    garantie: garantieFr,
     infos: infosFr,
 
 
@@ -1215,6 +1227,7 @@ export const translationsByLang = {
       project: "Progetto",
       support: "Supporto",
       instantDiscount: "Sconto immediato",
+      warrantyRegistration: "Registrazione garanzia",
       info: "Informazioni",
       password: "Cambia password",
       logout: "Logout",
@@ -1318,6 +1331,7 @@ export const translationsByLang = {
       addToCart: "Aggiungi al carrello",
     },
 
+    garantie: garantieIt,
     infos: infosIt,
 
     checkout: {
@@ -1572,6 +1586,7 @@ export const translationsByLang = {
       project: "Project",
       support: "Support",
       instantDiscount: "Rabatt immediat",
+      warrantyRegistration: "Registraziun da garanzia",
       info: "Infurmaziuns",
       password: "Midar pled-clav",
       logout: "Sortir",
@@ -1677,6 +1692,7 @@ export const translationsByLang = {
       addToCart: "Agiuntar en il chart",
     },
 
+    garantie: garantieRm,
     infos: infosRm,
 
 
